@@ -1,0 +1,37 @@
+on: [push]
+
+name: 'Build: GNU + Linux (ARMv7)'
+
+jobs:
+  linux_arm7:
+    name: GNU + Linux (ARMv7)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout codebase
+        uses: actions/checkout@v2
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: armv7-unknown-linux-gnueabihf
+          default: true
+          profile: minimal
+          #components: rust-src
+      - name: Build Oku
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --all-features --target armv7-unknown-linux-gnueabihf
+      - name: Prepare Oku for upload
+        run: |
+          cd ./target/armv7-unknown-linux-gnueabihf/release/
+          chmod +x ./oku
+          tar -cvf armv7-oku.gnu+linux.tar \
+          oku
+      - name: Upload Oku build artifacts to GitHub
+        uses: actions/upload-artifact@v2
+        with:
+          name: armv7-oku.gnu+linux
+          path: ./target/armv7-unknown-linux-gnueabihf/release/armv7-oku.gnu+linux.tar
+          if-no-files-found: error

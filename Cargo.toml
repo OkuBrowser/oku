@@ -1,0 +1,59 @@
+#    This file is part of Oku.
+#
+#    Oku is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Affero General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Oku is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Affero General Public License for more details.
+#
+#    You should have received a copy of the GNU Affero General Public License
+#    along with Oku.  If not, see <https://www.gnu.org/licenses/>.
+[package]
+name = "oku"
+version = "0.1.0"
+authors = ["Emil Sayahi <em@emsa.cf>"]
+edition = "2018"
+exclude = ["/.github/**/*", "/branding/**/*", "/.gitignore", "/.whitesource", "renovate.json", "/azure-pipelines.yml", "/snapcraft.yaml", "/TODO.md"]
+license = "AGPL-3.0-or-later"
+description = "A hive browser written in Rust."
+repository = "https://github.com/MadeByEmil/oku"
+homepage = "https://github.com/MadeByEmil/oku"
+readme = "README"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-rt = "1.1.1"
+actix-web = "3.3.1"
+futures = "0.3.8"
+gtk = { version = "0.9.2", features = ["v3_22"], default-features = false }
+ipfs-api = { version = "0.9.0", features = ["actix"], default-features = false }
+
+[profile.release]
+codegen-units = 1
+opt-level = 3
+lto = true
+debug = 0
+panic = 'abort'
+
+[package.metadata.deb]
+section = "utility"
+priority = "optional"
+assets = [
+    ["target/x86_64-unknown-linux-gnu/release/oku", "usr/bin/", "755"],
+    ["README", "usr/share/doc/oku/README", "644"],
+    ["COPYING", "usr/share/doc/oku/COPYING", "644"],
+]
+
+[package.metadata.rpm]
+package = "oku"
+
+[package.metadata.rpm.cargo]
+buildflags = ["--release"]
+
+[package.metadata.rpm.targets]
+oku = { path = "/usr/bin/oku" }

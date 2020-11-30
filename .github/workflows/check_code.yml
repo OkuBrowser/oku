@@ -1,0 +1,27 @@
+on: [push]
+
+name: Evaluate codebase
+
+jobs:
+  code_check:
+    name: Evaluate codebase
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout codebase
+        uses: actions/checkout@v2
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: clippy, rustfmt
+          profile: minimal
+      - name: Check codebase is properly formatted
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args:  -- --check
+      - name: Check codebase using linter
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-targets --all-features -- -D warnings

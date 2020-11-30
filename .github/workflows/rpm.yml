@@ -1,0 +1,50 @@
+on: [push]
+
+name: 'Package: RPM for GNU + Linux (x86_64)'
+
+jobs:
+  rpm_x86-64:
+    name: Fedora GNU + Linux (x86_64)
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+      volumes:
+        - /proc:/proc
+        - /sys/fs/cgroup/systemd/actions_job:/sys/fs/cgroup/systemd/actions_job
+        - /sys/fs/cgroup:/sys/fs/cgroup
+      options: --privileged
+    steps:
+      - name: Checkout codebase
+        uses: actions/checkout@v2
+      - name: Install compiler toolchain
+        run: |
+          sudo yum -y install gcc rpm-build
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: x86_64-unknown-linux-gnu
+          default: true
+          profile: minimal
+          #components: rust-src
+      - name: Install 'cargo-rpm'
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-rpm
+      - name: Generate RPM package specification
+        uses: actions-rs/cargo@v1
+        with:
+          command: rpm
+          args: init
+      - name: Build & package Oku
+        uses: actions-rs/cargo@v1
+        with:
+          command: rpm
+          args: build -v
+      - name: Upload Oku build artifact to GitHub
+        uses: actions/upload-artifact@v2
+        with:
+          name: x86_64-oku.rpm.gnu+linux
+          path: ./target/release/rpmbuild/RPMS/x86_64/oku-*.x86_64.rpm
+          if-no-files-found: error

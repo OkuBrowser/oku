@@ -1,0 +1,35 @@
+on:
+  push:
+    branches:    
+        # Push events on master branch
+        - master
+
+name: Lint codebase
+
+jobs:
+  code_lint:
+    name: Lint codebase
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout codebase
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.PAT }}
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          default: true
+          profile: minimal
+          components: clippy, rustfmt
+      - name: Correct code files
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --fix -Z unstable-options
+      - name: Commit changes to code, if any
+        run: |
+          git config --global user.name 'Oku'
+          git config --global user.email 'MadeByEmil@users.noreply.github.com'
+          git diff --quiet && git diff --staged --quiet || git commit -am "Automatically approved suggested code corrections by linter"
+          git push

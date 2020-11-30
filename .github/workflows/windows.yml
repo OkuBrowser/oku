@@ -1,0 +1,36 @@
+on: [push]
+
+name: 'Build: Windows (x86_64)'
+
+jobs:
+  windows_x86-64:
+    name: Windows (x86_64)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout codebase
+        uses: actions/checkout@v2
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: x86_64-pc-windows-msvc
+          default: true
+          profile: minimal
+          #components: rust-src
+      - name: Build Oku
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --all-features --target x86_64-pc-windows-msvc
+      - name: Prepare Oku for upload
+        run: |
+          cd ./target/x86_64-pc-windows-msvc/release/
+          tar -czvf x86_64-oku.win32.zip `
+          oku.exe
+      - name: Upload Oku build artifacts to GitHub
+        uses: actions/upload-artifact@v2
+        with:
+          name: x86_64-oku.win32
+          path: ./target/x86_64-pc-windows-msvc/release/x86_64-oku.win32.zip
+          if-no-files-found: error

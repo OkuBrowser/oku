@@ -1,0 +1,33 @@
+on:
+  push:
+    branches:    
+        # Push events on master branch
+        - master
+
+name: Format codebase
+
+jobs:
+  code_format:
+    name: Format codebase
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout codebase
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.PAT }}
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: minimal
+          components: clippy, rustfmt
+      - name: Format code files
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+      - name: Commit changes to code, if any
+        run: |
+          git config --global user.name 'Oku'
+          git config --global user.email 'MadeByEmil@users.noreply.github.com'
+          git diff --quiet && git diff --staged --quiet || git commit -am "Automatically enforce Rust styleguide"
+          git push
