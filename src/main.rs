@@ -74,8 +74,8 @@ async fn ipfs_download_directory(
     for object in directory_object {
         for link in object.1.links {
             let link_type = &link.typ.clone().unwrap();
-            match &link_type.as_str() {
-                &"Directory" => {
+            match link_type.as_str() {
+                "Directory" => {
                     let sub_directory =
                         format!("{}/{}", hierarchy.get(&directory_hash).unwrap(), link.name);
                     ipfs_download_directory(
@@ -87,7 +87,7 @@ async fn ipfs_download_directory(
                     .await;
                     hierarchy.insert(link.hash, sub_directory);
                 }
-                &"File" => {
+                "File" => {
                     ipfs_download_file(
                         &client,
                         link.hash,
@@ -95,7 +95,7 @@ async fn ipfs_download_directory(
                     )
                     .await;
                 }
-                &_ => {}
+                _ => {}
             }
         }
     }
