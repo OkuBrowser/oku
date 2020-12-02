@@ -6,12 +6,22 @@ jobs:
   windows_x86-64:
     name: Windows (x86_64)
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}  
     steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            base-devel
+            git
+            mingw-w64-x86_64-gtk3
       - name: Checkout codebase
         uses: actions/checkout@v2
-      - name: Install GTK development dependencies
-        run: |
-          pacman -S mingw-w64-x86_64-gtk3 --noconfirm
+      # - name: Install GTK development dependencies
+      #   run: |
+      #     pacman -S mingw-w64-x86_64-gtk3 --noconfirm
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
