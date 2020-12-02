@@ -1,0 +1,85 @@
+on:
+  release:
+    types: [published]
+
+name: 'Package: AUR Binary (x86_64)'
+
+jobs:
+  aur_x86-64:
+    name: Arch Linux (x86_64)
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      volumes:
+        - /proc:/proc
+        - /sys/fs/cgroup/systemd/actions_job:/sys/fs/cgroup/systemd/actions_job
+        - /sys/fs/cgroup:/sys/fs/cgroup
+      options: --privileged
+    steps:
+      - name: Checkout codebase
+        uses: actions/checkout@v2
+      - name: Install compiler toolchain
+        run: |
+          pacman -Syu gcc git openssh base-devel --noconfirm
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: x86_64-unknown-linux-gnu
+          default: true
+          profile: minimal
+          #components: rust-src
+      - name: Install 'cargo-aur'
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-aur
+      - name: Generate AUR binary package
+        uses: actions-rs/cargo@v1
+        with:
+          command: aur
+      - name: Setup SSH authentication details
+        run: |
+          mkdir -p /root/.ssh
+          
+          tee -a /root/.ssh/aur > /dev/null <<EOT
+          ${{ secrets.AUR_PRIVATE_KEY }}
+          EOT
+          
+          tee -a /root/.ssh/aur.pub > /dev/null <<EOT
+          ${{ secrets.AUR_PUBLIC_KEY }}
+          EOT
+          
+          tee -a /root/.ssh/config > /dev/null <<EOT
+          Host aur.archlinux.org
+            IdentityFile /root/.ssh/aur
+            User aur
+          EOT
+          
+          chmod 600 /root/.ssh/config
+          chmod 400 /root/.ssh/aur
+          ssh-keyscan -H aur.archlinux.org >> /root/.ssh/known_hosts
+      - name: Upload Oku Pacman package
+        uses: actions/upload-artifact@v2
+        with:
+          name: x86_64-oku.pacman
+          path: oku-*-x86_64.tar.gz
+          if-no-files-found: error
+      - name: Prepare to drop out of superuser access
+        run: |
+          systemd-machine-id-setup
+          tee -a /etc/sudoers > /dev/null <<EOT
+          nobody    ALL=(ALL) NOPASSWD:ALL
+          EOT
+      - name: Push release details to AUR
+        run: |
+          git clone -b master ssh://aur@aur.archlinux.org/oku-bin.git
+          git config --global user.name "Emil Sayahi"
+          git config --global user.email "limesayahi@gmail.com"
+          chmod 777 oku-bin
+          cd ./oku-bin
+          cp -avf ../PKGBUILD ./
+          su -s /bin/sh nobody -c "makepkg --printsrcinfo" > .SRCINFO
+          git add -A
+          git commit -m "Automatically updating Oku package via GitHub Actions (see repository for release notes)"
+          git push origin HEAD:master

@@ -1,0 +1,38 @@
+on: [push]
+
+name: 'Build: macOS (ARM64)'
+
+jobs:
+  mac_aarch64:
+    name: macOS (ARM64)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout codebase
+        uses: actions/checkout@v2
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: aarch64-apple-darwin
+          default: true
+          profile: minimal
+          #components: rust-src
+      - name: Build Oku
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --all-features --target aarch64-apple-darwin
+      - name: Prepare Oku for upload
+        run: |
+          cd ./target/aarch64-apple-darwin/release/
+          strip ./oku
+          chmod +x ./oku
+          tar -cvf aarch64-oku.osx.tar \
+          oku
+      - name: Upload Oku build artifacts to GitHub
+        uses: actions/upload-artifact@v2
+        with:
+          name: aarch64-oku.osx
+          path: ./target/aarch64-apple-darwin/release/aarch64-oku.osx.tar
+          if-no-files-found: error
