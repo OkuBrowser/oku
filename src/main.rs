@@ -15,7 +15,7 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 use async_recursion::async_recursion;
-use directories::ProjectDirs;
+use directories_next::ProjectDirs;
 use futures::TryStreamExt;
 use ipfs_api::IpfsClient;
 use std::collections::HashMap;
