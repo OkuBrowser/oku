@@ -15,6 +15,9 @@ jobs:
         uses: actions/checkout@v2
         with:
           token: ${{ secrets.PAT }}
+      - name: Install GTK development dependencies
+        run: |
+          sudo apt-get install gtk3.0 gtk2.0 libgtk-3-dev libgtk2.0-dev -y
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
