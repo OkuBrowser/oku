@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v2
       - name: Install GTK development dependencies
         run: |
-          sudo dnf -y install gtk3-devel gstreamer-devel clutter-devel webkit2gtk3-devel libgda-devel gobject-introspection-devel
+          sudo dnf -y install gtk3-devel clutter-devel webkit2gtk3-devel libgda-devel gobject-introspection-devel
       - name: Install compiler toolchain
         run: |
           sudo dnf -y install gcc rpm-build
