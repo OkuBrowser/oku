@@ -17,7 +17,7 @@ jobs:
           token: ${{ secrets.PAT }}
       - name: Install GTK development dependencies
         run: |
-          sudo apt-get install gtk3.0 gtk2.0 libgtk-3-dev libgtk2.0-dev -y
+          sudo apt-get install gtk3.0 gtk2.0 libgtk-3-dev libgtk2.0-dev glade -y
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
