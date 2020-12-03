@@ -23,9 +23,8 @@ jobs:
       - name: Build Oku
         uses: actions-rs/cargo@v1
         with:
-          use-cross: true
           command: build
-          args: --release --target x86_64-unknown-linux-gnu
+          args: --release --all-features --target x86_64-unknown-linux-gnu
       - name: Prepare Oku for upload
         run: |
           cd ./target/x86_64-unknown-linux-gnu/release/
