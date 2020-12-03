@@ -33,7 +33,6 @@ jobs:
       - name: Build Oku
         uses: actions-rs/cargo@v1
         with:
-          use-cross: true
           command: build
           args: --release --all-features --target x86_64-pc-windows-msvc
       - name: Prepare Oku for upload
