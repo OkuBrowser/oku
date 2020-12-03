@@ -10,18 +10,18 @@ jobs:
       run:
         shell: msys2 {0}  
     steps:
-      - uses: msys2/setup-msys2@v2
+      - name: "MINGW64: Install, setup, and switch to"
+        uses: msys2/setup-msys2@v2
         with:
           update: true
           install: >-
             base-devel
             git
             mingw-w64-x86_64-gtk3
+            mingw-w64-x86_64-gtk2
+            mingw-w64-x86_64-glib2
       - name: Checkout codebase
         uses: actions/checkout@v2
-      # - name: Install GTK development dependencies
-      #   run: |
-      #     pacman -S mingw-w64-x86_64-gtk3 --noconfirm
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
