@@ -14,10 +14,10 @@
     You should have received a copy of the GNU Affero General Public License
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
-use actix_rt::System;
+
 use async_recursion::async_recursion;
 use directories_next::ProjectDirs;
-use futures::future;
+
 use futures::TryStreamExt;
 use gtk::prelude::BuilderExtManual;
 use gtk::ButtonExt;
@@ -27,7 +27,7 @@ use ipfs_api::IpfsClient;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use tokio::runtime::Builder;
+
 use webkit2gtk::WebViewExt;
 //use webkit2gtk_sys::WebKitSettings;
 #[macro_use]
@@ -64,7 +64,7 @@ async fn main() {
     //     dialog.hide();
     // });
 
-    refresh_button.connect_clicked(move |refresh_button| {
+    refresh_button.connect_clicked(move |_refresh_button| {
         let hash = nav_entry.get_text().to_string();
         let local_directory = format!("{}/{}", cache_directory, hash);
         // rt.spawn(future::lazy(|_| {
