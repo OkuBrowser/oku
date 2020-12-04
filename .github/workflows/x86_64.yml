@@ -11,7 +11,7 @@ jobs:
         uses: actions/checkout@v2
       - name: Install GTK development dependencies
         run: |
-          sudo apt-get install gtk3.0 gtk2.0 libgtk-3-dev libgtk2.0-dev glib2.0 glade -y
+          sudo apt-get install gtk3.0 gtk2.0 libgtk-3-dev libgtk2.0-dev libglib2.0-dev glade libsoup-gnome2.4-dev libwebkit2gtk-4.0-dev -y
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
         with:

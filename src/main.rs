@@ -14,6 +14,13 @@
     You should have received a copy of the GNU Affero General Public License
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
+use tokio::runtime::Builder;
+use actix_rt::System;
+use webkit2gtk::WebViewExt;
+use gtk::EntryExt;
+use gtk::prelude::BuilderExtManual;
+use gtk::WidgetExt;
+use gtk::ButtonExt;
 use async_recursion::async_recursion;
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
@@ -21,26 +28,96 @@ use ipfs_api::IpfsClient;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use futures::future;
+//use webkit2gtk_sys::WebKitSettings;
+#[macro_use]
+extern crate lazy_static;
+
+lazy_static!{static ref PROJECT_DIRECTORIES: ProjectDirs = ProjectDirs::from("org", "Emil Sayahi", "Oku").unwrap();}
 
 #[actix_rt::main]
 async fn main() {
-    let project_directories = ProjectDirs::from("org", "Emil Sayahi", "Oku").unwrap();
+    let cache_directory = PROJECT_DIRECTORIES.cache_dir().to_str().unwrap();
     let client = IpfsClient::default();
-    let test = "bafybeicqqzygir3ysia2ivmhdwi6znvuivrl2yqtmapp57fuz4zk6ugweq".to_string();
-    let local_directory = format!(
-        "{}/{}",
-        project_directories.cache_dir().to_str().unwrap(),
-        test
-    );
+    
+    if gtk::init().is_err() {
+        println!("Failed to initialize GTK.");
+        return;
+    }
+    let glade_src = include_str!("window.glade");
+    let web_kit = webkit2gtk::WebViewBuilder::new();
+    web_kit.build();
+    //let web_kit_functions = webkit2gtk::WebViewExt::
+    let builder = gtk::Builder::from_string(glade_src);
+    
+    let window: gtk::Window = builder.get_object("window").unwrap();
+    let refresh_button: gtk::Button = builder.get_object("refresh_button").unwrap();
+    //let webkit_settings: webkit2gtk_sys::WebKitSettings = builder.get_object("webkit_settings").unwrap();
+    let nav_entry: gtk::Entry = builder.get_object("nav_entry").unwrap();
+    let web_view: webkit2gtk::WebView = builder.get_object("webkit_view").unwrap();
+    
+    
+    // refresh_button.connect_clicked(move |_| {
+    //     dialog.run();
+    //     dialog.hide();
+    // });
+    
+    refresh_button.connect_clicked(move |refresh_button| {
+        let hash = nav_entry.get_text().to_string();
+        let local_directory = format!(
+            "{}/{}",
+            cache_directory,
+            hash
+        );
+        // rt.spawn(future::lazy(|_| {
+        //     get_from_hash(client.clone(), hash, local_directory.clone());
+        //  }));
+        get_from_hash(client.clone(), hash, local_directory.clone());
+        // let mut rt = Runtime::new().unwrap();
+        // rt.block_on(future);
+        // let runtime = Builder::new_multi_thread()
+        //     .worker_threads(4)
+        //     .thread_name("oku-thread")
+        //     .thread_stack_size(3 * 1024 * 1024)
+        //     .build()
+        //     .unwrap();
+
+        // runtime.block_on(future);
+        web_view.load_uri(&local_directory);
+    });
+    
+    window.show_all();
+    
+    gtk::main();
+    
+    //let test = "bafybeidd5ronzlgzm4t2upk32zxzxofmyoxv4sdwsded5kc5i4enf7myoe".to_string();
+    //get_from_hash(&client, test, cache_directory).await;
+}
+
+fn get_from_hash(client: IpfsClient, hash: String, local_directory: String)
+{
+    
     let mut hierarchy = HashMap::new();
-    hierarchy.insert(test.to_owned(), local_directory.to_owned());
-    ipfs_download_directory(
+    hierarchy.insert(hash.to_owned(), local_directory.to_owned());
+    let rt = tokio::runtime::Builder::new_current_thread()
+    .build()
+    .unwrap();
+
+    rt.block_on(async {ipfs_download_directory(
         &client,
         local_directory.to_owned(),
-        test.to_owned(),
+        hash.to_owned(),
         hierarchy,
-    )
-    .await;
+    ).await;
+    println!("{}", local_directory.clone());
+});
+    // ipfs_download_directory(
+    //     &client,
+    //     local_directory.to_owned(),
+    //     hash.to_owned(),
+    //     hierarchy,
+    // )
+    // .await;
 }
 
 async fn ipfs_download_file(client: &IpfsClient, file_hash: String, file_path: String) {
