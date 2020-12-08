@@ -27,9 +27,10 @@ use ipfs_api::IpfsClient;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use actix_rt::System;
+use actix_rt::Runtime;
 
 use webkit2gtk::WebViewExt;
-//use webkit2gtk_sys::WebKitSettings;
 #[macro_use]
 extern crate lazy_static;
 
@@ -38,8 +39,8 @@ lazy_static! {
         ProjectDirs::from("org", "Emil Sayahi", "Oku").unwrap();
 }
 
-#[actix_rt::main]
-async fn main() {
+//#[actix_rt::main]
+fn main() {
     let cache_directory = PROJECT_DIRECTORIES.cache_dir().to_str().unwrap();
     let client = IpfsClient::default();
 
@@ -70,6 +71,7 @@ async fn main() {
         // rt.spawn(future::lazy(|_| {
         //     get_from_hash(client.clone(), hash, local_directory.clone());
         //  }));
+        
         get_from_hash(client.clone(), hash, local_directory.clone());
         // let mut rt = Runtime::new().unwrap();
         // rt.block_on(future);
@@ -95,11 +97,9 @@ async fn main() {
 fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
     let mut hierarchy = HashMap::new();
     hierarchy.insert(hash.to_owned(), local_directory.to_owned());
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .build()
-        .unwrap();
-
-    rt.block_on(async {
+    //let mut rt = actix_rt::Runtime::new().unwrap();
+    let mut sys = actix_rt::System::new("name: T");
+    sys.block_on(async move {
         ipfs_download_directory(
             &client,
             local_directory.to_owned(),
@@ -109,6 +109,7 @@ fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
         .await;
         println!("{}", local_directory.clone());
     });
+    sys.run().unwrap();
     // ipfs_download_directory(
     //     &client,
     //     local_directory.to_owned(),
