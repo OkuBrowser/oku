@@ -18,8 +18,6 @@
 use async_recursion::async_recursion;
 use directories_next::ProjectDirs;
 
-
-
 use futures::TryStreamExt;
 use gtk::prelude::BuilderExtManual;
 use gtk::ButtonExt;
