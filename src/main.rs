@@ -18,6 +18,8 @@
 use async_recursion::async_recursion;
 use directories_next::ProjectDirs;
 
+use actix_rt::Runtime;
+use actix_rt::System;
 use futures::TryStreamExt;
 use gtk::prelude::BuilderExtManual;
 use gtk::ButtonExt;
@@ -27,8 +29,6 @@ use ipfs_api::IpfsClient;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use actix_rt::System;
-use actix_rt::Runtime;
 
 use webkit2gtk::WebViewExt;
 #[macro_use]
@@ -71,7 +71,7 @@ fn main() {
         // rt.spawn(future::lazy(|_| {
         //     get_from_hash(client.clone(), hash, local_directory.clone());
         //  }));
-        
+
         get_from_hash(client.clone(), hash, local_directory.clone());
         // let mut rt = Runtime::new().unwrap();
         // rt.block_on(future);
