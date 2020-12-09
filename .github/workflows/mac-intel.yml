@@ -11,8 +11,7 @@ jobs:
         uses: actions/checkout@v2
       - name: Install GTK development dependencies
         run: |
-          brew install gtk+3 libsoup icu4c
-          brew link icu4c --force
+          brew install gtk+3 libsoup libpsl
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
