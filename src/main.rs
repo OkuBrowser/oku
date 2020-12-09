@@ -27,7 +27,7 @@ use ipfs_api::IpfsClient;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use webkit2gtk::{WebViewExt};
+use webkit2gtk::WebViewExt;
 
 #[macro_use]
 extern crate lazy_static;
