@@ -23,6 +23,12 @@ jobs:
             mingw-w64-x86_64-glib2
             glib2
             glib2-devel
+      - name: "MINGW64: Set environment variables"
+        run: |
+          SET GTK_LIB_DIR=C:\msys64\mingw64\lib
+          SET PATH=%PATH%;C:\msys64\mingw64\bin
+          SETX GTK_LIB_DIR %GTK_LIB_DIR%
+          SETX PATH %PATH%
       - name: Checkout codebase
         uses: actions/checkout@v2
       - name: Setup Rust toolchain
