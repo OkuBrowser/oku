@@ -3,11 +3,30 @@
 <interface>
   <requires lib="gtk+" version="3.20"/>
   <requires lib="webkit2gtk" version="2.12"/>
+  <object class="WebKitSettings" id="webkit_settings">
+    <property name="load_icons_ignoring_image_load_setting">True</property>
+    <property name="enable_developer_extras">True</property>
+    <property name="enable_dns_prefetching">True</property>
+    <property name="allow_modal_dialogs">True</property>
+    <property name="media_playback_requires_user_gesture">True</property>
+    <property name="user_agent">Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0 Safari/605.1.15</property>
+    <property name="enable_smooth_scrolling">True</property>
+    <property name="enable_accelerated_2d_canvas">True</property>
+    <property name="enable_write_console_messages_to_stdout">True</property>
+    <property name="enable_media_stream">True</property>
+    <property name="enable_spatial_navigation">True</property>
+    <property name="enable_encrypted_media">True</property>
+    <property name="enable_media_capabilities">True</property>
+    <property name="allow_file_access_from_file_urls">True</property>
+    <property name="allow_universal_access_from_file_urls">True</property>
+    <property name="allow_top_navigation_to_data_urls">True</property>
+    <property name="enable_back_forward_navigation_gestures">True</property>
+  </object>
   <object class="GtkApplicationWindow" id="window">
     <property name="can_focus">False</property>
     <property name="title" translatable="yes" context="Application name">Oku</property>
     <property name="window_position">center</property>
-    <child type="titlebar">
+    <child>
       <placeholder/>
     </child>
     <child>
@@ -23,6 +42,8 @@
               <object class="GtkEntry" id="nav_entry">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
+                <property name="valign">end</property>
+                <property name="hexpand">True</property>
                 <property name="input_purpose">url</property>
               </object>
               <packing>
@@ -41,9 +62,8 @@
                   <object class="GtkImage">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="hexpand">True</property>
-                    <property name="vexpand">True</property>
-                    <property name="icon_name">view-refresh</property>
+                    <property name="valign">end</property>
+                    <property name="icon_name">go-next</property>
                   </object>
                 </child>
               </object>
@@ -64,6 +84,9 @@
           <object class="WebKitWebView" id="webkit_view">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
+            <property name="hexpand">True</property>
+            <property name="vexpand">True</property>
+            <property name="settings">webkit_settings</property>
             <child>
               <placeholder/>
             </child>
