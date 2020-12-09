@@ -27,8 +27,8 @@ use ipfs_api::IpfsClient;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use webkit2gtk::{SettingsExt, WebContext, WebContextExt, WebView, WebViewExt};
 
-use webkit2gtk::WebViewExt;
 #[macro_use]
 extern crate lazy_static;
 
@@ -57,13 +57,14 @@ fn main() {
     //let webkit_settings: webkit2gtk_sys::WebKitSettings = builder.get_object("webkit_settings").unwrap();
     let nav_entry: gtk::Entry = builder.get_object("nav_entry").unwrap();
     let web_view: webkit2gtk::WebView = builder.get_object("webkit_view").unwrap();
+    let web_settings: webkit2gtk::Settings = builder.get_object("webkit_settings").unwrap();
 
     // refresh_button.connect_clicked(move |_| {
     //     dialog.run();
     //     dialog.hide();
     // });
 
-    refresh_button.connect_clicked(move |_refresh_button| {
+    refresh_button.connect_clicked(move |refresh_button| {
         let hash = nav_entry.get_text().to_string();
         let local_directory = format!("{}/{}", cache_directory, hash);
         // rt.spawn(future::lazy(|_| {
@@ -81,7 +82,9 @@ fn main() {
         //     .unwrap();
 
         // runtime.block_on(future);
-        web_view.load_uri(&local_directory);
+        web_view.load_uri(&format!("file:///{}/index.html", &local_directory));
+        //web_view.load_uri("https://crates.io/");
+        println!("Loading: {} … ", web_view.get_uri().unwrap().to_string());
     });
 
     window.show_all();
@@ -97,6 +100,7 @@ fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
     hierarchy.insert(hash.to_owned(), local_directory.to_owned());
     //let mut rt = actix_rt::Runtime::new().unwrap();
     let mut sys = actix_rt::System::new("name: T");
+    let sys_man = actix_rt::System::current();
     sys.block_on(async move {
         ipfs_download_directory(
             &client,
@@ -108,6 +112,7 @@ fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
         println!("{}", local_directory.clone());
     });
     sys.run().unwrap();
+    sys_man.stop();
     // ipfs_download_directory(
     //     &client,
     //     local_directory.to_owned(),
