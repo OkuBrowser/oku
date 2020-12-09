@@ -100,7 +100,7 @@ fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
     hierarchy.insert(hash.to_owned(), local_directory.to_owned());
     //let mut rt = actix_rt::Runtime::new().unwrap();
     let mut sys = actix_rt::System::new("name: T");
-    let sys_man = actix_rt::System::current();
+    //let sys_man = actix_rt::System::current();
     sys.block_on(async move {
         ipfs_download_directory(
             &client,
@@ -111,8 +111,8 @@ fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
         .await;
         println!("{}", local_directory.clone());
     });
-    sys.run().unwrap();
-    sys_man.stop();
+    //sys.run().unwrap();
+    //sys_man.stop();
     // ipfs_download_directory(
     //     &client,
     //     local_directory.to_owned(),
