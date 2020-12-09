@@ -27,7 +27,7 @@ use ipfs_api::IpfsClient;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use webkit2gtk::{SettingsExt, WebContext, WebContextExt, WebView, WebViewExt};
+use webkit2gtk::{WebViewExt};
 
 #[macro_use]
 extern crate lazy_static;
@@ -57,14 +57,14 @@ fn main() {
     //let webkit_settings: webkit2gtk_sys::WebKitSettings = builder.get_object("webkit_settings").unwrap();
     let nav_entry: gtk::Entry = builder.get_object("nav_entry").unwrap();
     let web_view: webkit2gtk::WebView = builder.get_object("webkit_view").unwrap();
-    let web_settings: webkit2gtk::Settings = builder.get_object("webkit_settings").unwrap();
+    let _web_settings: webkit2gtk::Settings = builder.get_object("webkit_settings").unwrap();
 
     // refresh_button.connect_clicked(move |_| {
     //     dialog.run();
     //     dialog.hide();
     // });
 
-    refresh_button.connect_clicked(move |refresh_button| {
+    refresh_button.connect_clicked(move |_refresh_button| {
         let hash = nav_entry.get_text().to_string();
         let local_directory = format!("{}/{}", cache_directory, hash);
         // rt.spawn(future::lazy(|_| {
