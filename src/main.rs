@@ -15,9 +15,9 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use gtk::Inhibit;
 use async_recursion::async_recursion;
 use directories_next::ProjectDirs;
+use gtk::Inhibit;
 
 use futures::TryStreamExt;
 use gtk::prelude::BuilderExtManual;
