@@ -15,6 +15,7 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use percent_encoding::percent_decode_str;
 use async_recursion::async_recursion;
 use directories_next::ProjectDirs;
 use gtk::Inhibit;
@@ -29,6 +30,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use webkit2gtk::WebViewExt;
+use glib::clone;
+use url::{Url, Position};
 
 #[macro_use]
 extern crate lazy_static;
@@ -55,16 +58,29 @@ fn main() {
     let go_button: gtk::Button = builder.get_object("go_button").unwrap();
     let nav_entry: gtk::Entry = builder.get_object("nav_entry").unwrap();
     let web_view: webkit2gtk::WebView = builder.get_object("webkit_view").unwrap();
-    let _web_settings: webkit2gtk::Settings = builder.get_object("webkit_settings").unwrap();
 
     go_button.connect_clicked(move |_go_button| {
-        let hash = nav_entry.get_text().to_string();
-        let local_directory = format!("{}/{}", cache_directory, hash);
+        let url = Url::parse(&nav_entry.get_text().to_string()).unwrap();
+        if url.scheme() == "ipfs"
+        {
+            let hash = &url[Position::BeforeHost..];
+            let decoded_hash = percent_decode_str(&hash.to_owned()).decode_utf8().unwrap().to_string();
+            let local_directory = format!("{}/{}", cache_directory, decoded_hash);
+    
+            get_from_hash(client.clone(), decoded_hash, local_directory.clone());
+    
+            web_view.load_uri(&format!("file://{}", &local_directory));
 
-        get_from_hash(client.clone(), hash, local_directory.clone());
-
-        web_view.load_uri(&format!("file:///{}/index.html", &local_directory));
-        println!("Loading: {} … ", web_view.get_uri().unwrap().to_string());
+            println!("Loading: file://{} … \n", &local_directory);
+        }
+        else
+        {
+            web_view.load_uri(&nav_entry.get_text().to_string());
+        }
+        
+        &web_view.connect_load_changed(clone!(@weak web_view, @weak nav_entry => move |_, _| {
+            nav_entry.set_text(&web_view.get_uri().unwrap().to_string().replacen(&format!("file://{}/", cache_directory), "ipfs://", 1));
+        }));
     });
 
     window.show_all();
@@ -78,16 +94,22 @@ fn main() {
 fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
     let mut hierarchy = HashMap::new();
     hierarchy.insert(hash.to_owned(), local_directory.to_owned());
-    let mut sys = actix_rt::System::new("name: T");
+    let mut sys = actix_rt::System::new("Oku IPFS System");
     sys.block_on(async move {
-        ipfs_download_directory(
+        /*ipfs_download_directory(
             &client,
             local_directory.to_owned(),
             hash.to_owned(),
             hierarchy,
         )
+        .await;*/
+        ipfs_download_file(
+            &client,
+            hash.to_owned(),
+            local_directory.to_owned(),
+        )
         .await;
-        println!("{}", local_directory.clone());
+        println!("Requesting: {} (local: {}) … \n", hash.to_owned(), local_directory.to_owned());
     });
 }
 
@@ -99,12 +121,12 @@ async fn ipfs_download_file(client: &IpfsClient, file_hash: String, file_path: S
         .await
     {
         Ok(res) => {
-            println!("Writing: {} ({}) … ", file_path, file_hash);
+            println!("\nWriting: {} ({}) … \n", file_path, file_hash);
             fs::create_dir_all(Path::new(&file_path[..]).parent().unwrap()).unwrap();
             fs::write(file_path, &res).unwrap();
         }
         Err(e) => eprintln!(
-            "Failed to obtain file: {} ({})\nError: {:#?}",
+            "\nFailed to obtain file: {} ({})\nError: {:#?}\n",
             file_path, file_hash, e
         ),
     }
