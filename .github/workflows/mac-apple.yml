@@ -9,7 +9,7 @@ jobs:
     steps:
       - name: Checkout codebase
         uses: actions/checkout@v2
-      - name: Install GTK development dependencies
+      - name: Install development dependencies
         run: |
           brew install gtk+3 libsoup libpsl
       - name: Setup Rust toolchain
