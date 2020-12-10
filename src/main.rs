@@ -15,12 +15,13 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use percent_encoding::percent_decode_str;
 use async_recursion::async_recursion;
 use directories_next::ProjectDirs;
 use gtk::Inhibit;
+use percent_encoding::percent_decode_str;
 
 use futures::TryStreamExt;
+use glib::clone;
 use gtk::prelude::BuilderExtManual;
 use gtk::ButtonExt;
 use gtk::EntryExt;
@@ -29,9 +30,8 @@ use ipfs_api::IpfsClient;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use url::{Position, Url};
 use webkit2gtk::WebViewExt;
-use glib::clone;
-use url::{Url, Position};
 
 #[macro_use]
 extern crate lazy_static;
@@ -103,13 +103,12 @@ fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
             hierarchy,
         )
         .await;*/
-        ipfs_download_file(
-            &client,
+        ipfs_download_file(&client, hash.to_owned(), local_directory.to_owned()).await;
+        println!(
+            "Requesting: {} (local: {}) … \n",
             hash.to_owned(),
-            local_directory.to_owned(),
-        )
-        .await;
-        println!("Requesting: {} (local: {}) … \n", hash.to_owned(), local_directory.to_owned());
+            local_directory.to_owned()
+        );
     });
 }
 
