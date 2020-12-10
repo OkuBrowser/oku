@@ -72,8 +72,7 @@ fn main() {
             web_view.load_uri(&format!("file://{}", &local_directory));
 
             println!("Loading: file://{} … \n", &local_directory);
-        } else
-        {
+        } else {
             web_view.load_uri(&nav_entry.get_text().to_string());
         }
 
