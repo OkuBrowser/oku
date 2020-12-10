@@ -23,7 +23,6 @@ jobs:
       - name: Build Oku
         uses: actions-rs/cargo@v1
         with:
-          use-cross: true
           command: build
           args: --release --all-features --target aarch64-apple-darwin
       - name: Prepare Oku for upload
