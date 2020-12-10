@@ -78,7 +78,7 @@ fn main() {
             web_view.load_uri(&nav_entry.get_text().to_string());
         }
         
-        &web_view.connect_load_changed(clone!(@weak web_view, @weak nav_entry => move |_, _| {
+        web_view.connect_load_changed(clone!(@weak web_view, @weak nav_entry => move |_, _| {
             nav_entry.set_text(&web_view.get_uri().unwrap().to_string().replacen(&format!("file://{}/", cache_directory), "ipfs://", 1));
         }));
     });
