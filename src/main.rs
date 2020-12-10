@@ -66,9 +66,9 @@ fn main() {
             let hash = &url[Position::BeforeHost..];
             let decoded_hash = percent_decode_str(&hash.to_owned()).decode_utf8().unwrap().to_string();
             let local_directory = format!("{}/{}", cache_directory, decoded_hash);
-    
+
             get_from_hash(client.clone(), decoded_hash, local_directory.clone());
-    
+
             web_view.load_uri(&format!("file://{}", &local_directory));
 
             println!("Loading: file://{} … \n", &local_directory);
@@ -77,7 +77,7 @@ fn main() {
         {
             web_view.load_uri(&nav_entry.get_text().to_string());
         }
-        
+
         web_view.connect_load_changed(clone!(@weak web_view, @weak nav_entry => move |_, _| {
             nav_entry.set_text(&web_view.get_uri().unwrap().to_string().replacen(&format!("file://{}/", cache_directory), "ipfs://", 1));
         }));

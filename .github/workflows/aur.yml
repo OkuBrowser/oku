@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Checkout codebase
         uses: actions/checkout@v2
-      - name: Install compiler toolchain
+      - name: Install development dependencies
         run: |
           pacman -Syu gcc git openssh base-devel gtk3 gtk2 glade --noconfirm
       - name: Setup Rust toolchain
