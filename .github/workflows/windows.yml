@@ -25,8 +25,8 @@ jobs:
             glib2-devel
       - name: Set environment variables
         run: |
-          export GTK_LIB_DIR=C:\msys64\mingw64\lib
-          export PATH=$PATH:C:\msys64\mingw64\bin
+          export GTK_LIB_DIR="C:\msys64\mingw64\lib"
+          export PATH=$PATH:"C:\msys64\mingw64\bin"
           export GTK_LIB_DIR $GTK_LIB_DIR
           export PATH $PATH
       - name: Checkout codebase
