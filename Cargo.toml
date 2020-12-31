@@ -37,7 +37,7 @@ hyper = "0.13.9"
 ipfs-api = { version = "0.9.0", features = ["actix"], default-features = false }
 lazy_static = "1.4.0"
 percent-encoding = "2.1.0"
-tokio = { version = "0.3.5", features = ["rt", "rt-multi-thread"] }
+tokio = { version = "1.0.1", features = ["rt", "rt-multi-thread"] }
 url = "2.2.0"
 webkit2gtk = "0.11.0"
 
