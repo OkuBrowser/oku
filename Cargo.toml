@@ -33,7 +33,7 @@ directories-next = "2.0.0"
 futures = "0.3.8"
 glib = "0.10.3"
 gtk = { version = "0.9.2", features = ["v3_22"], default-features = false }
-hyper = "0.13.9"
+hyper = "0.14.2"
 ipfs-api = { version = "0.9.0", features = ["actix"], default-features = false }
 lazy_static = "1.4.0"
 percent-encoding = "2.1.0"
