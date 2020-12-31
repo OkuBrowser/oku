@@ -1,0 +1,49 @@
+name: Publish documentation to GitHub Pages
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: "Publish documentation"
+    steps:
+    - name: Setup Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        target: x86_64-unknown-linux-gnu
+        default: true
+        profile: default
+    - name: Checkout codebase
+      uses: actions/checkout@v2
+      with:
+          path: ./oku
+    - name: Checkout GitHub Pages environment
+      uses: actions/checkout@v2
+      with:
+          ref: gh-pages
+          path: ./gh-pages
+          token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Generate documentation
+      run: |
+          sudo apt-get -qq install tree > /dev/null
+          printf "Codebase:\n" && tree ./oku
+          find ./gh-pages -mindepth 1 ! -regex '^./gh-pages/.git\(/.*\)?' -delete
+          
+          cd ./oku
+          printf "\nGenerating documentation … "
+          time cargo doc --no-deps --document-private-items --release --quiet
+          cd ../
+          
+          cp -ar ./oku/target/doc/* ./gh-pages
+          touch ./gh-pages/.nojekyll
+          tee -a ./gh-pages/.nojekyll > /dev/null <<EOT
+
+          EOT
+          printf "\nDocumentation:\n" && tree ./gh-pages
+    - name: Publish
+      run: |
+          cd ./gh-pages
+          git config --global user.name 'Oku'
+          git config --global user.email 'MadeByEmil@users.noreply.github.com'
+          git add -A
+          git diff --quiet && git diff --staged --quiet || git commit -am "Publish documentation to GitHub Pages"
+          git push
