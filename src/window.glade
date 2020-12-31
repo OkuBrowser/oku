@@ -23,7 +23,7 @@
     <property name="enable_dns_prefetching">True</property>
     <property name="allow_modal_dialogs">True</property>
     <property name="media_playback_requires_user_gesture">True</property>
-    <property name="user_agent">Oku/0.1.0 Mozilla/5.0 AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0 Safari/605.1.15</property>
+    <property name="user_agent">Oku/0.1.0</property>
     <property name="enable_smooth_scrolling">True</property>
     <property name="enable_accelerated_2d_canvas">True</property>
     <property name="enable_write_console_messages_to_stdout">True</property>
