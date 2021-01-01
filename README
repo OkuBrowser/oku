@@ -2,6 +2,6 @@
 
 Oku is a hive browser written in Rust.
 IDs to test: 
-ipfs://bafybeidd5ronzlgzm4t2upk32zxzxofmyoxv4sdwsded5kc5i4enf7myoe/index.html
-ipfs://bafybeidd5ronzlgzm4t2upk32zxzxofmyoxv4sdwsded5kc5i4enf7myoe/pages/2011/04/20/This is a test page.html
-ipfs://QmehSxmTPRCr85Xjgzjut6uWQihoTfqg9VVihJ892bmZCp/index.html
+ipfs://bafybeihtb3t3tjrc25stq4egznl7v7ixjtabdxhnm7tx3q7r7sgfc5uyju/index.html
+ipfs://bafybeiccfclkdtucu6y4yc5cpr6y3yuinr67svmii46v5cfcrkp47ihehy/README.txt
+ipfs://bafybeiccfclkdtucu6y4yc5cpr6y3yuinr67svmii46v5cfcrkp47ihehy/frontend/frontend.html
