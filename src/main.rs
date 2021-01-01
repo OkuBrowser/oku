@@ -60,7 +60,7 @@ fn main() {
             let split_hash: Vec<&str> = decoded_hash.split('/').collect();
             let path = &decoded_hash.replacen(split_hash[0], "", 1).replacen('/', "", 1);
             let gateway_url = format!("http://{}.ipfs.localhost:8080/{}", split_hash[0], path);
-            web_view.load_uri(&format!("{}", &gateway_url));
+            web_view.load_uri(&&gateway_url);
             println!("Loading: {} … ", &gateway_url);
         } else {
             web_view.load_uri(&nav_entry.get_text().to_string());
