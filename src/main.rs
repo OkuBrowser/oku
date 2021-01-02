@@ -35,24 +35,26 @@ lazy_static! {
         ProjectDirs::from("org", "Emil Sayahi", "Oku").unwrap();
 }
 
-fn connect(nav_entry: gtk::Entry, web_view: webkit2gtk::WebView)
-{
+fn connect(nav_entry: gtk::Entry, web_view: webkit2gtk::WebView) {
     let mut nav_text = nav_entry.get_text().to_string();
 
-    if !nav_text.contains("://")
-    {
+    if !nav_text.contains("://") {
         nav_text = format!("http://{}", nav_text);
     }
 
     let url = Url::parse(&nav_text).unwrap();
 
-    match url.scheme()
-    {
+    match url.scheme() {
         "ipfs" => {
             let hash = &url[Position::BeforeHost..];
-            let decoded_hash = percent_decode_str(&hash.to_owned()).decode_utf8().unwrap().to_string();
+            let decoded_hash = percent_decode_str(&hash.to_owned())
+                .decode_utf8()
+                .unwrap()
+                .to_string();
             let split_hash: Vec<&str> = decoded_hash.split('/').collect();
-            let path = &decoded_hash.replacen(split_hash[0], "", 1).replacen('/', "", 1);
+            let path = &decoded_hash
+                .replacen(split_hash[0], "", 1)
+                .replacen('/', "", 1);
             let gateway_url = format!("http://{}.ipfs.localhost:8080/{}", split_hash[0], path);
             web_view.load_uri(&gateway_url);
             println!("Loading: {} … ", &gateway_url);
@@ -64,22 +66,23 @@ fn connect(nav_entry: gtk::Entry, web_view: webkit2gtk::WebView)
     }
 }
 
-fn on_load(nav_entry: gtk::Entry, web_view: webkit2gtk::WebView)
-{
+fn on_load(nav_entry: gtk::Entry, web_view: webkit2gtk::WebView) {
     let mut nav_text = nav_entry.get_text().to_string();
 
-    if !nav_text.contains("://")
-    {
+    if !nav_text.contains("://") {
         nav_text = format!("http://{}", nav_text);
     }
     println!("{}", nav_text);
 
     let parsed_url = Url::parse(&nav_text).unwrap();
     let mut url = web_view.get_uri().unwrap().to_string();
-    let cid = parsed_url[Position::BeforeHost..].split('/').collect::<Vec<&str>>()[0];
-    if url.starts_with(&format!("http://{}.ipfs.localhost:8080/", cid))
-    {
-        url = url.replacen("http://", "ipfs://", 1).replacen(".ipfs.localhost:8080", "", 1);
+    let cid = parsed_url[Position::BeforeHost..]
+        .split('/')
+        .collect::<Vec<&str>>()[0];
+    if url.starts_with(&format!("http://{}.ipfs.localhost:8080/", cid)) {
+        url = url
+            .replacen("http://", "ipfs://", 1)
+            .replacen(".ipfs.localhost:8080", "", 1);
     }
     nav_entry.set_text(&url);
 }
