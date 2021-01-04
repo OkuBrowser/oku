@@ -15,9 +15,9 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use directories_next::ProjectDirs;
 use glib::Cast;
 use gtk::prelude::NotebookExtManual;
-use directories_next::ProjectDirs;
 use gtk::Inhibit;
 use percent_encoding::percent_decode_str;
 
@@ -25,8 +25,8 @@ use glib::clone;
 use gtk::prelude::BuilderExtManual;
 use gtk::ButtonExt;
 use gtk::EntryExt;
-use gtk::WidgetExt;
 use gtk::NotebookExt;
+use gtk::WidgetExt;
 use url::{Position, Url};
 use webkit2gtk::WebViewExt;
 
@@ -69,7 +69,9 @@ fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 
 fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
     let mut url = web_view.get_uri().unwrap().to_string();
-    let cid = url.replacen("http://", "", 1).replacen(".ipfs.localhost:8080", "", 1);
+    let cid = url
+        .replacen("http://", "", 1)
+        .replacen(".ipfs.localhost:8080", "", 1);
     let split_cid: Vec<&str> = cid.split('/').collect();
     if url.starts_with(&format!("http://{}.ipfs.localhost:8080/", split_cid[0])) {
         url = url
@@ -79,8 +81,7 @@ fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
     nav_entry.set_text(&url);
 }
 
-fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView
-{
+fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
     let web_kit = webkit2gtk::WebViewBuilder::new();
     let web_settings: webkit2gtk::Settings = builder.get_object("webkit_settings").unwrap();
     let web_view = web_kit.build();
@@ -92,18 +93,23 @@ fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView
     web_view
 }
 
-fn new_tab(builder: &gtk::Builder, tabs: &gtk::Notebook, new_tab_number: u32)
-{
+fn new_tab(builder: &gtk::Builder, tabs: &gtk::Notebook, new_tab_number: u32) {
     let new_view = new_view(&builder);
-    tabs.insert_page(&new_view, Some(&gtk::Label::new(Some("New Tab"))), Some(new_tab_number));
+    tabs.insert_page(
+        &new_view,
+        Some(&gtk::Label::new(Some("New Tab"))),
+        Some(new_tab_number),
+    );
     tabs.set_tab_reorderable(&new_view, true);
     tabs.set_tab_detachable(&new_view, true);
     tabs.set_current_page(Some(new_tab_number));
 }
 
-fn get_view(tabs: &gtk::Notebook) -> webkit2gtk::WebView
-{
-    tabs.get_nth_page(Some(tabs.get_current_page().unwrap())).unwrap().downcast().unwrap()
+fn get_view(tabs: &gtk::Notebook) -> webkit2gtk::WebView {
+    tabs.get_nth_page(Some(tabs.get_current_page().unwrap()))
+        .unwrap()
+        .downcast()
+        .unwrap()
 }
 
 fn main() {
@@ -122,11 +128,13 @@ fn main() {
     let tabs: gtk::Notebook = builder.get_object("tabs").unwrap();
     let nav_entry: gtk::Entry = builder.get_object("nav_entry").unwrap();
     new_tab(&builder, &tabs, 0);
-    tabs.connect_switch_page(clone!(@weak nav_entry, @weak builder, @weak tabs => move |_, _, _| {
-        println!("Page switched. {}", tabs.get_current_page().unwrap());
-        let web_view = get_view(&tabs);
-        update_nav_bar(&nav_entry, &web_view);
-    }));
+    tabs.connect_switch_page(
+        clone!(@weak nav_entry, @weak builder, @weak tabs => move |_, _, _| {
+            println!("Page switched. {}", tabs.get_current_page().unwrap());
+            let web_view = get_view(&tabs);
+            update_nav_bar(&nav_entry, &web_view);
+        }),
+    );
     nav_entry.connect_activate(clone!(@weak tabs, @weak nav_entry => move |_| {
         let web_view = get_view(&tabs);
         connect(&nav_entry, &web_view);
@@ -159,7 +167,7 @@ fn main() {
             update_nav_bar(&nav_entry, &web_view)
         }));
     }));
-    
+
     add_tab.connect_clicked(clone!(@weak nav_entry, @weak builder => move |_| {
         new_tab(&builder, &tabs, tabs.get_n_pages())
     }));
