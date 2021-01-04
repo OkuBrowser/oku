@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.22.1 -->
+<!-- Generated with glade 3.38.2 -->
 <!-- This file is part of Oku.
 
     Oku is free software: you can redistribute it and/or modify
@@ -17,76 +17,138 @@
 <interface>
   <requires lib="gtk+" version="3.20"/>
   <requires lib="webkit2gtk" version="2.12"/>
-  <object class="WebKitSettings" id="webkit_settings">
-    <property name="load_icons_ignoring_image_load_setting">True</property>
-    <property name="enable_developer_extras">True</property>
-    <property name="enable_dns_prefetching">True</property>
-    <property name="allow_modal_dialogs">True</property>
-    <property name="media_playback_requires_user_gesture">True</property>
-    <property name="user_agent">Oku/0.1.0</property>
-    <property name="enable_smooth_scrolling">True</property>
-    <property name="enable_accelerated_2d_canvas">True</property>
-    <property name="enable_write_console_messages_to_stdout">True</property>
-    <property name="enable_media_stream">True</property>
-    <property name="enable_spatial_navigation">True</property>
-    <property name="enable_encrypted_media">True</property>
-    <property name="enable_media_capabilities">True</property>
-    <property name="allow_file_access_from_file_urls">True</property>
-    <property name="allow_universal_access_from_file_urls">True</property>
-    <property name="allow_top_navigation_to_data_urls">True</property>
-    <property name="enable_back_forward_navigation_gestures">True</property>
+  <object class="WebKitSettings" type-func="webkit_settings_get_type" id="webkit_settings">
+    <property name="load-icons-ignoring-image-load-setting">True</property>
+    <property name="enable-developer-extras">True</property>
+    <property name="enable-dns-prefetching">True</property>
+    <property name="allow-modal-dialogs">True</property>
+    <property name="media-playback-requires-user-gesture">True</property>
+    <property name="user-agent">Oku/0.1.0</property>
+    <property name="enable-smooth-scrolling">True</property>
+    <property name="enable-accelerated-2d-canvas">True</property>
+    <property name="enable-write-console-messages-to-stdout">True</property>
+    <property name="enable-media-stream">True</property>
+    <property name="enable-spatial-navigation">True</property>
+    <property name="enable-encrypted-media">True</property>
+    <property name="enable-media-capabilities">True</property>
+    <property name="allow-file-access-from-file-urls">True</property>
+    <property name="allow-universal-access-from-file-urls">True</property>
+    <property name="allow-top-navigation-to-data-urls">True</property>
+    <property name="enable-back-forward-navigation-gestures">True</property>
   </object>
   <object class="GtkApplicationWindow" id="window">
-    <property name="can_focus">False</property>
+    <property name="can-focus">False</property>
     <property name="title" translatable="yes" context="Application name">Oku</property>
-    <property name="window_position">center</property>
-    <child>
-      <placeholder/>
-    </child>
+    <property name="window-position">center</property>
     <child>
       <object class="GtkBox">
         <property name="visible">True</property>
-        <property name="can_focus">False</property>
+        <property name="can-focus">False</property>
         <property name="orientation">vertical</property>
         <child>
           <object class="GtkBox">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
+            <property name="spacing">4</property>
             <child>
               <object class="GtkEntry" id="nav_entry">
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
+                <property name="can-focus">True</property>
                 <property name="valign">end</property>
-                <property name="margin_left">2</property>
-                <property name="margin_right">2</property>
-                <property name="margin_top">2</property>
-                <property name="margin_bottom">2</property>
+                <property name="margin-start">4</property>
+                <property name="margin-end">4</property>
+                <property name="margin-top">4</property>
+                <property name="margin-bottom">4</property>
                 <property name="hexpand">True</property>
-                <property name="input_purpose">url</property>
+                <property name="placeholder-text" translatable="yes">Enter an address … </property>
+                <property name="input-purpose">url</property>
               </object>
               <packing>
                 <property name="expand">True</property>
                 <property name="fill">True</property>
+                <property name="padding">4</property>
                 <property name="position">0</property>
               </packing>
             </child>
             <child>
-              <object class="GtkButton" id="go_button">
+              <object class="GtkBox">
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="margin_left">2</property>
-                <property name="margin_right">2</property>
-                <property name="margin_top">2</property>
-                <property name="margin_bottom">2</property>
-                <property name="always_show_image">True</property>
+                <property name="can-focus">False</property>
                 <child>
-                  <object class="GtkImage">
+                  <object class="GtkButton" id="go_button">
                     <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="valign">end</property>
-                    <property name="icon_name">go-next</property>
+                    <property name="can-focus">True</property>
+                    <property name="receives-default">True</property>
+                    <property name="halign">start</property>
+                    <property name="margin-start">4</property>
+                    <property name="margin-end">4</property>
+                    <property name="margin-top">4</property>
+                    <property name="margin-bottom">4</property>
+                    <property name="relief">half</property>
+                    <property name="always-show-image">True</property>
+                    <child>
+                      <object class="GtkImage">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="icon-name">go-next</property>
+                      </object>
+                    </child>
                   </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="padding">4</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="downloads_button">
+                    <property name="visible">True</property>
+                    <property name="can-focus">True</property>
+                    <property name="receives-default">True</property>
+                    <property name="halign">start</property>
+                    <property name="margin-end">4</property>
+                    <property name="margin-top">4</property>
+                    <property name="margin-bottom">4</property>
+                    <property name="relief">half</property>
+                    <property name="always-show-image">True</property>
+                    <child>
+                      <object class="GtkImage">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="icon-name">emblem-downloads</property>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="add_tab">
+                    <property name="visible">True</property>
+                    <property name="can-focus">True</property>
+                    <property name="receives-default">True</property>
+                    <property name="margin-start">4</property>
+                    <property name="margin-end">4</property>
+                    <property name="margin-top">4</property>
+                    <property name="margin-bottom">4</property>
+                    <property name="always-show-image">True</property>
+                    <child>
+                      <object class="GtkImage">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="icon-name">list-add</property>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">2</property>
+                  </packing>
                 </child>
               </object>
               <packing>
@@ -103,15 +165,24 @@
           </packing>
         </child>
         <child>
-          <object class="WebKitWebView" id="webkit_view">
-            <property name="width_request">640</property>
-            <property name="height_request">480</property>
+          <object class="GtkNotebook" id="tabs">
             <property name="visible">True</property>
-            <property name="can_focus">True</property>
+            <property name="can-focus">True</property>
             <property name="hexpand">True</property>
             <property name="vexpand">True</property>
-            <property name="settings">webkit_settings</property>
+            <property name="show-border">False</property>
+            <property name="scrollable">True</property>
+            <property name="enable-popup">True</property>
             <child>
+              <placeholder/>
+            </child>
+            <child type="tab">
+              <placeholder/>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+            <child type="tab">
               <placeholder/>
             </child>
           </object>
