@@ -123,7 +123,7 @@ fn main() {
 
     let window: gtk::Window = builder.get_object("window").unwrap();
     let go_button: gtk::Button = builder.get_object("go_button").unwrap();
-    let downloads_button: gtk::Button = builder.get_object("downloads_button").unwrap();
+    let _downloads_button: gtk::Button = builder.get_object("downloads_button").unwrap();
     let add_tab: gtk::Button = builder.get_object("add_tab").unwrap();
     let tabs: gtk::Notebook = builder.get_object("tabs").unwrap();
     let nav_entry: gtk::Entry = builder.get_object("nav_entry").unwrap();
