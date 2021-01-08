@@ -18,10 +18,10 @@ jobs:
         uses: actions/checkout@v2
       - name: Install development dependencies
         run: |
-          sudo dnf -y install gtk3-devel clutter-devel webkit2gtk3-devel libgda-devel gobject-introspection-devel
+          sudo dnf -q -y install gtk3-devel clutter-devel webkit2gtk3-devel libgda-devel gobject-introspection-devel > /dev/null
       - name: Install compiler toolchain
         run: |
-          sudo dnf -y install gcc rpm-build
+          sudo dnf -q -y install gcc rpm-build > /dev/null
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
