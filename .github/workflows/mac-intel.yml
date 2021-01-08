@@ -19,7 +19,6 @@ jobs:
           target: x86_64-apple-darwin
           default: true
           profile: minimal
-          #components: rust-src
       - name: Build Oku
         uses: actions-rs/cargo@v1
         with:

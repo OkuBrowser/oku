@@ -20,7 +20,6 @@ jobs:
           target: x86_64-unknown-linux-gnu
           default: true
           profile: minimal
-          #components: rust-src
       - name: Install 'cargo-deb'
         uses: actions-rs/cargo@v1
         with:
