@@ -50,7 +50,7 @@ fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 
     if nav_text.starts_with("ipfs://") {
         let hash = nav_text.replacen("ipfs://", "", 1);
-        let decoded_hash = percent_decode_str(&hash.to_owned())
+        let decoded_hash = percent_decode_str(&hash)
             .decode_utf8()
             .unwrap()
             .to_string();
@@ -161,7 +161,7 @@ fn main() {
 
     initial_tab(&builder, &tabs);
 
-    &tabs.connect_page_removed(
+    tabs.connect_page_removed(
         clone!(@weak nav_entry, @weak builder, @weak tabs => move |_, _, _| {
             if tabs.get_n_pages() == 0
             {
@@ -171,7 +171,7 @@ fn main() {
         }),
     );
 
-    &tabs.connect_property_page_notify(
+    tabs.connect_property_page_notify(
         clone!(@weak nav_entry, @weak builder, @weak tabs => move |_| {
             let web_view = get_view(&tabs);
             update_nav_bar(&nav_entry, &web_view);
