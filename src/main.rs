@@ -15,14 +15,14 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use gtk::BoxExt;
-use gtk::ContainerExt;
-use gtk::IconSize::Button;
-use gtk::Orientation::Horizontal;
 use directories_next::ProjectDirs;
 use glib::Cast;
 use gtk::prelude::NotebookExtManual;
+use gtk::BoxExt;
+use gtk::ContainerExt;
+use gtk::IconSize::Button;
 use gtk::Inhibit;
+use gtk::Orientation::Horizontal;
 use percent_encoding::percent_decode_str;
 
 use glib::clone;
@@ -48,8 +48,7 @@ fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
         nav_text = format!("http://{}", nav_text);
     }
 
-    if nav_text.starts_with("ipfs://")
-    {
+    if nav_text.starts_with("ipfs://") {
         let hash = nav_text.replacen("ipfs://", "", 1);
         let decoded_hash = percent_decode_str(&hash.to_owned())
             .decode_utf8()
@@ -61,9 +60,7 @@ fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
             .replacen('/', "", 1);
         let gateway_url = format!("http://{}.ipfs.localhost:8080/{}", split_hash[0], path);
         web_view.load_uri(&gateway_url);
-    }
-    else
-    {
+    } else {
         web_view.load_uri(&nav_text);
     }
 }
@@ -94,16 +91,14 @@ fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
     web_view
 }
 
-fn new_tab_label(label: &str) -> gtk::Label
-{
+fn new_tab_label(label: &str) -> gtk::Label {
     let tab_label = gtk::Label::new(Some(label));
     tab_label.set_hexpand(true);
     tab_label.set_visible(true);
     tab_label
 }
 
-fn new_tab(label: &str) -> gtk::Box
-{
+fn new_tab(label: &str) -> gtk::Box {
     let tab_box = gtk::Box::new(Horizontal, 4);
     tab_box.set_hexpand(true);
     tab_box.set_visible(true);
@@ -118,13 +113,13 @@ fn new_tab(label: &str) -> gtk::Box
     tab_box
 }
 
-fn new_tab_page(builder: &gtk::Builder, tabs: &gtk::Notebook, new_tab_number: u32) -> webkit2gtk::WebView {
+fn new_tab_page(
+    builder: &gtk::Builder,
+    tabs: &gtk::Notebook,
+    new_tab_number: u32,
+) -> webkit2gtk::WebView {
     let new_view = new_view(&builder);
-    tabs.insert_page(
-        &new_view,
-        Some(&new_tab("New Tab")),
-        Some(new_tab_number),
-    );
+    tabs.insert_page(&new_view, Some(&new_tab("New Tab")), Some(new_tab_number));
     tabs.set_tab_reorderable(&new_view, true);
     tabs.set_tab_detachable(&new_view, true);
     tabs.set_current_page(Some(new_tab_number));
@@ -138,8 +133,7 @@ fn get_view(tabs: &gtk::Notebook) -> webkit2gtk::WebView {
         .unwrap()
 }
 
-fn initial_tab(builder: &gtk::Builder, tabs: &gtk::Notebook)
-{
+fn initial_tab(builder: &gtk::Builder, tabs: &gtk::Notebook) {
     let web_view = new_tab_page(&builder, &tabs, 0);
     let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
     let close_button_widget = &current_tab_label.get_children()[1];
