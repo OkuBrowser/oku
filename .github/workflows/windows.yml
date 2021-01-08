@@ -15,8 +15,9 @@ jobs:
         with:
           update: true
           install: >-
-            base-devel
             git
+            base-devel
+            glib2-devel
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-gtk3
             mingw-w64-x86_64-gtk2
