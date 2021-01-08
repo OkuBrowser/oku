@@ -41,6 +41,13 @@ lazy_static! {
         ProjectDirs::from("org", "Emil Sayahi", "Oku").unwrap();
 }
 
+/// Connect to a page using the current tab
+/// 
+/// # Arguments
+/// 
+/// * `nav_entry` - The navigation bar of the browser
+/// 
+/// * `web_view` - The WebKit instance for the current tab
 fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
     let mut nav_text = nav_entry.get_text().to_string();
 
@@ -62,6 +69,13 @@ fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
     }
 }
 
+/// Update the contents of the navigation bar
+/// 
+/// # Arguments
+/// 
+/// * `nav_entry` - The navigation bar of the browser
+/// 
+/// * `web_view` - The WebKit instance for the current tab
 fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
     let mut url = web_view.get_uri().unwrap().to_string();
     let cid = url
@@ -76,6 +90,11 @@ fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
     nav_entry.set_text(&url);
 }
 
+/// Create a new WebKit instance for the current tab
+/// 
+/// # Arguments
+/// 
+/// * `builder` - The object that contains all graphical widgets of the window
 fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
     let web_kit = webkit2gtk::WebViewBuilder::new();
     let web_settings: webkit2gtk::Settings = builder.get_object("webkit_settings").unwrap();
@@ -88,14 +107,26 @@ fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
     web_view
 }
 
-fn new_tab_label(label: &str) -> gtk::Label {
+/// Create the text to be displayed on a tab
+/// 
+/// # Arguments
+/// 
+/// * `label` - The text to be displayed on a tab
+fn new_tab_label(label: &str) -> gtk::Label
+{
     let tab_label = gtk::Label::new(Some(label));
     tab_label.set_hexpand(true);
     tab_label.set_visible(true);
     tab_label
 }
 
-fn new_tab(label: &str) -> gtk::Box {
+/// Create a tab to be placed in the notebook
+/// 
+/// # Arguments
+/// 
+/// * `label` - The text to be displayed on a tab
+fn new_tab(label: &str) -> gtk::Box
+{
     let tab_box = gtk::Box::new(Horizontal, 4);
     tab_box.set_hexpand(true);
     tab_box.set_visible(true);
@@ -110,11 +141,16 @@ fn new_tab(label: &str) -> gtk::Box {
     tab_box
 }
 
-fn new_tab_page(
-    builder: &gtk::Builder,
-    tabs: &gtk::Notebook,
-    new_tab_number: u32,
-) -> webkit2gtk::WebView {
+/// Create a new entry in the notebook
+/// 
+/// # Arguments
+/// 
+/// * `builder` - The object that contains all graphical widgets of the window
+/// 
+/// * `tabs` - The notebook containing the tabs & pages of the current browser session
+/// 
+/// * `new_tab_number` - A number representing the position in the notebook where this new entry should
+fn new_tab_page(builder: &gtk::Builder, tabs: &gtk::Notebook, new_tab_number: u32) -> webkit2gtk::WebView {
     let new_view = new_view(&builder);
     tabs.insert_page(&new_view, Some(&new_tab("New Tab")), Some(new_tab_number));
     tabs.set_tab_reorderable(&new_view, true);
@@ -123,6 +159,11 @@ fn new_tab_page(
     new_view
 }
 
+/// Get the WebKit instance for the current tab
+/// 
+/// # Arguments
+/// 
+/// * `tabs` - The notebook containing the tabs & pages of the current browser session
 fn get_view(tabs: &gtk::Notebook) -> webkit2gtk::WebView {
     tabs.get_nth_page(Some(tabs.get_current_page().unwrap()))
         .unwrap()
@@ -130,7 +171,16 @@ fn get_view(tabs: &gtk::Notebook) -> webkit2gtk::WebView {
         .unwrap()
 }
 
-fn initial_tab(builder: &gtk::Builder, tabs: &gtk::Notebook) {
+
+/// Create an initial tab, for when the notebook is empty
+/// 
+/// # Arguments
+/// 
+/// * `builder` - The object that contains all graphical widgets of the window
+/// 
+/// * `tabs` - The notebook containing the tabs & pages of the current browser session
+fn initial_tab(builder: &gtk::Builder, tabs: &gtk::Notebook)
+{
     let web_view = new_tab_page(&builder, &tabs, 0);
     let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
     let close_button_widget = &current_tab_label.get_children()[1];
@@ -140,6 +190,7 @@ fn initial_tab(builder: &gtk::Builder, tabs: &gtk::Notebook) {
     }));
 }
 
+/// The main function of Oku. Creates a new functional & graphical browser window.
 fn main() {
     if gtk::init().is_err() {
         println!("Failed to initialize GTK.");
@@ -156,7 +207,10 @@ fn main() {
     let tabs: gtk::Notebook = builder.get_object("tabs").unwrap();
     let nav_entry: gtk::Entry = builder.get_object("nav_entry").unwrap();
 
-    initial_tab(&builder, &tabs);
+    if tabs.get_n_pages() == 0
+    {
+        initial_tab(&builder, &tabs)
+    }
 
     tabs.connect_page_removed(
         clone!(@weak nav_entry, @weak builder, @weak tabs => move |_, _, _| {
