@@ -128,7 +128,7 @@ fn main() {
     let tabs: gtk::Notebook = builder.get_object("tabs").unwrap();
     let nav_entry: gtk::Entry = builder.get_object("nav_entry").unwrap();
     new_tab(&builder, &tabs, 0);
-    &tabs.connect_property_page_notify(
+    tabs.connect_property_page_notify(
         clone!(@weak nav_entry, @weak builder, @weak tabs => move |_| {
             let web_view = get_view(&tabs);
             update_nav_bar(&nav_entry, &web_view);
