@@ -50,10 +50,7 @@ fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 
     if nav_text.starts_with("ipfs://") {
         let hash = nav_text.replacen("ipfs://", "", 1);
-        let decoded_hash = percent_decode_str(&hash)
-            .decode_utf8()
-            .unwrap()
-            .to_string();
+        let decoded_hash = percent_decode_str(&hash).decode_utf8().unwrap().to_string();
         let split_hash: Vec<&str> = decoded_hash.split('/').collect();
         let path = &decoded_hash
             .replacen(split_hash[0], "", 1)
