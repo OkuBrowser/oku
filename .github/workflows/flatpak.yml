@@ -1,0 +1,28 @@
+on:
+  push:
+    branches: [master]
+  pull_request:
+name: 'Package: Flatpak for GNU + Linux (x86_64)'
+jobs:
+  flatpak-builder:
+    name: GNU + Linux (x86_64)
+    runs-on: ubuntu-latest
+    container:
+      image: docker.io/bilelmoussaoui/flatpak-github-actions
+      options: --privileged
+    steps:
+    - name: Checkout codebase
+      uses: actions/checkout@v2
+    - name: Generate manifest
+      run: |
+        curl -s https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/cargo/flatpak-cargo-generator.py --output flatpak-cargo-generator.py > /dev/null
+        pip3 install --quiet siphash
+        python3 ./flatpak-cargo-generator.py ./Cargo.lock -o ./build-aux/cargo-sources.json
+        sudo apt-get -qq install tree > /dev/null
+        tree ./
+    #flatpak install org.freedesktop.Sdk org.freedesktop.Platform org.freedesktop.Sdk.Extension.rust-nightly
+    - name: Build & package Oku
+      uses: bilelmoussaoui/flatpak-github-actions@v1
+      with:
+        bundle: "oku.flatpak"
+        manifest-path: "build-aux/com.github.madebyemil.oku.json"
