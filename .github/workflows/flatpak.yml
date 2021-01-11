@@ -7,9 +7,6 @@ jobs:
   flatpak-builder:
     name: GNU + Linux (x86_64)
     runs-on: ubuntu-latest
-    container:
-      image: docker.io/bilelmoussaoui/flatpak-github-actions
-      options: --privileged
     steps:
     - name: Checkout codebase
       uses: actions/checkout@v2
@@ -28,7 +25,7 @@ jobs:
         python3 ./flatpak-cargo-generator.py ./Cargo.lock -o ./build-aux/cargo-sources.json
         sudo apt-get -qq install tree > /dev/null
         tree ./
-    #flatpak install org.freedesktop.Sdk org.freedesktop.Platform org.freedesktop.Sdk.Extension.rust-nightly
+        flatpak install org.freedesktop.Sdk//20.08 org.freedesktop.Platform//20.08 org.freedesktop.Sdk.Extension.rust-nightly//20.08
     - name: Build & package Oku
       uses: bilelmoussaoui/flatpak-github-actions@v1
       with:
