@@ -261,20 +261,26 @@ fn main() {
         }));
     }));
 
-    back_button.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-        let web_view = get_view(&tabs);
-        web_view.go_back()
-    }));
+    back_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+            let web_view = get_view(&tabs);
+            web_view.go_back()
+        }),
+    );
 
-    forward_button.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-        let web_view = get_view(&tabs);
-        web_view.go_forward()
-    }));
+    forward_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+            let web_view = get_view(&tabs);
+            web_view.go_forward()
+        }),
+    );
 
-    refresh_button.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-        let web_view = get_view(&tabs);
-        web_view.reload_bypass_cache()
-    }));
+    refresh_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+            let web_view = get_view(&tabs);
+            web_view.reload_bypass_cache()
+        }),
+    );
 
     window.show_all();
     window.connect_delete_event(|_, _| {
