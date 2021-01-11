@@ -16,7 +16,7 @@ jobs:
     - name: Generate manifest
       run: |
         curl -s https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/cargo/flatpak-cargo-generator.py --output flatpak-cargo-generator.py > /dev/null
-        pip3 install --quiet siphash
+        pip3 install --user --quiet siphash
         python3 ./flatpak-cargo-generator.py ./Cargo.lock -o ./build-aux/cargo-sources.json
         sudo apt-get -qq install tree > /dev/null
         tree ./
