@@ -223,10 +223,12 @@
   <object class="WebKitSettings" type-func="webkit_settings_get_type" id="webkit_settings">
     <property name="load-icons-ignoring-image-load-setting">True</property>
     <property name="enable-developer-extras">True</property>
+    <property name="enable-tabs-to-links">False</property>
     <property name="enable-dns-prefetching">True</property>
+    <property name="enable-caret-browsing">True</property>
     <property name="allow-modal-dialogs">True</property>
+    <property name="javascript-can-access-clipboard">True</property>
     <property name="media-playback-requires-user-gesture">True</property>
-    <property name="user-agent">Oku/0.1.0</property>
     <property name="enable-smooth-scrolling">True</property>
     <property name="enable-accelerated-2d-canvas">True</property>
     <property name="enable-write-console-messages-to-stdout">True</property>

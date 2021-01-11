@@ -15,6 +15,10 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use pango::EllipsizeMode;
+use gtk::LabelExt;
+use webkit2gtk::SettingsExt;
+use webkit2gtk::WebContextExt;
 use directories_next::ProjectDirs;
 use glib::Cast;
 use gtk::prelude::NotebookExtManual;
@@ -40,6 +44,7 @@ lazy_static! {
     static ref PROJECT_DIRECTORIES: ProjectDirs =
         ProjectDirs::from("org", "Emil Sayahi", "Oku").unwrap();
 }
+const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 
 /// Connect to a page using the current tab
 ///
@@ -99,7 +104,10 @@ fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
     let web_kit = webkit2gtk::WebViewBuilder::new();
     let web_settings: webkit2gtk::Settings = builder.get_object("webkit_settings").unwrap();
     let web_view = web_kit.build();
+    web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
     web_view.set_settings(&web_settings);
+    let extensions_path = PROJECT_DIRECTORIES.data_dir().to_str().unwrap();
+    web_view.get_context().unwrap().set_web_extensions_directory(extensions_path);
     web_view.set_visible(true);
     web_view.set_property_width_request(1024);
     web_view.set_property_height_request(640);
@@ -115,6 +123,7 @@ fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
 fn new_tab_label(label: &str) -> gtk::Label {
     let tab_label = gtk::Label::new(Some(label));
     tab_label.set_hexpand(true);
+    tab_label.set_ellipsize(EllipsizeMode::End);
     tab_label.set_visible(true);
     tab_label
 }
@@ -158,7 +167,6 @@ fn new_tab_page(
     tabs.set_tab_reorderable(&new_view, true);
     tabs.set_tab_detachable(&new_view, true);
     tabs.set_current_page(Some(new_tab_number));
-    new_view.hide();
     new_view
 }
 
@@ -221,6 +229,16 @@ fn main() {
         }),
     );
 
+    tabs.connect_page_removed(
+        clone!(@weak nav_entry, @weak builder, @weak tabs => move |_, _, _| {
+            if tabs.get_n_pages() == 0
+            {
+                nav_entry.set_text("");
+                initial_tab(&builder, &tabs)
+            }
+        }),
+    );
+
     nav_entry.connect_activate(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
         let web_view = get_view(&tabs);
         connect(&nav_entry, &web_view);
@@ -238,6 +256,7 @@ fn main() {
         }));
         web_view.connect_load_changed(clone!(@weak tabs, @weak nav_entry => move |_, _| {
             let web_view = get_view(&tabs);
+
             let load_progress = web_view.get_estimated_load_progress();
             if load_progress == 1.00
             {
@@ -247,6 +266,7 @@ fn main() {
             {
                 nav_entry.set_progress_fraction(load_progress)
             }
+
             update_nav_bar(&nav_entry, &web_view)
         }));
     }));
