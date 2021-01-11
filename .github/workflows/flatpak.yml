@@ -15,6 +15,7 @@ jobs:
       uses: actions/checkout@v2
     - name: Generate manifest
       run: |
+        cargo build --release
         curl -s https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/cargo/flatpak-cargo-generator.py --output flatpak-cargo-generator.py > /dev/null
         pip3 install --user --quiet siphash toml
         python3 ./flatpak-cargo-generator.py ./Cargo.lock -o ./build-aux/cargo-sources.json
