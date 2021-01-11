@@ -15,12 +15,12 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use gtk::GtkWindowExt;
 use directories_next::ProjectDirs;
 use glib::Cast;
 use gtk::prelude::NotebookExtManual;
 use gtk::BoxExt;
 use gtk::ContainerExt;
+use gtk::GtkWindowExt;
 use gtk::IconSize::Button;
 use gtk::Inhibit;
 use gtk::LabelExt;
@@ -107,7 +107,10 @@ fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
     let web_view = web_kit.build();
     web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
     web_view.set_settings(&web_settings);
-    let extensions_path = format!("{}/web-extensions/", PROJECT_DIRECTORIES.data_dir().to_str().unwrap());
+    let extensions_path = format!(
+        "{}/web-extensions/",
+        PROJECT_DIRECTORIES.data_dir().to_str().unwrap()
+    );
     web_view
         .get_context()
         .unwrap()
