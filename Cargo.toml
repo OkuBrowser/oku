@@ -49,7 +49,7 @@ assets = [
     ["target/x86_64-unknown-linux-gnu/release/oku", "usr/bin/", "755"],
     ["README", "usr/share/doc/oku/README", "644"],
     ["COPYING", "usr/share/doc/oku/COPYING", "644"],
-    ["icons/*", "/usr/share/icons/hicolor/", "644"],
+    ["icons/**", "/usr/share/icons/hicolor/", "644"],
 ]
 
 [package.metadata.rpm]
