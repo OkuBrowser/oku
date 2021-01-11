@@ -15,10 +15,6 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use pango::EllipsizeMode;
-use gtk::LabelExt;
-use webkit2gtk::SettingsExt;
-use webkit2gtk::WebContextExt;
 use directories_next::ProjectDirs;
 use glib::Cast;
 use gtk::prelude::NotebookExtManual;
@@ -26,8 +22,12 @@ use gtk::BoxExt;
 use gtk::ContainerExt;
 use gtk::IconSize::Button;
 use gtk::Inhibit;
+use gtk::LabelExt;
 use gtk::Orientation::Horizontal;
+use pango::EllipsizeMode;
 use percent_encoding::percent_decode_str;
+use webkit2gtk::SettingsExt;
+use webkit2gtk::WebContextExt;
 
 use glib::clone;
 use gtk::prelude::BuilderExtManual;
@@ -107,7 +107,10 @@ fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
     web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
     web_view.set_settings(&web_settings);
     let extensions_path = PROJECT_DIRECTORIES.data_dir().to_str().unwrap();
-    web_view.get_context().unwrap().set_web_extensions_directory(extensions_path);
+    web_view
+        .get_context()
+        .unwrap()
+        .set_web_extensions_directory(extensions_path);
     web_view.set_visible(true);
     web_view.set_property_width_request(1024);
     web_view.set_property_height_request(640);
