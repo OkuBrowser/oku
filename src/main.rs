@@ -101,8 +101,8 @@ fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
     let web_view = web_kit.build();
     web_view.set_settings(&web_settings);
     web_view.set_visible(true);
-    web_view.set_property_width_request(640);
-    web_view.set_property_height_request(480);
+    web_view.set_property_width_request(1024);
+    web_view.set_property_height_request(640);
     web_view.load_uri("about:blank");
     web_view
 }
@@ -158,6 +158,7 @@ fn new_tab_page(
     tabs.set_tab_reorderable(&new_view, true);
     tabs.set_tab_detachable(&new_view, true);
     tabs.set_current_page(Some(new_tab_number));
+    new_view.hide();
     new_view
 }
 
@@ -201,8 +202,10 @@ fn main() {
     let builder = gtk::Builder::from_string(glade_src);
 
     let window: gtk::Window = builder.get_object("window").unwrap();
-    let go_button: gtk::Button = builder.get_object("go_button").unwrap();
     let _downloads_button: gtk::Button = builder.get_object("downloads_button").unwrap();
+    let back_button: gtk::Button = builder.get_object("back_button").unwrap();
+    let forward_button: gtk::Button = builder.get_object("forward_button").unwrap();
+    let refresh_button: gtk::Button = builder.get_object("refresh_button").unwrap();
     let add_tab: gtk::Button = builder.get_object("add_tab").unwrap();
     let tabs: gtk::Notebook = builder.get_object("tabs").unwrap();
     let nav_entry: gtk::Entry = builder.get_object("nav_entry").unwrap();
@@ -210,16 +213,6 @@ fn main() {
     if tabs.get_n_pages() == 0 {
         initial_tab(&builder, &tabs)
     }
-
-    tabs.connect_page_removed(
-        clone!(@weak nav_entry, @weak builder, @weak tabs => move |_, _, _| {
-            if tabs.get_n_pages() == 0
-            {
-                nav_entry.set_text("");
-                initial_tab(&builder, &tabs)
-            }
-        }),
-    );
 
     tabs.connect_property_page_notify(
         clone!(@weak nav_entry, @weak builder, @weak tabs => move |_| {
@@ -245,32 +238,20 @@ fn main() {
         }));
         web_view.connect_load_changed(clone!(@weak tabs, @weak nav_entry => move |_, _| {
             let web_view = get_view(&tabs);
+            let load_progress = web_view.get_estimated_load_progress();
+            if load_progress == 1.00
+            {
+                nav_entry.set_progress_fraction(0.00)
+            }
+            else
+            {
+                nav_entry.set_progress_fraction(load_progress)
+            }
             update_nav_bar(&nav_entry, &web_view)
         }));
     }));
 
-    go_button.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-        let web_view = get_view(&tabs);
-        connect(&nav_entry, &web_view);
-        web_view.connect_property_title_notify(clone!(@weak tabs => move |_| {
-            let web_view = get_view(&tabs);
-            let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
-            let new_label_text = new_tab_label(&web_view.get_title().unwrap());
-            current_tab_label.remove(&current_tab_label.get_children()[0]);
-            current_tab_label.add(&new_label_text);
-            current_tab_label.reorder_child(&new_label_text, 0)
-        }));
-        web_view.connect_property_uri_notify(clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = get_view(&tabs);
-            update_nav_bar(&nav_entry, &web_view)
-        }));
-        web_view.connect_load_changed(clone!(@weak tabs, @weak nav_entry => move |_, _| {
-            let web_view = get_view(&tabs);
-            update_nav_bar(&nav_entry, &web_view)
-        }));
-    }));
-
-    add_tab.connect_clicked(clone!(@weak nav_entry, @weak builder => move |_| {
+    add_tab.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
         let web_view = new_tab_page(&builder, &tabs, tabs.get_n_pages());
         let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
         let close_button_widget = &current_tab_label.get_children()[1];
@@ -278,6 +259,21 @@ fn main() {
         close_button.connect_clicked(clone!(@weak tabs => move |_| {
             tabs.remove_page(tabs.page_num(&web_view));
         }));
+    }));
+
+    back_button.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+        let web_view = get_view(&tabs);
+        web_view.go_back()
+    }));
+
+    forward_button.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+        let web_view = get_view(&tabs);
+        web_view.go_forward()
+    }));
+
+    refresh_button.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+        let web_view = get_view(&tabs);
+        web_view.reload_bypass_cache()
     }));
 
     window.show_all();
