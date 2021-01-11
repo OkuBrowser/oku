@@ -16,27 +16,27 @@
 */
 
 use directories_next::ProjectDirs;
+use gio::prelude::*;
+use glib::clone;
 use glib::Cast;
+use gtk::prelude::BuilderExtManual;
 use gtk::prelude::NotebookExtManual;
 use gtk::BoxExt;
+use gtk::ButtonExt;
 use gtk::ContainerExt;
+use gtk::EntryExt;
 use gtk::GtkWindowExt;
 use gtk::IconSize::Button;
 use gtk::Inhibit;
 use gtk::LabelExt;
+use gtk::NotebookExt;
 use gtk::Orientation::Horizontal;
+use gtk::WidgetExt;
 use pango::EllipsizeMode;
 use percent_encoding::percent_decode_str;
+use std::env::args;
 use webkit2gtk::SettingsExt;
 use webkit2gtk::WebContextExt;
-use gio::prelude::*;
-use std::env::args;
-use glib::clone;
-use gtk::prelude::BuilderExtManual;
-use gtk::ButtonExt;
-use gtk::EntryExt;
-use gtk::NotebookExt;
-use gtk::WidgetExt;
 use webkit2gtk::WebViewExt;
 
 #[macro_use]
@@ -209,9 +209,8 @@ fn initial_tab(builder: &gtk::Builder, tabs: &gtk::Notebook) {
 
 /// The main function of Oku.
 fn main() {
-    let application =
-        gtk::Application::new(Some("com.github.madebyemil.oku"), Default::default())
-            .expect("Initialization failed … ");
+    let application = gtk::Application::new(Some("com.github.madebyemil.oku"), Default::default())
+        .expect("Initialization failed … ");
 
     application.connect_activate(|app| {
         new_window(app);
