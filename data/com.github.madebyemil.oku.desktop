@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Oku
+Comment=A hive browser written in Rust
+Type=Application
+Exec=oku
+Terminal=false
+Categories=Utility;GTK;
+Keywords=Rust;Flatpak;GTK;
+Icon=oku
+StartupNotify=true

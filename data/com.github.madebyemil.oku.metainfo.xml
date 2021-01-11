@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Emil Sayahi <limesayahi@gmail.com> -->
+<!-- This file is part of Oku.
+
+    Oku is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Oku is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with Oku.  If not, see <https://www.gnu.org/licenses/>. -->
+<component type="desktop-application">
+  <id>com.github.madebyemil.oku</id>
+  <metadata_license>CC0</metadata_license>
+  <project_license>AGPL-3.0+</project_license>
+  <name>Oku</name>
+  <summary>A hive browser written in Rust.</summary>
+  <description>
+    <p>Oku is a hive browser written in Rust.</p>
+  </description>
+  <url type="homepage">https://madebyemil.github.io/oku/oku</url>
+    <!--
+    Open Age Rating Service
+    https://hughsie.github.io/oars/index.html
+    -->
+  <content_rating type="oars-1.0" />
+  <releases>
+    <release version="0.1.0" date="2021-01-12">
+      <description>
+        <p>Initial release.</p>
+      </description>
+    </release>
+  </releases>
+    <!--
+    GNOME Software kudos:
+    https://gitlab.gnome.org/GNOME/gnome-software/blob/master/doc/kudos.md
+    -->
+  <kudos>
+    <kudo>ModernToolkit</kudo>
+    <kudo>HiDpiIcon</kudo>
+    <kudo>HighContrast</kudo>
+  </kudos>
+  <developer_name>Emil Sayahi</developer_name>
+  <update_contact>limesayahi@gmail.com</update_contact>
+    <launchable type="desktop-id">com.github.madebyemil.oku.desktop</launchable>
+</component>

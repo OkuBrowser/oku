@@ -29,7 +29,8 @@ use pango::EllipsizeMode;
 use percent_encoding::percent_decode_str;
 use webkit2gtk::SettingsExt;
 use webkit2gtk::WebContextExt;
-
+use gio::prelude::*;
+use std::env::args;
 use glib::clone;
 use gtk::prelude::BuilderExtManual;
 use gtk::ButtonExt;
@@ -206,8 +207,21 @@ fn initial_tab(builder: &gtk::Builder, tabs: &gtk::Notebook) {
     }));
 }
 
-/// The main function of Oku. Creates a new functional & graphical browser window.
+/// The main function of Oku.
 fn main() {
+    let application =
+        gtk::Application::new(Some("com.github.madebyemil.oku"), Default::default())
+            .expect("Initialization failed … ");
+
+    application.connect_activate(|app| {
+        new_window(app);
+    });
+
+    application.run(&args().collect::<Vec<_>>());
+}
+
+/// Creates a new functional & graphical browser window.
+fn new_window(application: &gtk::Application) {
     if gtk::init().is_err() {
         println!("Failed to initialize GTK.");
         return;
@@ -216,7 +230,7 @@ fn main() {
     let glade_src = include_str!("window.glade");
     let builder = gtk::Builder::from_string(glade_src);
 
-    let window: gtk::Window = builder.get_object("window").unwrap();
+    let window: gtk::ApplicationWindow = builder.get_object("window").unwrap();
     let _downloads_button: gtk::Button = builder.get_object("downloads_button").unwrap();
     let back_button: gtk::Button = builder.get_object("back_button").unwrap();
     let forward_button: gtk::Button = builder.get_object("forward_button").unwrap();
@@ -224,6 +238,8 @@ fn main() {
     let add_tab: gtk::Button = builder.get_object("add_tab").unwrap();
     let tabs: gtk::Notebook = builder.get_object("tabs").unwrap();
     let nav_entry: gtk::Entry = builder.get_object("nav_entry").unwrap();
+
+    window.set_application(Some(application));
 
     if tabs.get_n_pages() == 0 {
         initial_tab(&builder, &tabs)
