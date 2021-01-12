@@ -4,7 +4,7 @@
     "runtime-version": "20.08",
     "sdk": "org.freedesktop.Sdk",
     "sdk-extensions" : [
-        "org.freedesktop.Sdk.Extension.rust-nightly"
+        "org.freedesktop.Sdk.Extension.rust-stable"
     ],
     "command": "oku",
     "finish-args": [
@@ -14,7 +14,7 @@
         "--device=dri"
     ],
     "build-options": {
-        "append-path" : "/usr/lib/sdk/rust-nightly/bin",
+        "append-path" : "/usr/lib/sdk/rust-stable/bin",
         "env" : {
             "RUSTFLAGS" : "--remap-path-prefix =../",
             "CARGO_HOME" : "/run/build/oku/cargo"
