@@ -25,6 +25,7 @@ jobs:
         pip3 install --quiet siphash toml
         python3 ./flatpak-cargo-generator.py ./Cargo.lock -o ./build-aux/cargo-sources.json
         sudo apt-get -qq install flatpak flatpak-builder > /dev/null
+        sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
     - name: Build & package Oku
       uses: bilelmoussaoui/flatpak-github-actions@v1
       with:
