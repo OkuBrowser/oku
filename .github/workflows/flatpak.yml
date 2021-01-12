@@ -27,6 +27,7 @@ jobs:
         pip3 install --user --upgrade --quiet setuptools
         pip3 install --user --quiet siphash toml
         python3 ./flatpak-cargo-generator.py ./Cargo.lock -o ./build-aux/cargo-sources.json
+        sudo dnf -q -y install webkit2gtk3-devel.x86_64 > /dev/null
     - name: Build & package Oku
       uses: bilelmoussaoui/flatpak-github-actions@v1
       with:
