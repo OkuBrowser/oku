@@ -7,6 +7,9 @@ jobs:
   flatpak-builder:
     name: GNU + Linux (x86_64)
     runs-on: ubuntu-latest
+    container:
+      image: docker.io/bilelmoussaoui/flatpak-github-actions
+      options: --privileged
     steps:
     - name: Checkout codebase
       uses: actions/checkout@v2
@@ -21,8 +24,8 @@ jobs:
       run: |
         cargo update
         curl -s https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/cargo/flatpak-cargo-generator.py --output flatpak-cargo-generator.py > /dev/null
-        pip3 install --upgrade --quiet setuptools
-        pip3 install --quiet siphash toml
+        pip3 install --user --upgrade --quiet setuptools
+        pip3 install --user --quiet siphash toml
         python3 ./flatpak-cargo-generator.py ./Cargo.lock -o ./build-aux/cargo-sources.json
         sudo apt-get -qq install flatpak flatpak-builder > /dev/null
         sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
