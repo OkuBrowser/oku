@@ -283,9 +283,7 @@ fn new_window(application: &gtk::Application) {
             if load_progress == 1.00
             {
                 nav_entry.set_progress_fraction(0.00)
-            }
-            else
-            {
+            } else {
                 nav_entry.set_progress_fraction(load_progress)
             }
 
