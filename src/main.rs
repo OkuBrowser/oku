@@ -15,6 +15,8 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use webkit2gtk::URISchemeRequestExt;
+use webkit2gtk::URISchemeRequest;
 use directories_next::ProjectDirs;
 use gio::prelude::*;
 use glib::clone;
@@ -38,6 +40,11 @@ use std::env::args;
 use webkit2gtk::SettingsExt;
 use webkit2gtk::WebContextExt;
 use webkit2gtk::WebViewExt;
+use ipfs_api::IpfsClient;
+use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
+use futures::TryStreamExt;
 
 #[macro_use]
 extern crate lazy_static;
@@ -45,6 +52,7 @@ extern crate lazy_static;
 lazy_static! {
     static ref PROJECT_DIRECTORIES: ProjectDirs =
         ProjectDirs::from("org", "Emil Sayahi", "Oku").unwrap();
+    static ref CACHE_DIR: &'static str = PROJECT_DIRECTORIES.cache_dir().to_str().unwrap();
 }
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 
@@ -97,6 +105,23 @@ fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
     nav_entry.set_text(&url);
 }
 
+/// Comply with a request using the IPFS scheme
+/// 
+/// # Arguments
+/// 
+/// `request` - The request from the browser for the IPFS resource
+fn handle_ipfs_request(request: &URISchemeRequest)
+{
+    let client = IpfsClient::default();
+    let request_url = request.get_uri().unwrap().to_string();
+    let ipfs_path = request_url.replacen("ipfs://", "", 1);
+    let local_path = format!("{}/{}", CACHE_DIR.to_string(), ipfs_path);
+    get_from_hash(client, ipfs_path, local_path.to_owned());
+    let file = gio::File::new_for_path(&local_path);
+    let stream = file.read(gio::NONE_CANCELLABLE).unwrap();
+    request.finish(&stream, -1, None);
+}
+
 /// Create a new WebKit instance for the current tab
 ///
 /// # Arguments
@@ -106,6 +131,11 @@ fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
     let web_kit = webkit2gtk::WebViewBuilder::new();
     let web_settings: webkit2gtk::Settings = builder.get_object("webkit_settings").unwrap();
     let web_view = web_kit.build();
+    let web_context = web_view.get_context().unwrap();
+    web_context.register_uri_scheme("ipfs",
+    move |request| {
+        handle_ipfs_request(request)
+    });
     web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
     web_view.set_settings(&web_settings);
     let extensions_path = format!(
@@ -121,6 +151,57 @@ fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
     web_view.set_property_height_request(640);
     web_view.load_uri("about:blank");
     web_view
+}
+
+/// Asynchronously obtain an IPFS file
+/// 
+/// # Arguments
+/// 
+/// `client` - The IPFS client running locally
+/// 
+/// `hash` - The IPFS identifier of the file
+/// 
+/// `local_directory` - Where to save the IPFS file locally
+fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
+    let mut hierarchy = HashMap::new();
+    hierarchy.insert(hash.to_owned(), local_directory.to_owned());
+    let mut sys = actix_rt::System::new(format!("Oku IPFS System ({})", hash));
+    sys.block_on(async move {
+        ipfs_download_file(&client, hash.to_owned(), local_directory.to_owned()).await;
+        // println!(
+        //     "Requesting: {} (local: {}) … \n",
+        //     hash.to_owned(),
+        //     local_directory.to_owned()
+        // );
+    });
+}
+
+/// Download an IPFS file to the local machine
+/// 
+/// # Arguments
+/// 
+/// `client` - The IPFS client running locally
+/// 
+/// `file_hash` - The CID of the folder the file is in
+/// 
+/// `file_path` - The path to the file from the root of the folder
+async fn ipfs_download_file(client: &IpfsClient, file_hash: String, file_path: String) {
+    match client
+        .cat(&file_hash)
+        .map_ok(|chunk| chunk.to_vec())
+        .try_concat()
+        .await
+    {
+        Ok(res) => {
+            //println!("\nWriting: {} ({}) … \n", file_path, file_hash);
+            fs::create_dir_all(Path::new(&file_path[..]).parent().unwrap()).unwrap();
+            fs::write(file_path, &res).unwrap();
+        }
+        Err(e) => eprintln!(
+            "\nFailed to obtain file: {} ({})\nError: {:#?}\n",
+            file_path, file_hash, e
+        ),
+    }
 }
 
 /// Create the text to be displayed on a tab
@@ -170,7 +251,7 @@ fn new_tab_page(
     tabs: &gtk::Notebook,
     new_tab_number: u32,
 ) -> webkit2gtk::WebView {
-    let new_view = new_view(&builder);
+    let new_view = new_view(builder);
     tabs.insert_page(&new_view, Some(&new_tab("New Tab")), Some(new_tab_number));
     tabs.set_tab_reorderable(&new_view, true);
     tabs.set_tab_detachable(&new_view, true);
