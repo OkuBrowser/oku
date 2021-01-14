@@ -50,10 +50,13 @@ use webkit2gtk::WebViewExt;
 extern crate lazy_static;
 
 lazy_static! {
+    /// The platform-specific directories intended for Oku's use
     static ref PROJECT_DIRECTORIES: ProjectDirs =
         ProjectDirs::from("org", "Emil Sayahi", "Oku").unwrap();
+    /// The platform-specific directory where Oku caches data
     static ref CACHE_DIR: &'static str = PROJECT_DIRECTORIES.cache_dir().to_str().unwrap();
 }
+/// The current release version number of Oku
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 
 /// Connect to a page using the current tab
