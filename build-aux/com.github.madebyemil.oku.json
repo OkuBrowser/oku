@@ -30,7 +30,7 @@
                 "install -Dm755 ./target/release/oku -t /app/bin/",
                 "install -Dm644 ./data/${FLATPAK_ID}.metainfo.xml -t /app/share/metainfo/",
                 "install -Dm644 ./data/${FLATPAK_ID}.desktop -t /app/share/applications/",
-                "cp -avr ./data/hicolor /app/share/icons",
+                "cp -avr ./data/hicolor /app/share/icons/hicolor",
                 "chmod -R 644 /app/share/icons/hicolor",
                 "install -Dm644 ./README -t /app/share/doc/oku/",
                 "install -Dm644 ./COPYING -t /app/share/doc/oku/"
