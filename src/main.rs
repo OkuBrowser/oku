@@ -15,9 +15,8 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use webkit2gtk::URISchemeRequestExt;
-use webkit2gtk::URISchemeRequest;
 use directories_next::ProjectDirs;
+use futures::TryStreamExt;
 use gio::prelude::*;
 use glib::clone;
 use glib::Cast;
@@ -34,17 +33,18 @@ use gtk::LabelExt;
 use gtk::NotebookExt;
 use gtk::Orientation::Horizontal;
 use gtk::WidgetExt;
+use ipfs_api::IpfsClient;
 use pango::EllipsizeMode;
 use percent_encoding::percent_decode_str;
-use std::env::args;
-use webkit2gtk::SettingsExt;
-use webkit2gtk::WebContextExt;
-use webkit2gtk::WebViewExt;
-use ipfs_api::IpfsClient;
 use std::collections::HashMap;
+use std::env::args;
 use std::fs;
 use std::path::Path;
-use futures::TryStreamExt;
+use webkit2gtk::SettingsExt;
+use webkit2gtk::URISchemeRequest;
+use webkit2gtk::URISchemeRequestExt;
+use webkit2gtk::WebContextExt;
+use webkit2gtk::WebViewExt;
 
 #[macro_use]
 extern crate lazy_static;
@@ -106,12 +106,11 @@ fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 }
 
 /// Comply with a request using the IPFS scheme
-/// 
+///
 /// # Arguments
-/// 
+///
 /// `request` - The request from the browser for the IPFS resource
-fn handle_ipfs_request(request: &URISchemeRequest)
-{
+fn handle_ipfs_request(request: &URISchemeRequest) {
     let client = IpfsClient::default();
     let request_url = request.get_uri().unwrap().to_string();
     let ipfs_path = request_url.replacen("ipfs://", "", 1);
@@ -132,10 +131,7 @@ fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
     let web_settings: webkit2gtk::Settings = builder.get_object("webkit_settings").unwrap();
     let web_view = web_kit.build();
     let web_context = web_view.get_context().unwrap();
-    web_context.register_uri_scheme("ipfs",
-    move |request| {
-        handle_ipfs_request(request)
-    });
+    web_context.register_uri_scheme("ipfs", move |request| handle_ipfs_request(request));
     web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
     web_view.set_settings(&web_settings);
     let extensions_path = format!(
@@ -154,13 +150,13 @@ fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
 }
 
 /// Asynchronously obtain an IPFS file
-/// 
+///
 /// # Arguments
-/// 
+///
 /// `client` - The IPFS client running locally
-/// 
+///
 /// `hash` - The IPFS identifier of the file
-/// 
+///
 /// `local_directory` - Where to save the IPFS file locally
 fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
     let mut hierarchy = HashMap::new();
@@ -177,13 +173,13 @@ fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
 }
 
 /// Download an IPFS file to the local machine
-/// 
+///
 /// # Arguments
-/// 
+///
 /// `client` - The IPFS client running locally
-/// 
+///
 /// `file_hash` - The CID of the folder the file is in
-/// 
+///
 /// `file_path` - The path to the file from the root of the folder
 async fn ipfs_download_file(client: &IpfsClient, file_hash: String, file_path: String) {
     match client
