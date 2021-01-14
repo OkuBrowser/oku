@@ -29,7 +29,7 @@ install_data(
     install_dir: datadir / 'metainfo'
 )
 
-install_data(
+install_subdir(
     'hicolor',
     install_dir: datadir / 'icons'
 )

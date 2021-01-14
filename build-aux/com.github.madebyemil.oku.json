@@ -1,8 +1,8 @@
 {
     "app-id": "com.github.madebyemil.oku",
-    "runtime": "org.freedesktop.Platform",
-    "runtime-version": "20.08",
-    "sdk": "org.freedesktop.Sdk",
+    "runtime": "org.gnome.Platform",
+    "runtime-version": "3.38",
+    "sdk": "org.gnome.Sdk",
     "sdk-extensions" : [
         "org.freedesktop.Sdk.Extension.rust-stable"
     ],
@@ -30,7 +30,8 @@
                 "install -Dm755 ./target/release/oku -t /app/bin/",
                 "install -Dm644 ./data/${FLATPAK_ID}.metainfo.xml -t /app/share/metainfo/",
                 "install -Dm644 ./data/${FLATPAK_ID}.desktop -t /app/share/applications/",
-                "install -Dm644 ./data/hicolor/*/** -t /app/share/icons/hicolor/scalable/apps/",
+                "cp -avr ./data/hicolor /app/share/icons",
+                "chmod -R 644 /app/share/icons/hicolor",
                 "install -Dm644 ./README -t /app/share/doc/oku/",
                 "install -Dm644 ./COPYING -t /app/share/doc/oku/"
             ],
