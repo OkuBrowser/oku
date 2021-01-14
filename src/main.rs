@@ -287,7 +287,7 @@ fn initial_tab(builder: &gtk::Builder, tabs: &gtk::Notebook) {
     }));
 }
 
-/// The main function of Oku.
+/// The main function of Oku
 fn main() {
     let application = gtk::Application::new(Some("com.github.madebyemil.oku"), Default::default())
         .expect("Initialization failed … ");
@@ -299,7 +299,7 @@ fn main() {
     application.run(&args().collect::<Vec<_>>());
 }
 
-/// Creates a new functional & graphical browser window.
+/// Creates a new functional & graphical browser window
 fn new_window(application: &gtk::Application) {
     if gtk::init().is_err() {
         println!("Failed to initialize GTK.");
