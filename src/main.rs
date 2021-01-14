@@ -278,6 +278,10 @@ fn new_window(application: &gtk::Application) {
         }));
         web_view.connect_load_changed(clone!(@weak tabs, @weak nav_entry => move |_, _| {
             let web_view = get_view(&tabs);
+            if web_view.get_uri().unwrap().starts_with("ipfs://")
+            {
+                connect(&nav_entry, &web_view)
+            }
 
             let load_progress = web_view.get_estimated_load_progress();
             if load_progress == 1.00
