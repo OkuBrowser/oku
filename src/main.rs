@@ -15,7 +15,6 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use gtk::ImageExt;
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
 use gio::prelude::*;
@@ -29,6 +28,7 @@ use gtk::ContainerExt;
 use gtk::EntryExt;
 use gtk::GtkWindowExt;
 use gtk::IconSize::Button;
+use gtk::ImageExt;
 use gtk::Inhibit;
 use gtk::LabelExt;
 use gtk::NotebookExt;
@@ -293,22 +293,19 @@ fn initial_tab(builder: &gtk::Builder, tabs: &gtk::Notebook) {
     }));
 }
 
-
 /// Update the currently displayed favicon
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `web_view` - The WebKit instance for the current tab
-/// 
+///
 /// * `tabs` - The notebook containing the tabs & pages of the current browser session
-fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook)
-{
+fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
     let current_tab_label: gtk::Box = tabs.get_tab_label(web_view).unwrap().downcast().unwrap();
     let favicon_widget = &current_tab_label.get_children()[0];
     let favicon: gtk::Image = favicon_widget.clone().downcast().unwrap();
     let web_favicon = &web_view.get_favicon();
-    match &web_favicon
-    {
+    match &web_favicon {
         Some(_) => {
             favicon.set_visible(true);
             favicon.set_from_surface(Some(&web_favicon.as_ref().unwrap()));
