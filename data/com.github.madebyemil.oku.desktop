@@ -6,5 +6,5 @@ Exec=oku
 Terminal=false
 Categories=Utility;GTK;
 Keywords=Rust;Flatpak;GTK;
-Icon=applications-internet
+Icon=com.github.madebyemil.oku
 StartupNotify=true
