@@ -15,6 +15,7 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use gtk::ImageExt;
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
 use gio::prelude::*;
@@ -130,21 +131,20 @@ fn handle_ipfs_request(request: &URISchemeRequest) {
 ///
 /// * `builder` - The object that contains all graphical widgets of the window
 fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
-    let web_kit = webkit2gtk::WebViewBuilder::new();
+    let web_kit = webkit2gtk::WebViewBuilder::new().is_ephemeral(false);
     let web_settings: webkit2gtk::Settings = builder.get_object("webkit_settings").unwrap();
     let web_view = web_kit.build();
     let web_context = web_view.get_context().unwrap();
-    web_context.register_uri_scheme("ipfs", move |request| handle_ipfs_request(request));
-    web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
-    web_view.set_settings(&web_settings);
     let extensions_path = format!(
         "{}/web-extensions/",
         PROJECT_DIRECTORIES.data_dir().to_str().unwrap()
     );
-    web_view
-        .get_context()
-        .unwrap()
-        .set_web_extensions_directory(&extensions_path);
+    let favicon_database_path = format!("{}/favicon-database/", CACHE_DIR.to_string());
+    web_context.register_uri_scheme("ipfs", move |request| handle_ipfs_request(request));
+    web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
+    web_view.set_settings(&web_settings);
+    web_context.set_web_extensions_directory(&extensions_path);
+    web_context.set_favicon_database_directory(Some(&favicon_database_path));
     web_view.set_visible(true);
     web_view.set_property_width_request(1024);
     web_view.set_property_height_request(640);
@@ -192,7 +192,6 @@ async fn ipfs_download_file(client: &IpfsClient, file_hash: String, file_path: S
         .await
     {
         Ok(res) => {
-            //println!("\nWriting: {} ({}) … \n", file_path, file_hash);
             fs::create_dir_all(Path::new(&file_path[..]).parent().unwrap()).unwrap();
             fs::write(file_path, &res).unwrap();
         }
@@ -222,15 +221,22 @@ fn new_tab_label(label: &str) -> gtk::Label {
 ///
 /// * `label` - The text to be displayed on a tab
 fn new_tab(label: &str) -> gtk::Box {
-    let tab_box = gtk::Box::new(Horizontal, 4);
-    tab_box.set_hexpand(true);
-    tab_box.set_visible(true);
+    let tab_box = gtk::Box::new(Horizontal, 5);
+    let favicon = gtk::Image::new();
     let tab_label = new_tab_label(&label);
     let close_button = gtk::Button::new();
-    close_button.set_visible(true);
     let close_icon = gtk::Image::from_icon_name(Some("list-remove"), Button);
+    tab_box.set_hexpand(true);
+    tab_box.set_vexpand(false);
+    tab_box.set_visible(true);
+    close_button.set_visible(true);
     close_button.set_image(Some(&close_icon));
     close_icon.set_visible(true);
+    favicon.set_vexpand(false);
+    favicon.set_hexpand(false);
+    favicon.set_valign(gtk::Align::Start);
+    favicon.set_halign(gtk::Align::Start);
+    tab_box.add(&favicon);
     tab_box.add(&tab_label);
     tab_box.add(&close_button);
     tab_box
@@ -280,11 +286,37 @@ fn get_view(tabs: &gtk::Notebook) -> webkit2gtk::WebView {
 fn initial_tab(builder: &gtk::Builder, tabs: &gtk::Notebook) {
     let web_view = new_tab_page(&builder, &tabs, 0);
     let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
-    let close_button_widget = &current_tab_label.get_children()[1];
+    let close_button_widget = &current_tab_label.get_children()[2];
     let close_button: gtk::Button = close_button_widget.clone().downcast().unwrap();
     close_button.connect_clicked(clone!(@weak tabs, @weak web_view => move |_| {
         tabs.remove_page(tabs.page_num(&web_view));
     }));
+}
+
+
+/// Update the currently displayed favicon
+/// 
+/// # Arguments
+/// 
+/// * `web_view` - The WebKit instance for the current tab
+/// 
+/// * `tabs` - The notebook containing the tabs & pages of the current browser session
+fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook)
+{
+    let current_tab_label: gtk::Box = tabs.get_tab_label(web_view).unwrap().downcast().unwrap();
+    let favicon_widget = &current_tab_label.get_children()[0];
+    let favicon: gtk::Image = favicon_widget.clone().downcast().unwrap();
+    let web_favicon = &web_view.get_favicon();
+    match &web_favicon
+    {
+        Some(_) => {
+            favicon.set_visible(true);
+            favicon.set_from_surface(Some(&web_favicon.as_ref().unwrap()));
+        }
+        None => {
+            favicon.set_visible(false);
+        }
+    }
 }
 
 /// The main function of Oku
@@ -348,13 +380,27 @@ fn new_window(application: &gtk::Application) {
             let web_view = get_view(&tabs);
             let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
             let new_label_text = new_tab_label(&web_view.get_title().unwrap());
-            current_tab_label.remove(&current_tab_label.get_children()[0]);
+            current_tab_label.remove(&current_tab_label.get_children()[1]);
             current_tab_label.add(&new_label_text);
-            current_tab_label.reorder_child(&new_label_text, 0)
+            current_tab_label.reorder_child(&new_label_text, 1)
         }));
         web_view.connect_property_uri_notify(clone!(@weak tabs, @weak nav_entry => move |_| {
             let web_view = get_view(&tabs);
             update_nav_bar(&nav_entry, &web_view)
+        }));
+        web_view.connect_property_estimated_load_progress_notify(clone!(@weak tabs, @weak nav_entry => move |_| {
+            let web_view = get_view(&tabs);
+            let load_progress = web_view.get_estimated_load_progress();
+            if load_progress == 1.00
+            {
+                nav_entry.set_progress_fraction(0.00)
+            } else {
+                nav_entry.set_progress_fraction(load_progress)
+            }
+        }));
+        web_view.connect_property_favicon_notify(clone!(@weak tabs, @weak nav_entry => move |_| {
+            let web_view = get_view(&tabs);
+            update_favicon(&web_view, &tabs)
         }));
         web_view.connect_load_changed(clone!(@weak tabs, @weak nav_entry => move |_, _| {
             let web_view = get_view(&tabs);
@@ -371,14 +417,15 @@ fn new_window(application: &gtk::Application) {
                 nav_entry.set_progress_fraction(load_progress)
             }
 
-            update_nav_bar(&nav_entry, &web_view)
+            update_nav_bar(&nav_entry, &web_view);
+            update_favicon(&web_view, &tabs)
         }));
     }));
 
     add_tab.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
         let web_view = new_tab_page(&builder, &tabs, tabs.get_n_pages());
         let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
-        let close_button_widget = &current_tab_label.get_children()[1];
+        let close_button_widget = &current_tab_label.get_children()[2];
         let close_button: gtk::Button = close_button_widget.clone().downcast().unwrap();
         close_button.connect_clicked(clone!(@weak tabs => move |_| {
             tabs.remove_page(tabs.page_num(&web_view));
