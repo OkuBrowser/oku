@@ -8,10 +8,15 @@
     ],
     "command": "oku",
     "finish-args": [
+        "--share=network",
         "--share=ipc",
         "--socket=fallback-x11",
         "--socket=wayland",
-        "--device=dri"
+        "--device=dri",
+        "--socket=pulseaudio",
+        "--socket=system-bus",
+        "--filesystem=host",
+        "--device=all"
     ],
     "build-options": {
         "append-path" : "/usr/lib/sdk/rust-stable/bin",
