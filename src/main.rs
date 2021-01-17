@@ -232,10 +232,6 @@ fn new_tab(label: &str) -> gtk::Box {
     close_button.set_visible(true);
     close_button.set_image(Some(&close_icon));
     close_icon.set_visible(true);
-    favicon.set_vexpand(false);
-    favicon.set_hexpand(false);
-    favicon.set_valign(gtk::Align::Start);
-    favicon.set_halign(gtk::Align::Start);
     tab_box.add(&favicon);
     tab_box.add(&tab_label);
     tab_box.add(&close_button);
