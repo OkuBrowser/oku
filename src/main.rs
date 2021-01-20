@@ -335,11 +335,9 @@ fn update_title(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
 /// * `nav_entry` - The navigation bar of the browser
 ///
 /// * `web_view` - The WebKit instance for the current tab
-fn update_load_progress(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView)
-{
+fn update_load_progress(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
     let load_progress = web_view.get_estimated_load_progress();
-    if load_progress as i64 == 1
-    {
+    if load_progress as i64 == 1 {
         nav_entry.set_progress_fraction(0.00)
     } else {
         nav_entry.set_progress_fraction(load_progress)
