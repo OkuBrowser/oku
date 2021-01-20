@@ -2,7 +2,7 @@ name: Publish documentation to GitHub Pages
 on: [push]
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     name: "Publish documentation"
     steps:
     - name: Install development dependencies
