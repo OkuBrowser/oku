@@ -153,7 +153,7 @@ fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
     web_view
 }
 
-/// Asynchronously obtain an IPFS file
+/// Get an IPFS file asynchronously
 ///
 /// # Arguments
 ///
@@ -167,7 +167,7 @@ fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
     hierarchy.insert(hash.to_owned(), local_directory.to_owned());
     let mut sys = actix_rt::System::new(format!("Oku IPFS System ({})", hash));
     sys.block_on(async move {
-        ipfs_download_file(&client, hash.to_owned(), local_directory.to_owned()).await;
+        download_ipfs_file(&client, hash.to_owned(), local_directory.to_owned()).await;
         // println!(
         //     "Requesting: {} (local: {}) … \n",
         //     hash.to_owned(),
@@ -185,7 +185,7 @@ fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
 /// `file_hash` - The CID of the folder the file is in
 ///
 /// `file_path` - The path to the file from the root of the folder
-async fn ipfs_download_file(client: &IpfsClient, file_hash: String, file_path: String) {
+async fn download_ipfs_file(client: &IpfsClient, file_hash: String, file_path: String) {
     match client
         .cat(&file_hash)
         .map_ok(|chunk| chunk.to_vec())
@@ -280,7 +280,7 @@ fn get_view(tabs: &gtk::Notebook) -> webkit2gtk::WebView {
 /// * `builder` - The object that contains all graphical widgets of the window
 ///
 /// * `tabs` - The notebook containing the tabs & pages of the current browser session
-fn initial_tab(builder: &gtk::Builder, tabs: &gtk::Notebook) {
+fn create_initial_tab(builder: &gtk::Builder, tabs: &gtk::Notebook) {
     let web_view = new_tab_page(&builder, &tabs, 0);
     let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
     let close_button_widget = &current_tab_label.get_children()[2];
@@ -356,7 +356,7 @@ fn main() {
     application.run(&args().collect::<Vec<_>>());
 }
 
-/// Creates a new functional & graphical browser window
+/// Create a new functional & graphical browser window
 fn new_window(application: &gtk::Application) {
     if gtk::init().is_err() {
         println!("Failed to initialize GTK.");
@@ -379,7 +379,7 @@ fn new_window(application: &gtk::Application) {
     window.set_application(Some(application));
 
     if tabs.get_n_pages() == 0 {
-        initial_tab(&builder, &tabs)
+        create_initial_tab(&builder, &tabs)
     }
 
     tabs.connect_property_page_notify(
@@ -395,7 +395,7 @@ fn new_window(application: &gtk::Application) {
             if tabs.get_n_pages() == 0
             {
                 nav_entry.set_text("");
-                initial_tab(&builder, &tabs)
+                create_initial_tab(&builder, &tabs)
             }
         }),
     );
