@@ -328,6 +328,24 @@ fn update_title(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
     current_tab_label.reorder_child(&new_label_text, 1);
 }
 
+/// Update the load progress indicator under the navigation bar
+///
+/// # Arguments
+///
+/// * `nav_entry` - The navigation bar of the browser
+///
+/// * `web_view` - The WebKit instance for the current tab
+fn update_load_progress(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView)
+{
+    let load_progress = web_view.get_estimated_load_progress();
+    if load_progress as i64 == 1
+    {
+        nav_entry.set_progress_fraction(0.00)
+    } else {
+        nav_entry.set_progress_fraction(load_progress)
+    }
+}
+
 /// The main function of Oku
 fn main() {
     let application = gtk::Application::new(Some("com.github.madebyemil.oku"), Default::default())
@@ -394,13 +412,7 @@ fn new_window(application: &gtk::Application) {
             update_nav_bar(&nav_entry, &web_view)
         }));
         web_view.connect_property_estimated_load_progress_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
-            let load_progress = web_view.get_estimated_load_progress();
-            if load_progress == 1.00
-            {
-                nav_entry.set_progress_fraction(0.00)
-            } else {
-                nav_entry.set_progress_fraction(load_progress)
-            }
+            update_load_progress(&nav_entry, &web_view)
         }));
         web_view.connect_property_favicon_notify(clone!(@weak tabs, @weak web_view => move |_| {
             update_favicon(&web_view, &tabs)
@@ -408,13 +420,7 @@ fn new_window(application: &gtk::Application) {
         web_view.connect_load_changed(clone!(@weak tabs, @weak web_view, @weak nav_entry, @weak window => move |_, _| {
             window.set_title(&web_view.get_title().unwrap_or(glib::GString::from("Oku")));
 
-            let load_progress = web_view.get_estimated_load_progress();
-            if load_progress == 1.00
-            {
-                nav_entry.set_progress_fraction(0.00)
-            } else {
-                nav_entry.set_progress_fraction(load_progress)
-            }
+            update_load_progress(&nav_entry, &web_view);
 
             update_nav_bar(&nav_entry, &web_view)
         }));
