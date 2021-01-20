@@ -8,7 +8,7 @@ name: Lint codebase
 jobs:
   code_lint:
     name: Lint codebase
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout codebase
         uses: actions/checkout@v2

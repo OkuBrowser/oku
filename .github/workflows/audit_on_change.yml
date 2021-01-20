@@ -7,7 +7,7 @@ on:
 jobs:
   security_audit:
     name: Security audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/audit-check@v1

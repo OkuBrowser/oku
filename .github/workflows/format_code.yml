@@ -8,7 +8,7 @@ name: Format codebase
 jobs:
   code_format:
     name: Format codebase
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout codebase
         uses: actions/checkout@v2
