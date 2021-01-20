@@ -105,18 +105,22 @@ fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 fn handle_ipfs_request(request: &URISchemeRequest) {
     let client = IpfsClient::default();
     let request_url = request.get_uri().unwrap().to_string();
-    let decoded_url = percent_encoding::percent_decode_str(&request_url).decode_utf8().unwrap();
+    let decoded_url = percent_encoding::percent_decode_str(&request_url)
+        .decode_utf8()
+        .unwrap();
     let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
     let local_path = format!("{}/{}", CACHE_DIR.to_string(), ipfs_path);
     get_from_hash(client, ipfs_path, local_path.to_owned());
     let file = gio::File::new_for_path(&local_path);
     let stream = file.read(gio::NONE_CANCELLABLE);
-    
-    match stream
-    {
-        Ok(_) =>  request.finish(&stream.unwrap(), -1, None),
+
+    match stream {
+        Ok(_) => request.finish(&stream.unwrap(), -1, None),
         Err(e) => {
-            eprintln!("\nFailed to obtain page: {}\nError: {:#?}\n", decoded_url, e);
+            eprintln!(
+                "\nFailed to obtain page: {}\nError: {:#?}\n",
+                decoded_url, e
+            );
             request.finish(&gio::MemoryInputStream::new(), -1, None);
         }
     }
