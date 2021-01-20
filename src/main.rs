@@ -320,8 +320,7 @@ fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
 /// * `web_view` - The WebKit instance for the tab
 ///
 /// * `tabs` - The notebook containing the tabs & pages of the current browser session
-fn update_title(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook)
-{
+fn update_title(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
     let current_tab_label: gtk::Box = tabs.get_tab_label(web_view).unwrap().downcast().unwrap();
     let new_label_text = new_tab_label(&web_view.get_title().unwrap());
     current_tab_label.remove(&current_tab_label.get_children()[1]);
