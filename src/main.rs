@@ -290,11 +290,11 @@ fn initial_tab(builder: &gtk::Builder, tabs: &gtk::Notebook) {
     }));
 }
 
-/// Update the currently displayed favicon
+/// Update a tab's icon
 ///
 /// # Arguments
 ///
-/// * `web_view` - The WebKit instance for the current tab
+/// * `web_view` - The WebKit instance for the tab
 ///
 /// * `tabs` - The notebook containing the tabs & pages of the current browser session
 fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
@@ -311,6 +311,22 @@ fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
             favicon.set_visible(false);
         }
     }
+}
+
+/// Update a tab's title
+///
+/// # Arguments
+///
+/// * `web_view` - The WebKit instance for the tab
+///
+/// * `tabs` - The notebook containing the tabs & pages of the current browser session
+fn update_title(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook)
+{
+    let current_tab_label: gtk::Box = tabs.get_tab_label(web_view).unwrap().downcast().unwrap();
+    let new_label_text = new_tab_label(&web_view.get_title().unwrap());
+    current_tab_label.remove(&current_tab_label.get_children()[1]);
+    current_tab_label.add(&new_label_text);
+    current_tab_label.reorder_child(&new_label_text, 1);
 }
 
 /// The main function of Oku
@@ -336,6 +352,7 @@ fn new_window(application: &gtk::Application) {
     let builder = gtk::Builder::from_string(glade_src);
 
     let window: gtk::ApplicationWindow = builder.get_object("window").unwrap();
+    window.set_title("Oku");
     let _downloads_button: gtk::Button = builder.get_object("downloads_button").unwrap();
     let back_button: gtk::Button = builder.get_object("back_button").unwrap();
     let forward_button: gtk::Button = builder.get_object("forward_button").unwrap();
@@ -351,9 +368,10 @@ fn new_window(application: &gtk::Application) {
     }
 
     tabs.connect_property_page_notify(
-        clone!(@weak nav_entry, @weak builder, @weak tabs => move |_| {
+        clone!(@weak nav_entry, @weak builder, @weak tabs, @weak window => move |_| {
             let web_view = get_view(&tabs);
             update_nav_bar(&nav_entry, &web_view);
+            window.set_title(&web_view.get_title().unwrap_or(glib::GString::from("Oku")));
         }),
     );
 
@@ -367,23 +385,16 @@ fn new_window(application: &gtk::Application) {
         }),
     );
 
-    nav_entry.connect_activate(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+    nav_entry.connect_activate(clone!(@weak tabs, @weak nav_entry, @weak builder, @weak window => move |_| {
         let web_view = get_view(&tabs);
         connect(&nav_entry, &web_view);
-        web_view.connect_property_title_notify(clone!(@weak tabs => move |_| {
-            let web_view = get_view(&tabs);
-            let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
-            let new_label_text = new_tab_label(&web_view.get_title().unwrap());
-            current_tab_label.remove(&current_tab_label.get_children()[1]);
-            current_tab_label.add(&new_label_text);
-            current_tab_label.reorder_child(&new_label_text, 1)
+        web_view.connect_property_title_notify(clone!(@weak tabs, @weak web_view => move |_| {
+            update_title(&web_view, &tabs)
         }));
-        web_view.connect_property_uri_notify(clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = get_view(&tabs);
+        web_view.connect_property_uri_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
             update_nav_bar(&nav_entry, &web_view)
         }));
-        web_view.connect_property_estimated_load_progress_notify(clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = get_view(&tabs);
+        web_view.connect_property_estimated_load_progress_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
             let load_progress = web_view.get_estimated_load_progress();
             if load_progress == 1.00
             {
@@ -392,12 +403,11 @@ fn new_window(application: &gtk::Application) {
                 nav_entry.set_progress_fraction(load_progress)
             }
         }));
-        web_view.connect_property_favicon_notify(clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = get_view(&tabs);
+        web_view.connect_property_favicon_notify(clone!(@weak tabs, @weak web_view => move |_| {
             update_favicon(&web_view, &tabs)
         }));
-        web_view.connect_load_changed(clone!(@weak tabs, @weak nav_entry => move |_, _| {
-            let web_view = get_view(&tabs);
+        web_view.connect_load_changed(clone!(@weak tabs, @weak web_view, @weak nav_entry, @weak window => move |_, _| {
+            window.set_title(&web_view.get_title().unwrap_or(glib::GString::from("Oku")));
 
             let load_progress = web_view.get_estimated_load_progress();
             if load_progress == 1.00
@@ -407,8 +417,7 @@ fn new_window(application: &gtk::Application) {
                 nav_entry.set_progress_fraction(load_progress)
             }
 
-            update_nav_bar(&nav_entry, &web_view);
-            update_favicon(&web_view, &tabs)
+            update_nav_bar(&nav_entry, &web_view)
         }));
     }));
 
