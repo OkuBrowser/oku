@@ -36,7 +36,6 @@ use gtk::Orientation::Horizontal;
 use gtk::WidgetExt;
 use ipfs_api::IpfsClient;
 use pango::EllipsizeMode;
-use percent_encoding::percent_decode_str;
 use std::collections::HashMap;
 use std::env::args;
 use std::fs;
@@ -70,22 +69,11 @@ const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
     let mut nav_text = nav_entry.get_text().to_string();
 
-    if !nav_text.contains("://") {
+    if !nav_text.contains("://") && !nav_text.starts_with("about:") {
         nav_text = format!("http://{}", nav_text);
     }
 
-    if nav_text.starts_with("ipfs://") {
-        let hash = nav_text.replacen("ipfs://", "", 1);
-        let decoded_hash = percent_decode_str(&hash).decode_utf8().unwrap().to_string();
-        let split_hash: Vec<&str> = decoded_hash.split('/').collect();
-        let path = &decoded_hash
-            .replacen(split_hash[0], "", 1)
-            .replacen('/', "", 1);
-        let gateway_url = format!("http://{}.ipfs.localhost:8080/{}", split_hash[0], path);
-        web_view.load_uri(&gateway_url);
-    } else {
-        web_view.load_uri(&nav_text);
-    }
+    web_view.load_uri(&nav_text);
 }
 
 /// Update the contents of the navigation bar
@@ -117,12 +105,21 @@ fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 fn handle_ipfs_request(request: &URISchemeRequest) {
     let client = IpfsClient::default();
     let request_url = request.get_uri().unwrap().to_string();
-    let ipfs_path = request_url.replacen("ipfs://", "", 1);
+    let decoded_url = percent_encoding::percent_decode_str(&request_url).decode_utf8().unwrap();
+    let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
     let local_path = format!("{}/{}", CACHE_DIR.to_string(), ipfs_path);
     get_from_hash(client, ipfs_path, local_path.to_owned());
     let file = gio::File::new_for_path(&local_path);
-    let stream = file.read(gio::NONE_CANCELLABLE).unwrap();
-    request.finish(&stream, -1, None);
+    let stream = file.read(gio::NONE_CANCELLABLE);
+    
+    match stream
+    {
+        Ok(_) =>  request.finish(&stream.unwrap(), -1, None),
+        Err(e) => {
+            eprintln!("\nFailed to obtain page: {}\nError: {:#?}\n", decoded_url, e);
+            request.finish(&gio::MemoryInputStream::new(), -1, None);
+        }
+    }
 }
 
 /// Create a new WebKit instance for the current tab
@@ -397,10 +394,6 @@ fn new_window(application: &gtk::Application) {
         }));
         web_view.connect_load_changed(clone!(@weak tabs, @weak nav_entry => move |_, _| {
             let web_view = get_view(&tabs);
-            if web_view.get_uri().unwrap().starts_with("ipfs://")
-            {
-                connect(&nav_entry, &web_view)
-            }
 
             let load_progress = web_view.get_estimated_load_progress();
             if load_progress == 1.00
