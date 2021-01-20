@@ -386,7 +386,7 @@ fn new_window(application: &gtk::Application) {
         clone!(@weak nav_entry, @weak builder, @weak tabs, @weak window => move |_| {
             let web_view = get_view(&tabs);
             update_nav_bar(&nav_entry, &web_view);
-            window.set_title(&web_view.get_title().unwrap_or(glib::GString::from("Oku")));
+            window.set_title(&web_view.get_title().unwrap_or_else(|| glib::GString::from("Oku")));
         }),
     );
 
@@ -416,7 +416,7 @@ fn new_window(application: &gtk::Application) {
             update_favicon(&web_view, &tabs)
         }));
         web_view.connect_load_changed(clone!(@weak tabs, @weak web_view, @weak nav_entry, @weak window => move |_, _| {
-            window.set_title(&web_view.get_title().unwrap_or(glib::GString::from("Oku")));
+            window.set_title(&web_view.get_title().unwrap_or_else(|| glib::GString::from("Oku")));
 
             update_load_progress(&nav_entry, &web_view);
 
