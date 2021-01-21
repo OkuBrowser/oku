@@ -15,6 +15,8 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use urlencoding::encode;
+use urlencoding::decode;
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
 use gio::prelude::*;
@@ -36,7 +38,6 @@ use gtk::Orientation::Horizontal;
 use gtk::WidgetExt;
 use ipfs_api::IpfsClient;
 use pango::EllipsizeMode;
-use std::collections::HashMap;
 use std::env::args;
 use std::fs;
 use std::path::Path;
@@ -105,9 +106,7 @@ fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 fn handle_ipfs_request(request: &URISchemeRequest) {
     let client = IpfsClient::default();
     let request_url = request.get_uri().unwrap().to_string();
-    let decoded_url = percent_encoding::percent_decode_str(&request_url)
-        .decode_utf8()
-        .unwrap();
+    let decoded_url = decode(&request_url).unwrap();
     let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
     let local_path = format!("{}/{}", CACHE_DIR.to_string(), ipfs_path);
     get_from_hash(client, ipfs_path, local_path.to_owned());
@@ -163,8 +162,6 @@ fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
 ///
 /// `local_directory` - Where to save the IPFS file locally
 fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
-    let mut hierarchy = HashMap::new();
-    hierarchy.insert(hash.to_owned(), local_directory.to_owned());
     let mut sys = actix_rt::System::new(format!("Oku IPFS System ({})", hash));
     sys.block_on(async move {
         download_ipfs_file(&client, hash.to_owned(), local_directory.to_owned()).await;
@@ -196,10 +193,15 @@ async fn download_ipfs_file(client: &IpfsClient, file_hash: String, file_path: S
             fs::create_dir_all(Path::new(&file_path[..]).parent().unwrap()).unwrap();
             fs::write(file_path, &res).unwrap();
         }
-        Err(e) => eprintln!(
-            "\nFailed to obtain file: {} ({})\nError: {:#?}\n",
-            file_path, file_hash, e
-        ),
+        Err(_) => {
+            let split_path: Vec<&str> = file_hash.split('/').collect();
+            let rest_of_path = file_hash.replacen(split_path[0], "", 1);
+            let public_url = format!("https://{}.ipfs.dweb.link{}", split_path[0], rest_of_path);
+            let request = reqwest::get(&public_url).await;
+            let request_body = request.unwrap().bytes().await;
+            fs::create_dir_all(Path::new(&file_path[..]).parent().unwrap()).unwrap();
+            fs::write(file_path, request_body.unwrap()).unwrap();
+        }
     }
 }
 
