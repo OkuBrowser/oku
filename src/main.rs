@@ -15,8 +15,6 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use urlencoding::encode;
-use urlencoding::decode;
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
 use gio::prelude::*;
@@ -41,6 +39,8 @@ use pango::EllipsizeMode;
 use std::env::args;
 use std::fs;
 use std::path::Path;
+use urlencoding::decode;
+use urlencoding::encode;
 use webkit2gtk::SettingsExt;
 use webkit2gtk::URISchemeRequest;
 use webkit2gtk::URISchemeRequestExt;
