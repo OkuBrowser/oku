@@ -40,7 +40,6 @@ use std::env::args;
 use std::fs;
 use std::path::Path;
 use urlencoding::decode;
-use urlencoding::encode;
 use webkit2gtk::SettingsExt;
 use webkit2gtk::URISchemeRequest;
 use webkit2gtk::URISchemeRequestExt;
