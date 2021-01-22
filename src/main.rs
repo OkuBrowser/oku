@@ -131,7 +131,9 @@ fn handle_ipfs_request(request: &URISchemeRequest) {
 ///
 /// * `builder` - The object that contains all graphical widgets of the window
 fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
-    let web_kit = webkit2gtk::WebViewBuilder::new().is_ephemeral(false).automation_presentation_type(webkit2gtk::AutomationBrowsingContextPresentation::Tab);
+    let web_kit = webkit2gtk::WebViewBuilder::new()
+        .is_ephemeral(false)
+        .automation_presentation_type(webkit2gtk::AutomationBrowsingContextPresentation::Tab);
     let web_settings: webkit2gtk::Settings = builder.get_object("webkit_settings").unwrap();
     let web_view = web_kit.build();
     let web_context = web_view.get_context().unwrap();
