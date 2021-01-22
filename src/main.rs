@@ -131,7 +131,7 @@ fn handle_ipfs_request(request: &URISchemeRequest) {
 ///
 /// * `builder` - The object that contains all graphical widgets of the window
 fn new_view(builder: &gtk::Builder) -> webkit2gtk::WebView {
-    let web_kit = webkit2gtk::WebViewBuilder::new().is_ephemeral(false);
+    let web_kit = webkit2gtk::WebViewBuilder::new().is_ephemeral(false).automation_presentation_type(webkit2gtk::AutomationBrowsingContextPresentation::Tab);
     let web_settings: webkit2gtk::Settings = builder.get_object("webkit_settings").unwrap();
     let web_view = web_kit.build();
     let web_context = web_view.get_context().unwrap();
@@ -441,10 +441,6 @@ fn new_window(application: &gtk::Application) {
         }));
         web_view.connect_load_changed(clone!(@weak tabs, @weak web_view, @weak nav_entry, @weak window => move |_, _| {
             window.set_title(&web_view.get_title().unwrap_or_else(|| glib::GString::from("Oku")));
-
-            update_load_progress(&nav_entry, &web_view);
-
-            update_nav_bar(&nav_entry, &web_view)
         }));
     }));
 
