@@ -15,7 +15,6 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::convert::TryFrom;
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
 use gio::prelude::*;
@@ -37,6 +36,7 @@ use gtk::Orientation::Horizontal;
 use gtk::WidgetExt;
 use ipfs_api::IpfsClient;
 use pango::EllipsizeMode;
+use std::convert::TryFrom;
 use std::env::args;
 use std::fs;
 use std::path::Path;
@@ -306,17 +306,26 @@ fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
     let web_favicon = &web_view.get_favicon();
     match &web_favicon {
         Some(_) => {
-            let favicon_surface = cairo::ImageSurface::try_from(web_favicon.to_owned().unwrap()).unwrap();
+            let favicon_surface =
+                cairo::ImageSurface::try_from(web_favicon.to_owned().unwrap()).unwrap();
             let favicon_width = favicon_surface.get_width();
             let favicon_height = favicon_surface.get_height();
-            match favicon_width < 32 && favicon_height < 32
-            {
+            match favicon_width < 32 && favicon_height < 32 {
                 true => {
                     favicon.set_from_surface(Some(&favicon_surface));
                 }
                 false => {
-                    let favicon_pixbuf = gdk::pixbuf_get_from_surface(&favicon_surface, 0, 0, favicon_width, favicon_height).unwrap();
-                    let scaled_pixbuf = favicon_pixbuf.scale_simple(32, 32, gdk_pixbuf::InterpType::Tiles).unwrap();
+                    let favicon_pixbuf = gdk::pixbuf_get_from_surface(
+                        &favicon_surface,
+                        0,
+                        0,
+                        favicon_width,
+                        favicon_height,
+                    )
+                    .unwrap();
+                    let scaled_pixbuf = favicon_pixbuf
+                        .scale_simple(32, 32, gdk_pixbuf::InterpType::Tiles)
+                        .unwrap();
                     favicon.set_from_pixbuf(Some(&scaled_pixbuf));
                 }
             }
