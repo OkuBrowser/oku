@@ -27,7 +27,7 @@ use gtk::ButtonExt;
 use gtk::ContainerExt;
 use gtk::EntryExt;
 use gtk::GtkWindowExt;
-use gtk::IconSize::Button;
+use gtk::IconSize;
 use gtk::ImageExt;
 use gtk::Inhibit;
 use gtk::LabelExt;
@@ -225,10 +225,11 @@ fn new_tab_label(label: &str) -> gtk::Label {
 /// * `label` - The text to be displayed on a tab
 fn new_tab(label: &str) -> gtk::Box {
     let tab_box = gtk::Box::new(Horizontal, 5);
-    let favicon = gtk::Image::new();
+    let favicon = gtk::Image::from_icon_name(Some("applications-internet"), IconSize::Dnd);
     let tab_label = new_tab_label(&label);
     let close_button = gtk::Button::new();
-    let close_icon = gtk::Image::from_icon_name(Some("list-remove"), Button);
+    let close_icon = gtk::Image::from_icon_name(Some("list-remove"), IconSize::Button);
+    favicon.set_visible(true);
     tab_box.set_hexpand(true);
     tab_box.set_vexpand(false);
     tab_box.set_visible(true);
@@ -329,10 +330,9 @@ fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
                     favicon.set_from_pixbuf(Some(&scaled_pixbuf));
                 }
             }
-            favicon.set_visible(true);
         }
         None => {
-            favicon.set_visible(false);
+            favicon.set_from_icon_name(Some("applications-internet"), IconSize::Dnd);
         }
     }
 }
