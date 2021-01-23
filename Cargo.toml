@@ -40,7 +40,7 @@ ipfs-api = { version = "0.10.0", features = ["actix"], default-features = false 
 lazy_static = "1.4.0"
 pango = "0.9.1"
 urlencoding = "1.1.1"
-reqwest = { version = "0.10.10", features = ["blocking"] }
+reqwest = { version = "0.11.0", features = ["blocking"] }
 webkit2gtk = { version = "0.11.0", features = ["v2_28"] }
 
 [profile.release]
