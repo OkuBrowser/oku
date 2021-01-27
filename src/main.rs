@@ -174,8 +174,8 @@ fn new_view(
         let inner_button_box: gtk::ButtonBox = inner_button_box_widget.clone().downcast().unwrap();
         let cancel_button_widget = &inner_button_box.get_children()[0];
         let save_button_widget = &inner_button_box.get_children()[1];
-        let cancel_button: gtk::Button = cancel_button_widget.clone().downcast().unwrap();
-        let save_button: gtk::Button = save_button_widget.clone().downcast().unwrap();
+        let _cancel_button: gtk::Button = cancel_button_widget.clone().downcast().unwrap();
+        let _save_button: gtk::Button = save_button_widget.clone().downcast().unwrap();
 
         let message_box_widget = &dialog_box.get_children()[0];
         let message_box: gtk::Box = message_box_widget.clone().downcast().unwrap();
