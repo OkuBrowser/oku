@@ -15,9 +15,6 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use webkit2gtk::URIRequestExt;
-use webkit2gtk::DownloadExt;
-use gtk::PopoverExt;
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
 use gio::prelude::*;
@@ -36,6 +33,7 @@ use gtk::Inhibit;
 use gtk::LabelExt;
 use gtk::NotebookExt;
 use gtk::Orientation::Horizontal;
+use gtk::PopoverExt;
 use gtk::WidgetExt;
 use ipfs_api::IpfsClient;
 use pango::EllipsizeMode;
@@ -44,7 +42,9 @@ use std::env::args;
 use std::fs;
 use std::path::Path;
 use urlencoding::decode;
+use webkit2gtk::DownloadExt;
 use webkit2gtk::SettingsExt;
+use webkit2gtk::URIRequestExt;
 use webkit2gtk::URISchemeRequest;
 use webkit2gtk::URISchemeRequestExt;
 use webkit2gtk::WebContextExt;
@@ -65,12 +65,11 @@ lazy_static! {
 /// The current release version number of Oku
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 
-struct DownloadItem
-{
+struct DownloadItem {
     source: String,
     destination: String,
     requested_time: String,
-    successful: bool
+    successful: bool,
 }
 
 /// Connect to a page using the current tab
@@ -143,21 +142,22 @@ fn handle_ipfs_request(request: &URISchemeRequest) {
 /// # Arguments
 ///
 /// * `builder` - The object that contains all graphical widgets of the window
-/// 
+///
 /// * `download_dialog` - The dialog box shown when a download is requested
-/// 
+///
 /// * `is_private` - Whether the window represents a private session
-fn new_view(builder: &gtk::Builder, download_dialog: &gtk::Dialog, is_private: bool) -> webkit2gtk::WebView {
+fn new_view(
+    builder: &gtk::Builder,
+    download_dialog: &gtk::Dialog,
+    is_private: bool,
+) -> webkit2gtk::WebView {
     let web_kit = webkit2gtk::WebViewBuilder::new()
         .is_ephemeral(is_private)
         .automation_presentation_type(webkit2gtk::AutomationBrowsingContextPresentation::Tab);
     let web_settings: webkit2gtk::Settings = builder.get_object("webkit_settings").unwrap();
     let web_view = web_kit.build();
     let web_context = web_view.get_context().unwrap();
-    let extensions_path = format!(
-        "{}/web-extensions/",
-        DATA_DIR.to_string()
-    );
+    let extensions_path = format!("{}/web-extensions/", DATA_DIR.to_string());
     let favicon_database_path = format!("{}/favicon-database/", CACHE_DIR.to_string());
     web_context.register_uri_scheme("ipfs", move |request| handle_ipfs_request(request));
     web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
@@ -183,7 +183,7 @@ fn new_view(builder: &gtk::Builder, download_dialog: &gtk::Dialog, is_private: b
         let message: gtk::Label = message_widget.clone().downcast().unwrap();
 
         message.set_text(&download.get_request().unwrap().get_uri().unwrap());
-        
+
         download_dialog.show_all();
     }));
     web_view.set_visible(true);
@@ -292,14 +292,14 @@ fn new_tab(label: &str) -> gtk::Box {
 /// * `tabs` - The notebook containing the tabs & pages of the current browser session
 ///
 /// * `new_tab_number` - A number representing the position in the notebook where this new entry should
-/// 
+///
 /// * `is_private` - Whether the window represents a private session
 fn new_tab_page(
     builder: &gtk::Builder,
     tabs: &gtk::Notebook,
     download_dialog: &gtk::Dialog,
     new_tab_number: u32,
-    is_private: bool
+    is_private: bool,
 ) -> webkit2gtk::WebView {
     let new_view = new_view(builder, download_dialog, is_private);
     tabs.insert_page(&new_view, Some(&new_tab("New Tab")), Some(new_tab_number));
@@ -328,9 +328,14 @@ fn get_view(tabs: &gtk::Notebook) -> webkit2gtk::WebView {
 /// * `builder` - The object that contains all graphical widgets of the window
 ///
 /// * `tabs` - The notebook containing the tabs & pages of the current browser session
-/// 
+///
 /// * `is_private` - Whether the window represents a private session
-fn create_initial_tab(builder: &gtk::Builder, tabs: &gtk::Notebook, download_dialog: &gtk::Dialog, is_private: bool) {
+fn create_initial_tab(
+    builder: &gtk::Builder,
+    tabs: &gtk::Notebook,
+    download_dialog: &gtk::Dialog,
+    is_private: bool,
+) {
     let web_view = new_tab_page(&builder, &tabs, &download_dialog, 0, is_private);
     let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
     let close_button_widget = &current_tab_label.get_children()[2];
@@ -428,11 +433,11 @@ fn main() {
 }
 
 /// Create a new functional & graphical browser window
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `application` - The application data representing Oku
-/// 
+///
 /// * `is_private` - Whether the window represents a private session
 fn new_window(application: &gtk::Application, is_private: bool) {
     if gtk::init().is_err() {
