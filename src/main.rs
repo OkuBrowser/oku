@@ -457,7 +457,7 @@ fn new_window(application: &gtk::Application, is_private: bool) {
     let zoomreset_button: gtk::Button = builder.get_object("zoomreset_button").unwrap();
     let fullscreen_button: gtk::Button = builder.get_object("fullscreen_button").unwrap();
     let new_window_button: gtk::Button = builder.get_object("new_window_button").unwrap();
-    let history_button: gtk::Button = builder.get_object("history_button").unwrap();
+    let _history_button: gtk::Button = builder.get_object("history_button").unwrap();
     let about_button: gtk::Button = builder.get_object("about_button").unwrap();
 
     window.set_application(Some(application));
