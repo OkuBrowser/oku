@@ -15,6 +15,7 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use gtk::AboutDialogExt;
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
 use gio::prelude::*;
@@ -42,9 +43,7 @@ use std::env::args;
 use std::fs;
 use std::path::Path;
 use urlencoding::decode;
-use webkit2gtk::DownloadExt;
 use webkit2gtk::SettingsExt;
-use webkit2gtk::URIRequestExt;
 use webkit2gtk::URISchemeRequest;
 use webkit2gtk::URISchemeRequestExt;
 use webkit2gtk::WebContextExt;
@@ -143,12 +142,9 @@ fn handle_ipfs_request(request: &URISchemeRequest) {
 ///
 /// * `builder` - The object that contains all graphical widgets of the window
 ///
-/// * `download_dialog` - The dialog box shown when a download is requested
-///
 /// * `is_private` - Whether the window represents a private session
 fn new_view(
     builder: &gtk::Builder,
-    download_dialog: &gtk::Dialog,
     is_private: bool,
 ) -> webkit2gtk::WebView {
     let web_kit = webkit2gtk::WebViewBuilder::new()
@@ -164,32 +160,11 @@ fn new_view(
     web_view.set_settings(&web_settings);
     web_context.set_web_extensions_directory(&extensions_path);
     web_context.set_favicon_database_directory(Some(&favicon_database_path));
-    web_context.connect_download_started(clone!(@weak download_dialog => move |_, download| {
-        let dialog_box_widget = &download_dialog.get_children()[0];
-        let dialog_box: gtk::Box = dialog_box_widget.clone().downcast().unwrap();
-
-        let outer_button_box_widget = &dialog_box.get_children()[1];
-        let outer_button_box: gtk::Box = outer_button_box_widget.clone().downcast().unwrap();
-        let inner_button_box_widget = &outer_button_box.get_children()[0];
-        let inner_button_box: gtk::ButtonBox = inner_button_box_widget.clone().downcast().unwrap();
-        let cancel_button_widget = &inner_button_box.get_children()[0];
-        let save_button_widget = &inner_button_box.get_children()[1];
-        let _cancel_button: gtk::Button = cancel_button_widget.clone().downcast().unwrap();
-        let _save_button: gtk::Button = save_button_widget.clone().downcast().unwrap();
-
-        let message_box_widget = &dialog_box.get_children()[0];
-        let message_box: gtk::Box = message_box_widget.clone().downcast().unwrap();
-        let message_widget = &message_box.get_children()[1];
-        let message: gtk::Label = message_widget.clone().downcast().unwrap();
-
-        message.set_text(&download.get_request().unwrap().get_uri().unwrap());
-
-        download_dialog.show_all();
-    }));
     web_view.set_visible(true);
     web_view.set_property_width_request(1024);
     web_view.set_property_height_request(640);
     web_view.load_uri("about:blank");
+
     web_view
 }
 
@@ -297,11 +272,10 @@ fn new_tab(label: &str) -> gtk::Box {
 fn new_tab_page(
     builder: &gtk::Builder,
     tabs: &gtk::Notebook,
-    download_dialog: &gtk::Dialog,
     new_tab_number: u32,
     is_private: bool,
 ) -> webkit2gtk::WebView {
-    let new_view = new_view(builder, download_dialog, is_private);
+    let new_view = new_view(builder, is_private);
     tabs.insert_page(&new_view, Some(&new_tab("New Tab")), Some(new_tab_number));
     tabs.set_tab_reorderable(&new_view, true);
     tabs.set_tab_detachable(&new_view, true);
@@ -333,10 +307,9 @@ fn get_view(tabs: &gtk::Notebook) -> webkit2gtk::WebView {
 fn create_initial_tab(
     builder: &gtk::Builder,
     tabs: &gtk::Notebook,
-    download_dialog: &gtk::Dialog,
     is_private: bool,
 ) {
-    let web_view = new_tab_page(&builder, &tabs, &download_dialog, 0, is_private);
+    let web_view = new_tab_page(&builder, &tabs, 0, is_private);
     let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
     let close_button_widget = &current_tab_label.get_children()[2];
     let close_button: gtk::Button = close_button_widget.clone().downcast().unwrap();
@@ -420,6 +393,20 @@ fn update_load_progress(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) 
     }
 }
 
+fn new_about_dialog()
+{
+    let about_dialog = gtk::AboutDialog::new();
+    about_dialog.set_version(VERSION);
+    about_dialog.set_program_name("Oku");
+    about_dialog.set_logo_icon_name(Some("oku"));
+    about_dialog.set_icon_name(Some("oku"));
+    about_dialog.set_license_type(gtk::License::Agpl30);
+    about_dialog.set_destroy_with_parent(true);
+    about_dialog.set_modal(true);
+    about_dialog.set_urgency_hint(true);
+    about_dialog.show();
+}
+
 /// The main function of Oku
 fn main() {
     let application = gtk::Application::new(Some("com.github.madebyemil.oku"), Default::default())
@@ -450,20 +437,34 @@ fn new_window(application: &gtk::Application, is_private: bool) {
 
     let window: gtk::ApplicationWindow = builder.get_object("window").unwrap();
     window.set_title("Oku");
+
     let downloads_button: gtk::Button = builder.get_object("downloads_button").unwrap();
     let downloads_popover: gtk::Popover = builder.get_object("downloads_popover").unwrap();
-    let download_dialog: gtk::Dialog = builder.get_object("download_dialog").unwrap();
+
+    let menu_button: gtk::Button = builder.get_object("menu_button").unwrap();
+    let menu: gtk::Popover = builder.get_object("menu").unwrap();
+
     let back_button: gtk::Button = builder.get_object("back_button").unwrap();
     let forward_button: gtk::Button = builder.get_object("forward_button").unwrap();
     let refresh_button: gtk::Button = builder.get_object("refresh_button").unwrap();
     let add_tab: gtk::Button = builder.get_object("add_tab").unwrap();
+
     let tabs: gtk::Notebook = builder.get_object("tabs").unwrap();
     let nav_entry: gtk::Entry = builder.get_object("nav_entry").unwrap();
+
+    let zoomout_button: gtk::Button = builder.get_object("zoomout_button").unwrap();
+    let zoomin_button: gtk::Button = builder.get_object("zoomin_button").unwrap();
+    let zoomreset_button: gtk::Button = builder.get_object("zoomreset_button").unwrap();
+    let fullscreen_button: gtk::Button = builder.get_object("fullscreen_button").unwrap();
+    let new_window_button: gtk::Button = builder.get_object("new_window_button").unwrap();
+    let history_button: gtk::Button = builder.get_object("history_button").unwrap();
+    let about_button: gtk::Button = builder.get_object("about_button").unwrap();
 
     window.set_application(Some(application));
 
     if tabs.get_n_pages() == 0 {
-        create_initial_tab(&builder, &tabs, &download_dialog, is_private)
+        create_initial_tab(&builder, &tabs, is_private);
+        tabs.set_show_tabs(false)
     }
 
     tabs.connect_property_page_notify(
@@ -475,11 +476,22 @@ fn new_window(application: &gtk::Application, is_private: bool) {
     );
 
     tabs.connect_page_removed(
-        clone!(@weak nav_entry, @weak builder, @weak tabs, @weak download_dialog => move |_, _, _| {
-            if tabs.get_n_pages() == 0
+        clone!(@weak nav_entry, @weak builder, @weak tabs => move |_, _, _| {
+            match tabs.get_n_pages()
             {
-                nav_entry.set_text("");
-                create_initial_tab(&builder, &tabs, &download_dialog, is_private)
+                0 => {
+                    nav_entry.set_text("");
+                    create_initial_tab(&builder, &tabs, is_private)
+                }
+                1 => {
+                    tabs.set_show_tabs(false);
+                }
+                _ => {
+                    if !tabs.get_show_tabs()
+                    {
+                        tabs.set_show_tabs(true);
+                    }
+                }
             }
         }),
     );
@@ -504,8 +516,8 @@ fn new_window(application: &gtk::Application, is_private: bool) {
         }));
     }));
 
-    add_tab.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder, @weak download_dialog => move |_| {
-        let web_view = new_tab_page(&builder, &tabs, &download_dialog, tabs.get_n_pages(), is_private);
+    add_tab.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+        let web_view = new_tab_page(&builder, &tabs, tabs.get_n_pages(), is_private);
         let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
         let close_button_widget = &current_tab_label.get_children()[2];
         let close_button: gtk::Button = close_button_widget.clone().downcast().unwrap();
@@ -538,6 +550,56 @@ fn new_window(application: &gtk::Application, is_private: bool) {
     downloads_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
             downloads_popover.popup();
+        }),
+    );
+
+    menu_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+            menu.popup();
+        }),
+    );
+
+    about_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+            new_about_dialog()
+        }),
+    );
+
+    zoomin_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+            let web_view = get_view(&tabs);
+            let current_zoom_level = web_view.get_zoom_level();
+            web_view.set_zoom_level(current_zoom_level + 0.1);
+        }),
+    );
+
+    zoomout_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+            let web_view = get_view(&tabs);
+            let current_zoom_level = web_view.get_zoom_level();
+            web_view.set_zoom_level(current_zoom_level - 0.1);
+        }),
+    );
+
+    zoomreset_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+            let web_view = get_view(&tabs);
+            web_view.set_zoom_level(1.0);
+        }),
+    );
+
+    fullscreen_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+            let web_view = get_view(&tabs);
+            web_view.run_javascript("document.documentElement.webkitRequestFullscreen();", gio::NONE_CANCELLABLE, move |_| {
+                
+            })
+        }),
+    );
+
+    new_window_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry, @weak builder, @weak window => move |_| {
+            new_window(&window.get_application().unwrap(), is_private)
         }),
     );
 
