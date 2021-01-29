@@ -15,6 +15,12 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use webkit2gtk::FindControllerExt;
+use gtk::SearchEntryExt;
+use chrono::Utc;
+use directories_next::UserDirs;
+use std::fs::File;
+use cairo::ImageSurface;
 use gtk::AboutDialogExt;
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
@@ -60,6 +66,11 @@ lazy_static! {
     static ref CACHE_DIR: &'static str = PROJECT_DIRECTORIES.cache_dir().to_str().unwrap();
     /// The platform-specific directory where Oku stores user data
     static ref DATA_DIR: &'static str = PROJECT_DIRECTORIES.data_dir().to_str().unwrap();
+    /// The platform-specific directories containing user files
+    static ref USER_DIRECTORIES: UserDirs = UserDirs::new().unwrap();
+    /// The platform-specific directory where users store pictures
+    static ref PICTURES_DIR: &'static str = USER_DIRECTORIES.picture_dir().unwrap().to_str().unwrap();
+    
 }
 /// The current release version number of Oku
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
@@ -316,6 +327,7 @@ fn create_initial_tab(
     close_button.connect_clicked(clone!(@weak tabs, @weak web_view => move |_| {
         tabs.remove_page(tabs.page_num(&web_view));
     }));
+    tabs.set_show_tabs(false)
 }
 
 /// Update a tab's icon
@@ -441,6 +453,17 @@ fn new_window(application: &gtk::Application, is_private: bool) {
     let downloads_button: gtk::Button = builder.get_object("downloads_button").unwrap();
     let downloads_popover: gtk::Popover = builder.get_object("downloads_popover").unwrap();
 
+    let find_button: gtk::Button = builder.get_object("find_button").unwrap();
+    let find_popover: gtk::Popover = builder.get_object("find_popover").unwrap();
+    let previous_find_button: gtk::Button = builder.get_object("previous_find_button").unwrap();
+    let next_find_button: gtk::Button = builder.get_object("next_find_button").unwrap();
+    let find_case_insensitive: gtk::ToggleButton = builder.get_object("find_case_insensitive").unwrap();
+    let find_at_word_starts: gtk::ToggleButton = builder.get_object("find_at_word_starts").unwrap();
+    let find_treat_medial_capital_as_word_start: gtk::ToggleButton = builder.get_object("find_treat_medial_capital_as_word_start").unwrap();
+    let find_backwards: gtk::ToggleButton = builder.get_object("find_backwards").unwrap();
+    let find_wrap_around: gtk::ToggleButton = builder.get_object("find_wrap_around").unwrap();
+    let find_search_entry: gtk::SearchEntry = builder.get_object("find_search_entry").unwrap();
+
     let menu_button: gtk::Button = builder.get_object("menu_button").unwrap();
     let menu: gtk::Popover = builder.get_object("menu").unwrap();
 
@@ -456,15 +479,15 @@ fn new_window(application: &gtk::Application, is_private: bool) {
     let zoomin_button: gtk::Button = builder.get_object("zoomin_button").unwrap();
     let zoomreset_button: gtk::Button = builder.get_object("zoomreset_button").unwrap();
     let fullscreen_button: gtk::Button = builder.get_object("fullscreen_button").unwrap();
+    let screenshot_button: gtk::Button = builder.get_object("screenshot_button").unwrap();
     let new_window_button: gtk::Button = builder.get_object("new_window_button").unwrap();
-    let _history_button: gtk::Button = builder.get_object("history_button").unwrap();
+    let history_button: gtk::Button = builder.get_object("history_button").unwrap();
     let about_button: gtk::Button = builder.get_object("about_button").unwrap();
 
     window.set_application(Some(application));
 
     if tabs.get_n_pages() == 0 {
-        create_initial_tab(&builder, &tabs, is_private);
-        tabs.set_show_tabs(false)
+        create_initial_tab(&builder, &tabs, is_private)
     }
 
     tabs.connect_property_page_notify(
@@ -472,6 +495,23 @@ fn new_window(application: &gtk::Application, is_private: bool) {
             let web_view = get_view(&tabs);
             update_nav_bar(&nav_entry, &web_view);
             window.set_title(&web_view.get_title().unwrap_or_else(|| glib::GString::from("Oku")));
+        }),
+    );
+
+    tabs.connect_page_added(
+        clone!(@weak nav_entry, @weak builder, @weak tabs => move |_, _, _| {
+            match tabs.get_n_pages()
+            {
+                1 => {
+                    tabs.set_show_tabs(false);
+                }
+                _ => {
+                    if !tabs.get_show_tabs()
+                    {
+                        tabs.set_show_tabs(true);
+                    }
+                }
+            }
         }),
     );
 
@@ -553,6 +593,47 @@ fn new_window(application: &gtk::Application, is_private: bool) {
         }),
     );
 
+    find_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry, @weak builder, @weak find_popover => move |_| {
+            find_popover.popup();
+        }),
+    );
+    find_search_entry.connect_search_changed(
+        clone!(@weak tabs, @weak nav_entry, @weak builder, @weak find_search_entry, @weak find_popover => move |_| {
+            let web_view = get_view(&tabs);
+            let find_controller = web_view.get_find_controller().unwrap();
+            let mut find_options = webkit2gtk::FindOptions::empty();
+            find_options.set(webkit2gtk::FindOptions::CASE_INSENSITIVE, true);
+            find_options.set(webkit2gtk::FindOptions::AT_WORD_STARTS, true);
+            find_options.set(webkit2gtk::FindOptions::TREAT_MEDIAL_CAPITAL_AS_WORD_START, true);
+            find_options.set(webkit2gtk::FindOptions::BACKWARDS, true);
+            find_options.set(webkit2gtk::FindOptions::WRAP_AROUND, true);
+            let max_match_count = find_controller.get_max_match_count();
+            find_controller.count_matches(&find_search_entry.get_text(), find_options.bits(), max_match_count);
+            find_controller.search(&find_search_entry.get_text(), find_options.bits(), max_match_count);
+            // find_controller.connect_counted_matches(clone!(@weak web_view, @weak find_controller, @weak find_search_entry => move |_, matches| {
+            //     find_controller.connect_found_text(clone!(@weak web_view, @weak find_controller, @weak find_search_entry => move |_, current_match| {
+            //         find_search_entry.set_progress_fraction(current_match as f64 / matches as f64);
+            //         find_search_entry.set_tooltip_text(Some(&format!("{} / {} matches", current_match, matches)));
+            //     }));
+            // }));
+            find_search_entry.connect_activate(clone!(@weak web_view, @weak find_controller => move |_| {
+                find_controller.search_next();
+            }));
+            next_find_button.connect_clicked(clone!(@weak web_view, @weak find_controller => move |_| {
+                find_controller.search_next();
+            }));
+            previous_find_button.connect_clicked(clone!(@weak web_view, @weak find_controller => move |_| {
+                find_controller.search_previous();
+            }));
+            find_popover.connect_closed(
+                clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+                    find_controller.search_finish();
+                }),
+            );
+        }),
+    );
+
     menu_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
             menu.popup();
@@ -594,6 +675,17 @@ fn new_window(application: &gtk::Application, is_private: bool) {
             web_view.run_javascript("document.documentElement.webkitRequestFullscreen();", gio::NONE_CANCELLABLE, move |_| {
                 
             })
+        }),
+    );
+
+    screenshot_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+            let web_view = get_view(&tabs);
+            web_view.get_snapshot(webkit2gtk::SnapshotRegion::FullDocument, webkit2gtk::SnapshotOptions::all(), gio::NONE_CANCELLABLE, move |snapshot| {
+                let snapshot_surface = cairo::ImageSurface::try_from(snapshot.unwrap()).unwrap();
+                let mut writer = File::create(format!("{}/{}.png", PICTURES_DIR.to_owned(), Utc::now())).unwrap();
+                snapshot_surface.write_to_png(&mut writer).unwrap();
+            });
         }),
     );
 

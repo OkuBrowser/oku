@@ -1,5 +1,7 @@
 # Oku
 
+[![Oku Logo](https://github.com/MadeByEmil/oku/raw/master/data/1024x1024/com.github.madebyemil.oku.png)](https://MadeByEmil.github.io/oku)
+
 Oku is a hive browser written in Rust.
 IDs to test: 
 
