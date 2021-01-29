@@ -30,19 +30,15 @@ jobs:
       run: |
           sudo apt-get -qq install tree > /dev/null
           printf "Codebase:\n" && tree ./oku
-          find ./gh-pages -mindepth 1 ! -regex '^./gh-pages/.git\(/.*\)?' -delete
+          rm -rf ./gh-pages/code/
           
           cd ./oku
           printf "\nGenerating documentation … "
           time cargo doc --no-deps --document-private-items --release --quiet
           cd ../
           
-          cp -ar ./oku/target/doc/* ./gh-pages
-          touch ./gh-pages/.nojekyll
-          tee -a ./gh-pages/.nojekyll > /dev/null <<EOT
-
-          EOT
-          printf "\nDocumentation:\n" && tree ./gh-pages
+          cp -ar ./oku/target/doc/* ./gh-pages/code
+          printf "\nDocumentation:\n" && tree ./gh-pages/code
     - name: Publish
       run: |
           cd ./gh-pages
