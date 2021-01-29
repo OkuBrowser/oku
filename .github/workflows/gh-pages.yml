@@ -37,6 +37,7 @@ jobs:
           time cargo doc --no-deps --document-private-items --release --quiet
           cd ../
           
+          mkdir -p ./gh-pages/code
           cp -ar ./oku/target/doc/* ./gh-pages/code
           printf "\nDocumentation:\n" && tree ./gh-pages/code
     - name: Publish
