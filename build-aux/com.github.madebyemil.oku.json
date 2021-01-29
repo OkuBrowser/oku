@@ -38,7 +38,7 @@
                 "mkdir -p /app/share/icons/hicolor",
                 "cp -avr ./data/hicolor /app/share/icons/",
                 "chmod -R 644 /app/share/icons/hicolor",
-                "install -Dm644 ./README -t /app/share/doc/oku/",
+                "install -Dm644 ./README.md -t /app/share/doc/oku/",
                 "install -Dm644 ./COPYING -t /app/share/doc/oku/"
             ],
             "sources": [

@@ -22,7 +22,7 @@ license = "AGPL-3.0-or-later"
 description = "A hive browser written in Rust."
 repository = "https://github.com/MadeByEmil/oku"
 homepage = "https://github.com/MadeByEmil/oku"
-readme = "README"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -59,7 +59,7 @@ section = "utility"
 priority = "optional"
 assets = [
     ["target/x86_64-unknown-linux-gnu/release/oku", "usr/bin/", "755"],
-    ["README", "usr/share/doc/oku/README", "644"],
+    ["README.md", "usr/share/doc/oku/README", "644"],
     ["COPYING", "usr/share/doc/oku/COPYING", "644"],
     ["data/hicolor/**/*", "/usr/share/icons/hicolor/", "644"],
 ]
