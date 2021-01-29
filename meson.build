@@ -35,7 +35,7 @@ install_subdir(
 )
 
 install_data(
-    'README',
+    'README.md',
     install_dir: datadir / 'doc' / 'oku'
 )
 
