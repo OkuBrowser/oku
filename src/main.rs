@@ -20,7 +20,7 @@ use gtk::SearchEntryExt;
 use chrono::Utc;
 use directories_next::UserDirs;
 use std::fs::File;
-use cairo::ImageSurface;
+
 use gtk::AboutDialogExt;
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
@@ -457,11 +457,11 @@ fn new_window(application: &gtk::Application, is_private: bool) {
     let find_popover: gtk::Popover = builder.get_object("find_popover").unwrap();
     let previous_find_button: gtk::Button = builder.get_object("previous_find_button").unwrap();
     let next_find_button: gtk::Button = builder.get_object("next_find_button").unwrap();
-    let find_case_insensitive: gtk::ToggleButton = builder.get_object("find_case_insensitive").unwrap();
-    let find_at_word_starts: gtk::ToggleButton = builder.get_object("find_at_word_starts").unwrap();
-    let find_treat_medial_capital_as_word_start: gtk::ToggleButton = builder.get_object("find_treat_medial_capital_as_word_start").unwrap();
-    let find_backwards: gtk::ToggleButton = builder.get_object("find_backwards").unwrap();
-    let find_wrap_around: gtk::ToggleButton = builder.get_object("find_wrap_around").unwrap();
+    let _find_case_insensitive: gtk::ToggleButton = builder.get_object("find_case_insensitive").unwrap();
+    let _find_at_word_starts: gtk::ToggleButton = builder.get_object("find_at_word_starts").unwrap();
+    let _find_treat_medial_capital_as_word_start: gtk::ToggleButton = builder.get_object("find_treat_medial_capital_as_word_start").unwrap();
+    let _find_backwards: gtk::ToggleButton = builder.get_object("find_backwards").unwrap();
+    let _find_wrap_around: gtk::ToggleButton = builder.get_object("find_wrap_around").unwrap();
     let find_search_entry: gtk::SearchEntry = builder.get_object("find_search_entry").unwrap();
 
     let menu_button: gtk::Button = builder.get_object("menu_button").unwrap();
@@ -481,7 +481,7 @@ fn new_window(application: &gtk::Application, is_private: bool) {
     let fullscreen_button: gtk::Button = builder.get_object("fullscreen_button").unwrap();
     let screenshot_button: gtk::Button = builder.get_object("screenshot_button").unwrap();
     let new_window_button: gtk::Button = builder.get_object("new_window_button").unwrap();
-    let history_button: gtk::Button = builder.get_object("history_button").unwrap();
+    let _history_button: gtk::Button = builder.get_object("history_button").unwrap();
     let about_button: gtk::Button = builder.get_object("about_button").unwrap();
 
     window.set_application(Some(application));
