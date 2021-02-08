@@ -48,8 +48,6 @@ use ipfs_api::IpfsClient;
 use pango::EllipsizeMode;
 use std::convert::TryFrom;
 use std::env::args;
-use std::fs;
-use std::path::Path;
 use urlencoding::decode;
 use webkit2gtk::SettingsExt;
 use webkit2gtk::URISchemeRequest;
@@ -133,21 +131,9 @@ fn handle_ipfs_request(request: &URISchemeRequest) {
     let request_url = request.get_uri().unwrap().to_string();
     let decoded_url = decode(&request_url).unwrap();
     let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
-    let local_path = format!("{}/{}", CACHE_DIR.to_string(), ipfs_path);
-    get_from_hash(client, ipfs_path, local_path.to_owned());
-    let file = gio::File::new_for_path(&local_path);
-    let stream = file.read(gio::NONE_CANCELLABLE);
-
-    match stream {
-        Ok(_) => request.finish(&stream.unwrap(), -1, None),
-        Err(e) => {
-            eprintln!(
-                "\nFailed to obtain page: {}\nError: {:#?}\n",
-                decoded_url, e
-            );
-            request.finish(&gio::MemoryInputStream::new(), -1, None);
-        }
-    }
+    let ipfs_bytes = get_from_hash(client, ipfs_path);
+    let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
+    request.finish(&stream, -1, None);
 }
 
 /// Create a new WebKit instance for the current tab
@@ -209,18 +195,9 @@ fn new_view(
 /// `client` - The IPFS client running locally
 ///
 /// `hash` - The IPFS identifier of the file
-///
-/// `local_directory` - Where to save the IPFS file locally
-fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
+fn get_from_hash(client: IpfsClient, hash: String) -> Vec<u8> {
     let mut sys = actix_rt::System::new(format!("Oku IPFS System ({})", hash));
-    sys.block_on(async move {
-        download_ipfs_file(&client, hash.to_owned(), local_directory.to_owned()).await;
-        // println!(
-        //     "Requesting: {} (local: {}) … \n",
-        //     hash.to_owned(),
-        //     local_directory.to_owned()
-        // );
-    });
+    sys.block_on(download_ipfs_file(client, hash.to_owned()))
 }
 
 /// Download an IPFS file to the local machine
@@ -230,9 +207,7 @@ fn get_from_hash(client: IpfsClient, hash: String, local_directory: String) {
 /// `client` - The IPFS client running locally
 ///
 /// `file_hash` - The CID of the folder the file is in
-///
-/// `file_path` - The path to the file from the root of the folder
-async fn download_ipfs_file(client: &IpfsClient, file_hash: String, file_path: String) {
+async fn download_ipfs_file(client: IpfsClient, file_hash: String) -> Vec<u8> {
     match client
         .cat(&file_hash)
         .map_ok(|chunk| chunk.to_vec())
@@ -240,8 +215,7 @@ async fn download_ipfs_file(client: &IpfsClient, file_hash: String, file_path: S
         .await
     {
         Ok(res) => {
-            fs::create_dir_all(Path::new(&file_path[..]).parent().unwrap()).unwrap();
-            fs::write(file_path, &res).unwrap();
+            res
         }
         Err(_) => {
             let split_path: Vec<&str> = file_hash.split('/').collect();
@@ -249,8 +223,7 @@ async fn download_ipfs_file(client: &IpfsClient, file_hash: String, file_path: S
             let public_url = format!("https://{}.ipfs.dweb.link{}", split_path[0], rest_of_path);
             let request = reqwest::get(&public_url).await;
             let request_body = request.unwrap().bytes().await;
-            fs::create_dir_all(Path::new(&file_path[..]).parent().unwrap()).unwrap();
-            fs::write(file_path, request_body.unwrap()).unwrap();
+            request_body.unwrap().to_vec()
         }
     }
 }
