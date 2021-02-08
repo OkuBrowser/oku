@@ -435,6 +435,8 @@
       <object class="GtkListBox">
         <property name="visible">True</property>
         <property name="can-focus">False</property>
+        <property name="margin-start">4</property>
+        <property name="margin-end">4</property>
         <child type="placeholder">
           <object class="GtkLabel">
             <property name="visible">True</property>
@@ -455,11 +457,12 @@
   <object class="GtkPopover" id="find_popover">
     <property name="can-focus">False</property>
     <property name="relative-to">find_button</property>
-    <property name="modal">False</property>
     <child>
       <object class="GtkBox">
         <property name="visible">True</property>
         <property name="can-focus">False</property>
+        <property name="margin-start">4</property>
+        <property name="margin-end">4</property>
         <property name="margin-top">4</property>
         <property name="margin-bottom">4</property>
         <property name="spacing">8</property>
@@ -592,23 +595,86 @@
           </packing>
         </child>
         <child>
-          <object class="GtkSearchEntry" id="find_search_entry">
+          <object class="GtkBox">
             <property name="visible">True</property>
-            <property name="can-focus">True</property>
-            <property name="margin-top">4</property>
-            <property name="margin-bottom">4</property>
-            <property name="hexpand">True</property>
-            <property name="vexpand">True</property>
-            <property name="truncate-multiline">True</property>
-            <property name="primary-icon-name">edit-find-symbolic</property>
-            <property name="primary-icon-activatable">False</property>
-            <property name="primary-icon-sensitive">False</property>
-            <property name="placeholder-text" translatable="yes">Find … </property>
+            <property name="can-focus">False</property>
+            <child>
+              <object class="GtkSearchEntry" id="find_search_entry">
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="margin-top">4</property>
+                <property name="margin-bottom">4</property>
+                <property name="hexpand">True</property>
+                <property name="vexpand">True</property>
+                <property name="truncate-multiline">True</property>
+                <property name="primary-icon-name">edit-find-symbolic</property>
+                <property name="primary-icon-activatable">False</property>
+                <property name="primary-icon-sensitive">False</property>
+                <property name="placeholder-text" translatable="yes">Find … </property>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="current_match_label">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="margin-start">4</property>
+                <property name="margin-end">4</property>
+                <property name="label" translatable="yes">0</property>
+                <style>
+                  <class name="dim-label"/>
+                </style>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="margin-start">4</property>
+                <property name="margin-end">4</property>
+                <property name="label" translatable="yes">/</property>
+                <style>
+                  <class name="dim-label"/>
+                </style>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">2</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="total_matches_label">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="margin-start">4</property>
+                <property name="margin-end">4</property>
+                <property name="hexpand">True</property>
+                <property name="label" translatable="yes">0</property>
+                <style>
+                  <class name="dim-label"/>
+                </style>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">3</property>
+              </packing>
+            </child>
           </object>
           <packing>
-            <property name="expand">True</property>
+            <property name="expand">False</property>
             <property name="fill">True</property>
-            <property name="position">5</property>
+            <property name="position">1</property>
           </packing>
         </child>
         <child>
