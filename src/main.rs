@@ -15,8 +15,8 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use std::cell::RefCell;
-use std::rc::Rc;
+
+
 use gtk::ToggleButtonExt;
 use webkit2gtk::FindControllerExt;
 use gtk::SearchEntryExt;
