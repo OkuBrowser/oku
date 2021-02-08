@@ -15,12 +15,14 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use std::cell::RefCell;
+use std::rc::Rc;
+use gtk::ToggleButtonExt;
 use webkit2gtk::FindControllerExt;
 use gtk::SearchEntryExt;
 use chrono::Utc;
 use directories_next::UserDirs;
 use std::fs::File;
-
 use gtk::AboutDialogExt;
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
@@ -54,6 +56,7 @@ use webkit2gtk::URISchemeRequest;
 use webkit2gtk::URISchemeRequestExt;
 use webkit2gtk::WebContextExt;
 use webkit2gtk::WebViewExt;
+use clap::clap_app;
 
 #[macro_use]
 extern crate lazy_static;
@@ -70,8 +73,8 @@ lazy_static! {
     static ref USER_DIRECTORIES: UserDirs = UserDirs::new().unwrap();
     /// The platform-specific directory where users store pictures
     static ref PICTURES_DIR: &'static str = USER_DIRECTORIES.picture_dir().unwrap().to_str().unwrap();
-    
 }
+
 /// The current release version number of Oku
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 
@@ -152,10 +155,13 @@ fn handle_ipfs_request(request: &URISchemeRequest) {
 /// # Arguments
 ///
 /// * `builder` - The object that contains all graphical widgets of the window
+///  
+/// * `verbose` - Whether browser messages should be printed onto the standard output
 ///
 /// * `is_private` - Whether the window represents a private session
 fn new_view(
     builder: &gtk::Builder,
+    verbose: bool,
     is_private: bool,
 ) -> webkit2gtk::WebView {
     let web_kit = webkit2gtk::WebViewBuilder::new()
@@ -166,8 +172,25 @@ fn new_view(
     let web_context = web_view.get_context().unwrap();
     let extensions_path = format!("{}/web-extensions/", DATA_DIR.to_string());
     let favicon_database_path = format!("{}/favicon-database/", CACHE_DIR.to_string());
+    // let allowed_notification_origins: Vec<String> = bincode::deserialize(&fs::read(format!("{}/settings/allowed_notification_origins.bin", DATA_DIR.to_owned())).unwrap()).unwrap();
+    // let disallowed_notification_origins: Vec<String> = bincode::deserialize(&fs::read(format!("{}/settings/disallowed_notification_origins.bin", DATA_DIR.to_owned())).unwrap()).unwrap();
+    
+    // let mut allowed_notification_security_origins: Vec<&webkit2gtk::SecurityOrigin> = vec!();
+    // for url in allowed_notification_origins {
+    //     let new_origin = webkit2gtk::SecurityOrigin::new_for_uri(&url);
+    //     allowed_notification_security_origins.push(&new_origin);
+    // }
+
+    // let mut disallowed_notification_security_origins: Vec<&webkit2gtk::SecurityOrigin> = vec!();
+    // for url in disallowed_notification_origins {
+    //     let new_origin = webkit2gtk::SecurityOrigin::new_for_uri(&url);
+    //     disallowed_notification_security_origins.push(&new_origin);
+    // }
+
     web_context.register_uri_scheme("ipfs", move |request| handle_ipfs_request(request));
+    // web_context.initialize_notification_permissions(&allowed_notification_security_origins, &disallowed_notification_security_origins);
     web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
+    web_settings.set_enable_write_console_messages_to_stdout(verbose);
     web_view.set_settings(&web_settings);
     web_context.set_web_extensions_directory(&extensions_path);
     web_context.set_favicon_database_directory(Some(&favicon_database_path));
@@ -278,15 +301,18 @@ fn new_tab(label: &str) -> gtk::Box {
 /// * `tabs` - The notebook containing the tabs & pages of the current browser session
 ///
 /// * `new_tab_number` - A number representing the position in the notebook where this new entry should
+///  
+/// * `verbose` - Whether browser messages should be printed onto the standard output
 ///
 /// * `is_private` - Whether the window represents a private session
 fn new_tab_page(
     builder: &gtk::Builder,
     tabs: &gtk::Notebook,
     new_tab_number: u32,
+    verbose: bool,
     is_private: bool,
 ) -> webkit2gtk::WebView {
-    let new_view = new_view(builder, is_private);
+    let new_view = new_view(builder, verbose, is_private);
     tabs.insert_page(&new_view, Some(&new_tab("New Tab")), Some(new_tab_number));
     tabs.set_tab_reorderable(&new_view, true);
     tabs.set_tab_detachable(&new_view, true);
@@ -313,14 +339,19 @@ fn get_view(tabs: &gtk::Notebook) -> webkit2gtk::WebView {
 /// * `builder` - The object that contains all graphical widgets of the window
 ///
 /// * `tabs` - The notebook containing the tabs & pages of the current browser session
+/// 
+/// * `verbose` - Whether browser messages should be printed onto the standard output
 ///
 /// * `is_private` - Whether the window represents a private session
 fn create_initial_tab(
     builder: &gtk::Builder,
     tabs: &gtk::Notebook,
+    initial_url: String,
+    verbose: bool,
     is_private: bool,
 ) {
-    let web_view = new_tab_page(&builder, &tabs, 0, is_private);
+    let web_view = new_tab_page(&builder, &tabs, 0, verbose, is_private);
+    web_view.load_uri(&initial_url);
     let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
     let close_button_widget = &current_tab_label.get_children()[2];
     let close_button: gtk::Button = close_button_widget.clone().downcast().unwrap();
@@ -405,6 +436,7 @@ fn update_load_progress(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) 
     }
 }
 
+/// Create a dialog box showing information about Oku
 fn new_about_dialog()
 {
     let about_dialog = gtk::AboutDialog::new();
@@ -421,11 +453,20 @@ fn new_about_dialog()
 
 /// The main function of Oku
 fn main() {
+    let matches = clap_app!(myapp =>
+        (version: VERSION.unwrap())
+        (author: "Emil Sayahi <limesayahi@gmail.com>")
+        (about: "A hive browser written in Rust")
+        (@arg INPUT: "An optional URL to open in the browser")
+        (@arg verbose: -v --verbose "Output browser messages to standard output")
+        (@arg private: -p --private "Open a private session")
+    ).get_matches();
+
     let application = gtk::Application::new(Some("com.github.madebyemil.oku"), Default::default())
         .expect("Initialization failed … ");
 
-    application.connect_activate(|app| {
-        new_window(app, false);
+    application.connect_activate(move |app| {
+        new_window(app, matches.to_owned());
     });
 
     application.run(&args().collect::<Vec<_>>());
@@ -437,12 +478,26 @@ fn main() {
 ///
 /// * `application` - The application data representing Oku
 ///
-/// * `is_private` - Whether the window represents a private session
-fn new_window(application: &gtk::Application, is_private: bool) {
+/// * `matches` - The launch arguments passed to Oku
+fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
     if gtk::init().is_err() {
         println!("Failed to initialize GTK.");
         return;
     }
+
+    let initial_url;
+    match matches.value_of("INPUT")
+    {
+        Some(url) => {
+            initial_url = url.to_owned();
+        }
+        None => {
+            initial_url = "about:blank".to_owned();
+        }
+    }
+
+    let is_private = matches.is_present("private");
+    let verbose = matches.is_present("verbose");
 
     let glade_src = include_str!("oku.glade");
     let builder = gtk::Builder::from_string(glade_src);
@@ -457,12 +512,14 @@ fn new_window(application: &gtk::Application, is_private: bool) {
     let find_popover: gtk::Popover = builder.get_object("find_popover").unwrap();
     let previous_find_button: gtk::Button = builder.get_object("previous_find_button").unwrap();
     let next_find_button: gtk::Button = builder.get_object("next_find_button").unwrap();
-    let _find_case_insensitive: gtk::ToggleButton = builder.get_object("find_case_insensitive").unwrap();
-    let _find_at_word_starts: gtk::ToggleButton = builder.get_object("find_at_word_starts").unwrap();
-    let _find_treat_medial_capital_as_word_start: gtk::ToggleButton = builder.get_object("find_treat_medial_capital_as_word_start").unwrap();
-    let _find_backwards: gtk::ToggleButton = builder.get_object("find_backwards").unwrap();
-    let _find_wrap_around: gtk::ToggleButton = builder.get_object("find_wrap_around").unwrap();
+    let find_case_insensitive: gtk::ToggleButton = builder.get_object("find_case_insensitive").unwrap();
+    let find_at_word_starts: gtk::ToggleButton = builder.get_object("find_at_word_starts").unwrap();
+    let find_treat_medial_capital_as_word_start: gtk::ToggleButton = builder.get_object("find_treat_medial_capital_as_word_start").unwrap();
+    let find_backwards: gtk::ToggleButton = builder.get_object("find_backwards").unwrap();
+    let find_wrap_around: gtk::ToggleButton = builder.get_object("find_wrap_around").unwrap();
     let find_search_entry: gtk::SearchEntry = builder.get_object("find_search_entry").unwrap();
+    let current_match_label: gtk::Label = builder.get_object("current_match_label").unwrap();
+    let total_matches_label: gtk::Label = builder.get_object("total_matches_label").unwrap();
 
     let menu_button: gtk::Button = builder.get_object("menu_button").unwrap();
     let menu: gtk::Popover = builder.get_object("menu").unwrap();
@@ -487,7 +544,7 @@ fn new_window(application: &gtk::Application, is_private: bool) {
     window.set_application(Some(application));
 
     if tabs.get_n_pages() == 0 {
-        create_initial_tab(&builder, &tabs, is_private)
+        create_initial_tab(&builder, &tabs, initial_url.to_owned(), verbose, is_private)
     }
 
     tabs.connect_property_page_notify(
@@ -521,7 +578,7 @@ fn new_window(application: &gtk::Application, is_private: bool) {
             {
                 0 => {
                     nav_entry.set_text("");
-                    create_initial_tab(&builder, &tabs, is_private)
+                    create_initial_tab(&builder, &tabs, initial_url.to_owned(), verbose, is_private)
                 }
                 1 => {
                     tabs.set_show_tabs(false);
@@ -557,7 +614,7 @@ fn new_window(application: &gtk::Application, is_private: bool) {
     }));
 
     add_tab.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-        let web_view = new_tab_page(&builder, &tabs, tabs.get_n_pages(), is_private);
+        let web_view = new_tab_page(&builder, &tabs, tabs.get_n_pages(), verbose, is_private);
         let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
         let close_button_widget = &current_tab_label.get_children()[2];
         let close_button: gtk::Button = close_button_widget.clone().downcast().unwrap();
@@ -603,32 +660,70 @@ fn new_window(application: &gtk::Application, is_private: bool) {
             let web_view = get_view(&tabs);
             let find_controller = web_view.get_find_controller().unwrap();
             let mut find_options = webkit2gtk::FindOptions::empty();
-            find_options.set(webkit2gtk::FindOptions::CASE_INSENSITIVE, true);
-            find_options.set(webkit2gtk::FindOptions::AT_WORD_STARTS, true);
-            find_options.set(webkit2gtk::FindOptions::TREAT_MEDIAL_CAPITAL_AS_WORD_START, true);
-            find_options.set(webkit2gtk::FindOptions::BACKWARDS, true);
-            find_options.set(webkit2gtk::FindOptions::WRAP_AROUND, true);
+            find_options.set(webkit2gtk::FindOptions::CASE_INSENSITIVE, find_case_insensitive.get_active());
+            find_options.set(webkit2gtk::FindOptions::AT_WORD_STARTS, find_at_word_starts.get_active());
+            find_options.set(webkit2gtk::FindOptions::TREAT_MEDIAL_CAPITAL_AS_WORD_START, find_treat_medial_capital_as_word_start.get_active());
+            find_options.set(webkit2gtk::FindOptions::BACKWARDS, find_backwards.get_active());
+            find_options.set(webkit2gtk::FindOptions::WRAP_AROUND, find_wrap_around.get_active());
             let max_match_count = find_controller.get_max_match_count();
+            // let current_match = Rc::new(RefCell::new(0));
+            // let all_matches = Rc::new(RefCell::new(0));
             find_controller.count_matches(&find_search_entry.get_text(), find_options.bits(), max_match_count);
             find_controller.search(&find_search_entry.get_text(), find_options.bits(), max_match_count);
-            // find_controller.connect_counted_matches(clone!(@weak web_view, @weak find_controller, @weak find_search_entry => move |_, matches| {
-            //     find_controller.connect_found_text(clone!(@weak web_view, @weak find_controller, @weak find_search_entry => move |_, current_match| {
-            //         find_search_entry.set_progress_fraction(current_match as f64 / matches as f64);
-            //         find_search_entry.set_tooltip_text(Some(&format!("{} / {} matches", current_match, matches)));
-            //     }));
-            // }));
-            find_search_entry.connect_activate(clone!(@weak web_view, @weak find_controller => move |_| {
-                find_controller.search_next();
+            find_controller.connect_counted_matches(clone!(@weak web_view, @weak find_controller, @weak find_search_entry, @weak total_matches_label => move |_, total_matches| {
+                // *all_matches.borrow_mut() = total_matches;
+                if total_matches < u32::MAX
+                {
+                    total_matches_label.set_text(&total_matches.to_string());
+                }
             }));
-            next_find_button.connect_clicked(clone!(@weak web_view, @weak find_controller => move |_| {
+            find_search_entry.connect_activate(clone!(@weak web_view, @weak find_controller, @weak find_search_entry, @weak current_match_label, @weak total_matches_label => move |_| {
                 find_controller.search_next();
+                let mut current_match: u32 = current_match_label.get_text().parse().unwrap();
+                let total_matches: u32 = total_matches_label.get_text().parse().unwrap();
+                current_match += 1;
+                if current_match > total_matches
+                {
+                    current_match = 1;
+                }
+                current_match_label.set_text(&current_match.to_string());
+                find_search_entry.set_progress_fraction(current_match as f64 / total_matches as f64);
+                find_search_entry.set_tooltip_text(Some(&format!("{} / {} matches", current_match, total_matches)));
+                // println!("{} / {} matches", *current_match.borrow_mut(), *all_matches.borrow_mut());
             }));
-            previous_find_button.connect_clicked(clone!(@weak web_view, @weak find_controller => move |_| {
+            next_find_button.connect_clicked(clone!(@weak web_view, @weak find_controller, @weak find_search_entry, @weak current_match_label, @weak total_matches_label => move |_| {
+                find_controller.search_next();
+                let mut current_match: u32 = current_match_label.get_text().parse().unwrap();
+                let total_matches: u32 = total_matches_label.get_text().parse().unwrap();
+                current_match += 1;
+                if current_match > total_matches
+                {
+                    current_match = 1;
+                }
+                current_match_label.set_text(&current_match.to_string());
+                find_search_entry.set_progress_fraction(current_match as f64 / total_matches as f64);
+                find_search_entry.set_tooltip_text(Some(&format!("{} / {} matches", current_match, total_matches)));
+                // println!("{} / {} matches", *current_match.borrow_mut(), *all_matches.borrow_mut());
+            }));
+            previous_find_button.connect_clicked(clone!(@weak web_view, @weak find_controller, @weak find_search_entry, @weak current_match_label, @weak total_matches_label => move |_| {
                 find_controller.search_previous();
+                let mut current_match: u32 = current_match_label.get_text().parse().unwrap();
+                let total_matches: u32 = total_matches_label.get_text().parse().unwrap();
+                current_match -= 1;
+                if current_match < 1
+                {
+                    current_match = 1;
+                }
+                current_match_label.set_text(&current_match.to_string());
+                find_search_entry.set_progress_fraction(current_match as f64 / total_matches as f64);
+                find_search_entry.set_tooltip_text(Some(&format!("{} / {} matches", current_match, total_matches)));
+                // println!("{} / {} matches", *current_match.borrow_mut(), *all_matches.borrow_mut());
             }));
             find_popover.connect_closed(
-                clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
+                clone!(@weak tabs, @weak nav_entry, @weak builder, @weak current_match_label, @weak total_matches_label => move |_| {
                     find_controller.search_finish();
+                    current_match_label.set_text("0");
+                    total_matches_label.set_text("0");
                 }),
             );
         }),
@@ -691,7 +786,7 @@ fn new_window(application: &gtk::Application, is_private: bool) {
 
     new_window_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder, @weak window => move |_| {
-            new_window(&window.get_application().unwrap(), is_private)
+            new_window(&window.get_application().unwrap(), matches.to_owned())
         }),
     );
 
