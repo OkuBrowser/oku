@@ -197,7 +197,7 @@ fn new_view(
 /// `hash` - The IPFS identifier of the file
 fn get_from_hash(client: IpfsClient, hash: String) -> Vec<u8> {
     let mut sys = actix_rt::System::new(format!("Oku IPFS System ({})", hash));
-    sys.block_on(download_ipfs_file(client, hash.to_owned()))
+    sys.block_on(download_ipfs_file(client, hash))
 }
 
 /// Download an IPFS file to the local machine
