@@ -31,6 +31,7 @@ actix-rt = "1.1.1"
 bincode = "1.3.1"
 cairo-rs = { version = "0.9.1", features = ["png"] }
 chrono = { version = "0.4.19", features = ["unstable-locales"] }
+cid = "0.6.0"
 clap = { version = "3.0.0-beta.2", features = ["yaml", "wrap_help", "suggestions", "color"] }
 directories-next = "2.0.0"
 futures = "0.3.12"
@@ -43,6 +44,7 @@ ipfs-api = { version = "0.10.0", features = ["actix"], default-features = false 
 lazy_static = "1.4.0"
 notify-rust = { version = "4.2.2", features = ["images", "z"], default-features = false }
 pango = "0.9.1"
+url = "2.2.0"
 urlencoding = "1.1.1"
 reqwest = { version = "0.10.10", features = ["blocking"] }
 webkit2gtk = { version = "0.11.0", features = ["v2_28"] }
