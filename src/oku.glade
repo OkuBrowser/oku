@@ -477,6 +477,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">search text only at the begining of the words</property>
                 <property name="relief">half</property>
                 <child>
                   <object class="GtkImage">
@@ -500,6 +501,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">search backwards</property>
                 <property name="relief">half</property>
                 <child>
                   <object class="GtkImage">
@@ -523,6 +525,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">case insensitive search</property>
                 <property name="relief">half</property>
                 <child>
                   <object class="GtkImage">
@@ -546,6 +549,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">treat capital letters in the middle of words as word start</property>
                 <property name="relief">half</property>
                 <child>
                   <object class="GtkImage">
@@ -569,6 +573,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">if not present search will stop at the end of the document</property>
                 <property name="relief">half</property>
                 <child>
                   <object class="GtkImage">
