@@ -17,6 +17,9 @@
 
 
 
+use cid::Cid;
+use url::Url;
+use url::ParseError;
 use gtk::ToggleButtonExt;
 use webkit2gtk::FindControllerExt;
 use gtk::SearchEntryExt;
@@ -93,11 +96,58 @@ struct DownloadItem {
 fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
     let mut nav_text = nav_entry.get_text().to_string();
 
-    if !nav_text.contains("://") && !nav_text.starts_with("about:") {
-        nav_text = format!("http://{}", nav_text);
+    let mut parsed_url = Url::parse(&nav_text);
+    match parsed_url
+    {
+        // When URL is completely OK
+        Ok(_) => {
+            web_view.load_uri(&nav_text);
+        }
+        // When URL is missing a scheme
+        Err(ParseError::RelativeUrlWithoutBase) => {
+            parsed_url = Url::parse(&format!("http://{}", nav_text)); // Try with HTTP first
+            match parsed_url
+            {
+                // If it's now valid with HTTP
+                Ok(_) => {
+                    let split_url: Vec<&str> = nav_text.split('/').collect();
+                    let host = split_url[0];
+                    let cid = Cid::try_from(host);
+                    // Try seeing if we can swap it with IPFS
+                    match cid
+                    {
+                        // It works as IPFS
+                        Ok(_) => {
+                            let unwrapped_cid = cid.unwrap();
+                            let cid1 = Cid::new_v1(unwrapped_cid.codec(), unwrapped_cid.hash().to_owned());
+                            parsed_url = Url::parse(&format!("ipfs://{}", nav_text));
+                            let mut unwrapped_url = parsed_url.unwrap();
+                            let cid1_string = &cid1.to_string_of_base(cid::multibase::Base::Base32Lower).unwrap();
+                            unwrapped_url.set_host(Some(cid1_string)).unwrap();
+                            nav_text = unwrapped_url.as_str().to_owned();
+                            web_view.load_uri(&nav_text);
+                            nav_entry.set_text(&nav_text);
+                        }
+                        // It doesn't work as IPFS
+                        Err(_) => {
+                            nav_text = parsed_url.unwrap().as_str().to_owned();
+                            web_view.load_uri(&nav_text);
+                            nav_entry.set_text(&nav_text)
+                        }
+                    }
+                }
+                // Still not valid, even with HTTP
+                Err(e) => {
+                    web_view.load_plain_text(&format!("{:#?}", e));
+                }
+            }
+        }
+        // URL is malformed beyond missing a scheme
+        Err(e) => {
+            web_view.load_plain_text(&format!("{:#?}", e));
+        }
     }
 
-    web_view.load_uri(&nav_text);
 }
 
 /// Update the contents of the navigation bar
@@ -114,9 +164,7 @@ fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
         .replacen(".ipfs.localhost:8080", "", 1);
     let split_cid: Vec<&str> = cid.split('/').collect();
     if url.starts_with(&format!("http://{}.ipfs.localhost:8080/", split_cid[0])) {
-        url = url
-            .replacen("http://", "ipfs://", 1)
-            .replacen(".ipfs.localhost:8080", "", 1);
+        url = cid;
     }
     nav_entry.set_text(&url);
 }
