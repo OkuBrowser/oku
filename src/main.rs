@@ -20,11 +20,11 @@
 use ipfs::Types;
 use std::path::PathBuf;
 use ipfs::Keypair;
-use std::path::Path;
+
 use tokio::stream::StreamExt;
 use ipfs::IpfsPath;
 use ipfs::UninitializedIpfs;
-use ipfs::TestTypes;
+
 use ipfs::Ipfs;
 use ipfs::IpfsOptions;
 use cid::Cid;
