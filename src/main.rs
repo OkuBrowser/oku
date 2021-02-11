@@ -230,20 +230,6 @@ fn new_view(
     let web_context = web_view.get_context().unwrap();
     let extensions_path = format!("{}/web-extensions/", DATA_DIR.to_string());
     let favicon_database_path = format!("{}/favicon-database/", CACHE_DIR.to_string());
-    // let allowed_notification_origins: Vec<String> = bincode::deserialize(&fs::read(format!("{}/settings/allowed_notification_origins.bin", DATA_DIR.to_owned())).unwrap()).unwrap();
-    // let disallowed_notification_origins: Vec<String> = bincode::deserialize(&fs::read(format!("{}/settings/disallowed_notification_origins.bin", DATA_DIR.to_owned())).unwrap()).unwrap();
-    
-    // let mut allowed_notification_security_origins: Vec<&webkit2gtk::SecurityOrigin> = vec!();
-    // for url in allowed_notification_origins {
-    //     let new_origin = webkit2gtk::SecurityOrigin::new_for_uri(&url);
-    //     allowed_notification_security_origins.push(&new_origin);
-    // }
-
-    // let mut disallowed_notification_security_origins: Vec<&webkit2gtk::SecurityOrigin> = vec!();
-    // for url in disallowed_notification_origins {
-    //     let new_origin = webkit2gtk::SecurityOrigin::new_for_uri(&url);
-    //     disallowed_notification_security_origins.push(&new_origin);
-    // }
 
     match native
     {
@@ -254,7 +240,6 @@ fn new_view(
             web_context.register_uri_scheme("ipfs", move |request| handle_ipfs_request_using_api(request));
         }
     };
-    // web_context.initialize_notification_permissions(&allowed_notification_security_origins, &disallowed_notification_security_origins);
     web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
     web_settings.set_enable_write_console_messages_to_stdout(verbose);
     web_view.set_settings(&web_settings);
@@ -272,7 +257,7 @@ fn new_view(
 async fn setup_native_ipfs() -> Ipfs<Types>
 {
     // Initialize an in-memory repo and start a daemon.
-    let opts = new_ipfs_node();
+    let opts = get_ipfs_options();
     let (ipfs, fut): (Ipfs<Types>, _) = UninitializedIpfs::new(opts).start().await.unwrap();
 
     // Spawn the background task
@@ -317,6 +302,7 @@ fn get_from_hash_natively(hash: String) -> Vec<u8> {
 /// `file_hash` - The CID of the file
 async fn download_ipfs_file_from_api(file_hash: String) -> Vec<u8> {
     let client = IpfsClient::default();
+
     match client
         .cat(&file_hash)
         .map_ok(|chunk| chunk.to_vec())
@@ -344,6 +330,7 @@ async fn download_ipfs_file_from_api(file_hash: String) -> Vec<u8> {
 /// `file_hash` - The CID of the file
 async fn download_ipfs_file_natively(file_hash: String) -> Vec<u8> {
     let ipfs = setup_native_ipfs().await;
+
     // Get the IPFS file
     let path = file_hash
         .parse::<IpfsPath>()
@@ -365,16 +352,15 @@ async fn download_ipfs_file_natively(file_hash: String) -> Vec<u8> {
     file_vec
 }
 
-fn new_ipfs_node() -> ipfs::IpfsOptions
+fn get_ipfs_options() -> ipfs::IpfsOptions
 {
     IpfsOptions
     {
         ipfs_path: PathBuf::from(CACHE_DIR.to_owned()),
         keypair: Keypair::generate_ed25519(),
-        mdns: Default::default(),
+        mdns: true,
         bootstrap: Default::default(),
-        // default to lan kad for go-ipfs use in tests
-        kad_protocol: Some("/ipfs/lan/kad/1.0.0".to_owned()),
+        kad_protocol: None,
         listening_addrs: vec!["/ip4/127.0.0.1/tcp/0".parse().unwrap()],
         span: None,
     }
