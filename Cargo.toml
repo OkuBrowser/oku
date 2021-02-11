@@ -40,6 +40,7 @@ gdk-pixbuf = "0.9.0"
 gio = "0.9.1"
 glib = "0.10.3"
 gtk = { version = "0.9.2", features = ["v3_24"], default-features = false }
+ipfs = "0.2.1"
 ipfs-api = { version = "0.10.0", features = ["actix"], default-features = false }
 lazy_static = "1.4.0"
 notify-rust = { version = "4.2.2", features = ["images", "z"], default-features = false }
@@ -47,6 +48,7 @@ pango = "0.9.1"
 url = "2.2.0"
 urlencoding = "1.1.1"
 reqwest = { version = "0.10.10", features = ["blocking"] }
+tokio = { version = "0.2", features = ["full"] }
 webkit2gtk = { version = "0.11.0", features = ["v2_28"] }
 
 [profile.release]

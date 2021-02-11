@@ -17,6 +17,16 @@
 
 
 
+use ipfs::Types;
+use std::path::PathBuf;
+use ipfs::Keypair;
+use std::path::Path;
+use tokio::stream::StreamExt;
+use ipfs::IpfsPath;
+use ipfs::UninitializedIpfs;
+use ipfs::TestTypes;
+use ipfs::Ipfs;
+use ipfs::IpfsOptions;
 use cid::Cid;
 use url::Url;
 use url::ParseError;
@@ -174,12 +184,25 @@ fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 /// # Arguments
 ///
 /// `request` - The request from the browser for the IPFS resource
-fn handle_ipfs_request(request: &URISchemeRequest) {
-    let client = IpfsClient::default();
+fn handle_ipfs_request_using_api(request: &URISchemeRequest) {
     let request_url = request.get_uri().unwrap().to_string();
     let decoded_url = decode(&request_url).unwrap();
     let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
-    let ipfs_bytes = get_from_hash(client, ipfs_path);
+    let ipfs_bytes = get_from_hash_using_api(ipfs_path);
+    let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
+    request.finish(&stream, -1, None);
+}
+
+/// Comply with a request using the IPFS scheme natively
+///
+/// # Arguments
+///
+/// `request` - The request from the browser for the IPFS resource
+fn handle_ipfs_request_natively(request: &URISchemeRequest) {
+    let request_url = request.get_uri().unwrap().to_string();
+    let decoded_url = decode(&request_url).unwrap();
+    let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
+    let ipfs_bytes = get_from_hash_natively(ipfs_path);
     let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
     request.finish(&stream, -1, None);
 }
@@ -197,6 +220,7 @@ fn new_view(
     builder: &gtk::Builder,
     verbose: bool,
     is_private: bool,
+    native: bool,
 ) -> webkit2gtk::WebView {
     let web_kit = webkit2gtk::WebViewBuilder::new()
         .is_ephemeral(is_private)
@@ -221,7 +245,15 @@ fn new_view(
     //     disallowed_notification_security_origins.push(&new_origin);
     // }
 
-    web_context.register_uri_scheme("ipfs", move |request| handle_ipfs_request(request));
+    match native
+    {
+        true => {
+            web_context.register_uri_scheme("ipfs", move |request| handle_ipfs_request_natively(request));
+        }
+        false => {
+            web_context.register_uri_scheme("ipfs", move |request| handle_ipfs_request_using_api(request));
+        }
+    };
     // web_context.initialize_notification_permissions(&allowed_notification_security_origins, &disallowed_notification_security_origins);
     web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
     web_settings.set_enable_write_console_messages_to_stdout(verbose);
@@ -236,26 +268,55 @@ fn new_view(
     web_view
 }
 
-/// Get an IPFS file asynchronously
+/// Setup an IPFS node
+async fn setup_native_ipfs() -> Ipfs<Types>
+{
+    // Initialize an in-memory repo and start a daemon.
+    let opts = new_ipfs_node();
+    let (ipfs, fut): (Ipfs<Types>, _) = UninitializedIpfs::new(opts).start().await.unwrap();
+
+    // Spawn the background task
+    tokio::task::spawn(fut);
+
+    // Restore the default bootstrappers to enable content discovery
+    ipfs.restore_bootstrappers().await.unwrap();
+
+    ipfs
+}
+
+/// Get an IPFS file asynchronously using an existing IPFS node
 ///
 /// # Arguments
 ///
 /// `client` - The IPFS client running locally
 ///
 /// `hash` - The IPFS identifier of the file
-fn get_from_hash(client: IpfsClient, hash: String) -> Vec<u8> {
+fn get_from_hash_using_api(hash: String) -> Vec<u8> {
     let mut sys = actix_rt::System::new(format!("Oku IPFS System ({})", hash));
-    sys.block_on(download_ipfs_file(client, hash))
+    sys.block_on(download_ipfs_file_from_api(hash))
 }
 
-/// Download an IPFS file to the local machine
+/// Get an IPFS file asynchronously using an in-memory IPFS node
 ///
 /// # Arguments
 ///
 /// `client` - The IPFS client running locally
 ///
-/// `file_hash` - The CID of the folder the file is in
-async fn download_ipfs_file(client: IpfsClient, file_hash: String) -> Vec<u8> {
+/// `hash` - The IPFS identifier of the file
+fn get_from_hash_natively(hash: String) -> Vec<u8> {
+    let mut sys = actix_rt::System::new(format!("Oku IPFS System ({})", hash));
+    sys.block_on(download_ipfs_file_natively(hash))
+}
+
+/// Download an IPFS file to the local machine using an existing IPFS node
+///
+/// # Arguments
+///
+/// `client` - The IPFS client running locally
+///
+/// `file_hash` - The CID of the file
+async fn download_ipfs_file_from_api(file_hash: String) -> Vec<u8> {
+    let client = IpfsClient::default();
     match client
         .cat(&file_hash)
         .map_ok(|chunk| chunk.to_vec())
@@ -273,6 +334,49 @@ async fn download_ipfs_file(client: IpfsClient, file_hash: String) -> Vec<u8> {
             let request_body = request.unwrap().bytes().await;
             request_body.unwrap().to_vec()
         }
+    }
+}
+
+/// Download an IPFS file to the local machine using an in-memory IPFS node
+///
+/// # Arguments
+///
+/// `file_hash` - The CID of the file
+async fn download_ipfs_file_natively(file_hash: String) -> Vec<u8> {
+    let ipfs = setup_native_ipfs().await;
+    // Get the IPFS file
+    let path = file_hash
+        .parse::<IpfsPath>()
+        .unwrap();
+    let stream = ipfs.cat_unixfs(path, None).await.unwrap();
+    tokio::pin!(stream);
+    let mut file_vec: Vec<u8> = vec!();
+    loop {
+        match stream.next().await {
+            Some(Ok(bytes)) => {
+                file_vec.extend(bytes);
+            }
+            Some(Err(e)) => {
+                eprintln!("Error: {}", e);
+            }
+            None => break,
+        }
+    }
+    file_vec
+}
+
+fn new_ipfs_node() -> ipfs::IpfsOptions
+{
+    IpfsOptions
+    {
+        ipfs_path: PathBuf::from(CACHE_DIR.to_owned()),
+        keypair: Keypair::generate_ed25519(),
+        mdns: Default::default(),
+        bootstrap: Default::default(),
+        // default to lan kad for go-ipfs use in tests
+        kad_protocol: Some("/ipfs/lan/kad/1.0.0".to_owned()),
+        listening_addrs: vec!["/ip4/127.0.0.1/tcp/0".parse().unwrap()],
+        span: None,
     }
 }
 
@@ -332,8 +436,9 @@ fn new_tab_page(
     new_tab_number: u32,
     verbose: bool,
     is_private: bool,
+    native: bool,
 ) -> webkit2gtk::WebView {
-    let new_view = new_view(builder, verbose, is_private);
+    let new_view = new_view(builder, verbose, is_private, native);
     tabs.insert_page(&new_view, Some(&new_tab("New Tab")), Some(new_tab_number));
     tabs.set_tab_reorderable(&new_view, true);
     tabs.set_tab_detachable(&new_view, true);
@@ -370,8 +475,9 @@ fn create_initial_tab(
     initial_url: String,
     verbose: bool,
     is_private: bool,
+    native: bool,
 ) {
-    let web_view = new_tab_page(&builder, &tabs, 0, verbose, is_private);
+    let web_view = new_tab_page(&builder, &tabs, 0, verbose, is_private, native);
     web_view.load_uri(&initial_url);
     let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
     let close_button_widget = &current_tab_label.get_children()[2];
@@ -519,6 +625,7 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
 
     let is_private = matches.is_present("private");
     let verbose = matches.is_present("verbose");
+    let native = true;
 
     let glade_src = include_str!("oku.glade");
     let builder = gtk::Builder::from_string(glade_src);
@@ -565,7 +672,7 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
     window.set_application(Some(application));
 
     if tabs.get_n_pages() == 0 {
-        create_initial_tab(&builder, &tabs, initial_url.to_owned(), verbose, is_private)
+        create_initial_tab(&builder, &tabs, initial_url.to_owned(), verbose, is_private, native)
     }
 
     tabs.connect_property_page_notify(
@@ -599,7 +706,7 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
             {
                 0 => {
                     nav_entry.set_text("");
-                    create_initial_tab(&builder, &tabs, initial_url.to_owned(), verbose, is_private)
+                    create_initial_tab(&builder, &tabs, initial_url.to_owned(), verbose, is_private, native)
                 }
                 1 => {
                     tabs.set_show_tabs(false);
@@ -635,7 +742,7 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
     }));
 
     add_tab.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-        let web_view = new_tab_page(&builder, &tabs, tabs.get_n_pages(), verbose, is_private);
+        let web_view = new_tab_page(&builder, &tabs, tabs.get_n_pages(), verbose, is_private, native);
         let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
         let close_button_widget = &current_tab_label.get_children()[2];
         let close_button: gtk::Button = close_button_widget.clone().downcast().unwrap();
@@ -687,12 +794,9 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
             find_options.set(webkit2gtk::FindOptions::BACKWARDS, find_backwards.get_active());
             find_options.set(webkit2gtk::FindOptions::WRAP_AROUND, find_wrap_around.get_active());
             let max_match_count = find_controller.get_max_match_count();
-            // let current_match = Rc::new(RefCell::new(0));
-            // let all_matches = Rc::new(RefCell::new(0));
             find_controller.count_matches(&find_search_entry.get_text(), find_options.bits(), max_match_count);
             find_controller.search(&find_search_entry.get_text(), find_options.bits(), max_match_count);
             find_controller.connect_counted_matches(clone!(@weak web_view, @weak find_controller, @weak find_search_entry, @weak total_matches_label => move |_, total_matches| {
-                // *all_matches.borrow_mut() = total_matches;
                 if total_matches < u32::MAX
                 {
                     total_matches_label.set_text(&total_matches.to_string());
@@ -710,7 +814,6 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
                 current_match_label.set_text(&current_match.to_string());
                 find_search_entry.set_progress_fraction(current_match as f64 / total_matches as f64);
                 find_search_entry.set_tooltip_text(Some(&format!("{} / {} matches", current_match, total_matches)));
-                // println!("{} / {} matches", *current_match.borrow_mut(), *all_matches.borrow_mut());
             }));
             next_find_button.connect_clicked(clone!(@weak web_view, @weak find_controller, @weak find_search_entry, @weak current_match_label, @weak total_matches_label => move |_| {
                 find_controller.search_next();
@@ -724,7 +827,6 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
                 current_match_label.set_text(&current_match.to_string());
                 find_search_entry.set_progress_fraction(current_match as f64 / total_matches as f64);
                 find_search_entry.set_tooltip_text(Some(&format!("{} / {} matches", current_match, total_matches)));
-                // println!("{} / {} matches", *current_match.borrow_mut(), *all_matches.borrow_mut());
             }));
             previous_find_button.connect_clicked(clone!(@weak web_view, @weak find_controller, @weak find_search_entry, @weak current_match_label, @weak total_matches_label => move |_| {
                 find_controller.search_previous();
@@ -738,7 +840,6 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
                 current_match_label.set_text(&current_match.to_string());
                 find_search_entry.set_progress_fraction(current_match as f64 / total_matches as f64);
                 find_search_entry.set_tooltip_text(Some(&format!("{} / {} matches", current_match, total_matches)));
-                // println!("{} / {} matches", *current_match.borrow_mut(), *all_matches.borrow_mut());
             }));
             find_popover.connect_closed(
                 clone!(@weak tabs, @weak nav_entry, @weak builder, @weak current_match_label, @weak total_matches_label => move |_| {
