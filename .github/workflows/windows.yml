@@ -15,6 +15,7 @@ jobs:
         with:
           update: true
           install: >-
+            tree
             git
             base-devel
             glib2
@@ -30,12 +31,7 @@ jobs:
           LIBRARY_PATH="../MSYS2/mingw32/x86_64-w64-mingw64/lib"
           GTK_LIB_DIR="../MSYS2*/mingw64/bin" PKG_CONFIG_ALLOW_CROSS=1
           source ~/.bashrc
-          ls ../../
-          echo "\n---\n---\n"
-          ls ../
-          echo "\n---\n---\n"
-          ls ./
-          echo "\n---\n---\n"
+          tree /
           ls $LIBRARY_PATH
           echo "\n---\n---\n"
           ls $GTK_LIB_DIR
