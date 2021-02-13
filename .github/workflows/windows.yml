@@ -27,14 +27,11 @@ jobs:
             mingw-w64-x86_64-pkg-config
       - name: Setup environment variables
         run: |
-          echo "../MSYS2*/mingw64/bin" >> $GITHUB_PATH
-          LIBRARY_PATH="../MSYS2/mingw32/x86_64-w64-mingw64/lib"
-          GTK_LIB_DIR="../MSYS2*/mingw64/bin" PKG_CONFIG_ALLOW_CROSS=1
+          echo "../../temp/msys/msys64/mingw64/bin" >> $GITHUB_PATH
+          LIBRARY_PATH="../../temp/msys/msys64/mingw64/bin"
+          GTK_LIB_DIR="../../temp/msys/msys64/mingw64/bin" PKG_CONFIG_ALLOW_CROSS=1
           source ~/.bashrc
-          tree ../../
           ls $LIBRARY_PATH
-          echo "\n---\n---\n"
-          ls $GTK_LIB_DIR
       - name: Checkout codebase
         uses: actions/checkout@v2
       - name: Setup Rust toolchain
