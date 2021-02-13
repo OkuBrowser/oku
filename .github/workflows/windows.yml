@@ -30,9 +30,9 @@ jobs:
           LIBRARY_PATH=...\MSYS2\mingw32\x86_64-w64-mingw64\lib
           GTK_LIB_DIR=...\MSYS2*\mingw64\bin PKG_CONFIG_ALLOW_CROSS=1
           source ~/.bashrc
-          ls LIBRARY_PATH
+          ls $LIBRARY_PATH
           echo "\n---\n---\n"
-          ls GTK_LIB_DIR
+          ls $GTK_LIB_DIR
       - name: Checkout codebase
         uses: actions/checkout@v2
       - name: Setup Rust toolchain
