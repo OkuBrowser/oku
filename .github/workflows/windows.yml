@@ -22,6 +22,7 @@ jobs:
             mingw-w64-x86_64-gtk3
             mingw-w64-x86_64-gtk2
             mingw-w64-x86_64-glib2
+            mingw-w64-x86_64-pkg-config
       - name: Checkout codebase
         uses: actions/checkout@v2
       - name: Setup Rust toolchain
