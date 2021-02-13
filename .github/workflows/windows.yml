@@ -27,10 +27,11 @@ jobs:
             mingw-w64-x86_64-pkg-config
       - name: Setup environment variables
         run: |
-          echo "../../temp/msys/msys64/mingw64/bin" >> $GITHUB_PATH
-          LIBRARY_PATH="../../temp/msys/msys64/mingw64/bin"
-          GTK_LIB_DIR="../../temp/msys/msys64/mingw64/bin" PKG_CONFIG_ALLOW_CROSS=1
+          echo "../../msys/msys64/mingw64/bin" >> $GITHUB_PATH
+          LIBRARY_PATH="../../msys/msys64/mingw64/bin"
+          GTK_LIB_DIR="../../msys/msys64/mingw64/bin" PKG_CONFIG_ALLOW_CROSS=1
           source ~/.bashrc
+          ls ../../
           ls $LIBRARY_PATH
       - name: Checkout codebase
         uses: actions/checkout@v2
