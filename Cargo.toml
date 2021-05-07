@@ -45,7 +45,7 @@ ipfs-api = { version = "0.11.0", features = ["actix"], default-features = false 
 lazy_static = "1.4.0"
 notify-rust = { version = "4.3.0", features = ["images", "z"], default-features = false }
 pango = "0.9.1"
-url = "2.2.1"
+url = "2.2.2"
 urlencoding = "1.1.1"
 reqwest = { version = "0.11.1", features = ["blocking"] }
 tokio = { version = "0.2", features = ["full"] }
