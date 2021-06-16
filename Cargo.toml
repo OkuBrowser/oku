@@ -48,7 +48,7 @@ pango = "0.9.1"
 url = "2.2.1"
 urlencoding = "1.1.1"
 reqwest = { version = "0.11.1", features = ["blocking"] }
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "1.7", features = ["full"] }
 webkit2gtk = { version = "0.11.0", features = ["v2_28"] }
 
 [profile.release]
