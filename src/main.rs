@@ -17,6 +17,8 @@
 
 
 
+use glib::OptionArg;
+use glib::OptionFlags;
 use ipfs::Types;
 use std::path::PathBuf;
 use ipfs::Keypair;
@@ -30,13 +32,13 @@ use ipfs::IpfsOptions;
 use cid::Cid;
 use url::Url;
 use url::ParseError;
-use gtk::ToggleButtonExt;
+use gtk::prelude::ToggleButtonExt;
 use webkit2gtk::FindControllerExt;
-use gtk::SearchEntryExt;
+use gtk::prelude::SearchEntryExt;
 use chrono::Utc;
 use directories_next::UserDirs;
 use std::fs::File;
-use gtk::AboutDialogExt;
+use gtk::prelude::AboutDialogExt;
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
 use gio::prelude::*;
@@ -44,29 +46,26 @@ use glib::clone;
 use glib::Cast;
 use gtk::prelude::BuilderExtManual;
 use gtk::prelude::NotebookExtManual;
-use gtk::BoxExt;
-use gtk::ButtonExt;
-use gtk::ContainerExt;
-use gtk::EntryExt;
-use gtk::GtkWindowExt;
+use gtk::prelude::BoxExt;
+use gtk::prelude::ButtonExt;
+use gtk::prelude::ContainerExt;
+use gtk::prelude::EntryExt;
+use gtk::prelude::GtkWindowExt;
 use gtk::IconSize;
-use gtk::ImageExt;
+use gtk::prelude::ImageExt;
 use gtk::Inhibit;
-use gtk::LabelExt;
-use gtk::NotebookExt;
+use gtk::prelude::LabelExt;
+use gtk::prelude::NotebookExt;
 use gtk::Orientation::Horizontal;
-use gtk::PopoverExt;
-use gtk::WidgetExt;
+use gtk::prelude::PopoverExt;
+use gtk::prelude::WidgetExt;
 use ipfs_api::IpfsClient;
 use pango::EllipsizeMode;
 use std::convert::TryFrom;
 use std::env::args;
 use urlencoding::decode;
-use webkit2gtk::SettingsExt;
-use webkit2gtk::URISchemeRequest;
-use webkit2gtk::URISchemeRequestExt;
-use webkit2gtk::WebContextExt;
-use webkit2gtk::WebViewExt;
+use webkit2gtk::traits::*;
+use webkit2gtk::{SettingsExt, URISchemeRequest, URISchemeRequestExt, WebContextExt, WebViewExt};
 use clap::clap_app;
 
 #[macro_use]
@@ -578,11 +577,16 @@ fn main() {
     let application = gtk::Application::new(Some("com.github.madebyemil.oku"), Default::default())
         .expect("Initialization failed … ");
 
+    application.add_main_option("url", glib::Char('u' as i8), OptionFlags::NONE, OptionArg::String, "An optional URL to open in the browser", Some("An optional URL to open in the browser"));
+    application.add_main_option("verbose", glib::Char('v' as i8), OptionFlags::NONE, OptionArg::None, "Output browser messages to standard output", None);
+    application.add_main_option("private", glib::Char('p' as i8), OptionFlags::NONE, OptionArg::None, "Open a private session", None);
+
     application.connect_activate(move |app| {
         new_window(app, matches.to_owned());
     });
 
-    application.run(&args().collect::<Vec<_>>());
+
+    application.run_with_args(&args().collect::<Vec<_>>());
 }
 
 /// Create a new functional & graphical browser window

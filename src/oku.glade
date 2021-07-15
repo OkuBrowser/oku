@@ -477,7 +477,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
-                <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">search text only at the begining of the words</property>
+                <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">Search text only at the begining of the words</property>
                 <property name="relief">half</property>
                 <child>
                   <object class="GtkImage">
@@ -501,7 +501,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
-                <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">search backwards</property>
+                <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">Search backwards</property>
                 <property name="relief">half</property>
                 <child>
                   <object class="GtkImage">
@@ -525,7 +525,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
-                <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">case insensitive search</property>
+                <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">Case insensitive search</property>
                 <property name="relief">half</property>
                 <child>
                   <object class="GtkImage">
@@ -549,7 +549,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
-                <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">treat capital letters in the middle of words as word start</property>
+                <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">Treat capital letters in the middle of words as word start</property>
                 <property name="relief">half</property>
                 <child>
                   <object class="GtkImage">
@@ -573,7 +573,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
-                <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">if not present search will stop at the end of the document</property>
+                <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">If not present search will stop at the end of the document</property>
                 <property name="relief">half</property>
                 <child>
                   <object class="GtkImage">
@@ -998,9 +998,9 @@
   </object>
   <object class="WebKitSettings" type-func="webkit_settings_get_type" id="webkit_settings">
     <property name="load-icons-ignoring-image-load-setting">True</property>
+    <property name="enable-plugins">True</property>
     <property name="javascript-can-open-windows-automatically">True</property>
     <property name="enable-developer-extras">True</property>
-    <property name="enable-resizable-text-areas">False</property>
     <property name="enable-dns-prefetching">True</property>
     <property name="enable-caret-browsing">True</property>
     <property name="allow-modal-dialogs">True</property>
@@ -1008,6 +1008,7 @@
     <property name="media-playback-requires-user-gesture">True</property>
     <property name="enable-smooth-scrolling">True</property>
     <property name="enable-accelerated-2d-canvas">True</property>
+    <property name="enable-write-console-messages-to-stdout">True</property>
     <property name="enable-media-stream">True</property>
     <property name="enable-spatial-navigation">True</property>
     <property name="enable-encrypted-media">True</property>
