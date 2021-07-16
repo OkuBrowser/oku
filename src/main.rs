@@ -19,6 +19,8 @@
 
 use glib::OptionArg;
 use glib::OptionFlags;
+use glib::VariantDict;
+use glib::VariantTy;
 use ipfs::Types;
 use std::path::PathBuf;
 use ipfs::Keypair;
@@ -103,7 +105,7 @@ struct DownloadItem {
 ///
 /// * `web_view` - The WebKit instance for the current tab
 fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
-    let mut nav_text = nav_entry.get_text().to_string();
+    let mut nav_text = nav_entry.text().to_string();
 
     let mut parsed_url = Url::parse(&nav_text);
     match parsed_url
@@ -167,7 +169,7 @@ fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 ///
 /// * `web_view` - The WebKit instance for the current tab
 fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
-    let mut url = web_view.get_uri().unwrap().to_string();
+    let mut url = web_view.uri().unwrap().to_string();
     let cid = url
         .replacen("http://", "", 1)
         .replacen(".ipfs.localhost:8080", "", 1);
@@ -184,10 +186,10 @@ fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 ///
 /// `request` - The request from the browser for the IPFS resource
 fn handle_ipfs_request_using_api(request: &URISchemeRequest) {
-    let request_url = request.get_uri().unwrap().to_string();
+    let request_url = request.uri().unwrap().to_string();
     let decoded_url = decode(&request_url).unwrap();
     let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
-    let ipfs_bytes = get_from_hash_using_api(ipfs_path);
+    let ipfs_bytes = from_hash_using_api(ipfs_path);
     let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
     request.finish(&stream, -1, None);
 }
@@ -198,10 +200,10 @@ fn handle_ipfs_request_using_api(request: &URISchemeRequest) {
 ///
 /// `request` - The request from the browser for the IPFS resource
 fn handle_ipfs_request_natively(request: &URISchemeRequest) {
-    let request_url = request.get_uri().unwrap().to_string();
+    let request_url = request.uri().unwrap().to_string();
     let decoded_url = decode(&request_url).unwrap();
     let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
-    let ipfs_bytes = get_from_hash_natively(ipfs_path);
+    let ipfs_bytes = from_hash_natively(ipfs_path);
     let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
     request.finish(&stream, -1, None);
 }
@@ -224,9 +226,9 @@ fn new_view(
     let web_kit = webkit2gtk::WebViewBuilder::new()
         .is_ephemeral(is_private)
         .automation_presentation_type(webkit2gtk::AutomationBrowsingContextPresentation::Tab);
-    let web_settings: webkit2gtk::Settings = builder.get_object("webkit_settings").unwrap();
+    let web_settings: webkit2gtk::Settings = builder.object("webkit_settings").unwrap();
     let web_view = web_kit.build();
-    let web_context = web_view.get_context().unwrap();
+    let web_context = web_view.context().unwrap();
     let extensions_path = format!("{}/web-extensions/", DATA_DIR.to_string());
     let favicon_database_path = format!("{}/favicon-database/", CACHE_DIR.to_string());
 
@@ -245,8 +247,8 @@ fn new_view(
     web_context.set_web_extensions_directory(&extensions_path);
     web_context.set_favicon_database_directory(Some(&favicon_database_path));
     web_view.set_visible(true);
-    web_view.set_property_width_request(1024);
-    web_view.set_property_height_request(640);
+    web_view.set_width_request(1024);
+    web_view.set_height_request(640);
     web_view.load_uri("about:blank");
 
     web_view
@@ -256,7 +258,7 @@ fn new_view(
 async fn setup_native_ipfs() -> Ipfs<Types>
 {
     // Initialize an in-memory repo and start a daemon.
-    let opts = get_ipfs_options();
+    let opts = ipfs_options();
     let (ipfs, fut): (Ipfs<Types>, _) = UninitializedIpfs::new(opts).start().await.unwrap();
 
     // Spawn the background task
@@ -275,7 +277,7 @@ async fn setup_native_ipfs() -> Ipfs<Types>
 /// `client` - The IPFS client running locally
 ///
 /// `hash` - The IPFS identifier of the file
-fn get_from_hash_using_api(hash: String) -> Vec<u8> {
+fn from_hash_using_api(hash: String) -> Vec<u8> {
     let mut sys = actix_rt::System::new(format!("Oku IPFS System ({})", hash));
     sys.block_on(download_ipfs_file_from_api(hash))
 }
@@ -287,7 +289,7 @@ fn get_from_hash_using_api(hash: String) -> Vec<u8> {
 /// `client` - The IPFS client running locally
 ///
 /// `hash` - The IPFS identifier of the file
-fn get_from_hash_natively(hash: String) -> Vec<u8> {
+fn from_hash_natively(hash: String) -> Vec<u8> {
     let mut sys = actix_rt::System::new(format!("Oku IPFS System ({})", hash));
     sys.block_on(download_ipfs_file_natively(hash))
 }
@@ -351,7 +353,7 @@ async fn download_ipfs_file_natively(file_hash: String) -> Vec<u8> {
     file_vec
 }
 
-fn get_ipfs_options() -> ipfs::IpfsOptions
+fn ipfs_options() -> ipfs::IpfsOptions
 {
     IpfsOptions
     {
@@ -436,8 +438,8 @@ fn new_tab_page(
 /// # Arguments
 ///
 /// * `tabs` - The notebook containing the tabs & pages of the current browser session
-fn get_view(tabs: &gtk::Notebook) -> webkit2gtk::WebView {
-    tabs.get_nth_page(Some(tabs.get_current_page().unwrap()))
+fn view(tabs: &gtk::Notebook) -> webkit2gtk::WebView {
+    tabs.nth_page(Some(tabs.current_page().unwrap()))
         .unwrap()
         .downcast()
         .unwrap()
@@ -464,8 +466,8 @@ fn create_initial_tab(
 ) {
     let web_view = new_tab_page(&builder, &tabs, 0, verbose, is_private, native);
     web_view.load_uri(&initial_url);
-    let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
-    let close_button_widget = &current_tab_label.get_children()[2];
+    let current_tab_label: gtk::Box = tabs.tab_label(&web_view).unwrap().downcast().unwrap();
+    let close_button_widget = &current_tab_label.children()[2];
     let close_button: gtk::Button = close_button_widget.clone().downcast().unwrap();
     close_button.connect_clicked(clone!(@weak tabs, @weak web_view => move |_| {
         tabs.remove_page(tabs.page_num(&web_view));
@@ -481,16 +483,16 @@ fn create_initial_tab(
 ///
 /// * `tabs` - The notebook containing the tabs & pages of the current browser session
 fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
-    let current_tab_label: gtk::Box = tabs.get_tab_label(web_view).unwrap().downcast().unwrap();
-    let favicon_widget = &current_tab_label.get_children()[0];
+    let current_tab_label: gtk::Box = tabs.tab_label(web_view).unwrap().downcast().unwrap();
+    let favicon_widget = &current_tab_label.children()[0];
     let favicon: gtk::Image = favicon_widget.clone().downcast().unwrap();
-    let web_favicon = &web_view.get_favicon();
+    let web_favicon = &web_view.favicon();
     match &web_favicon {
         Some(_) => {
             let favicon_surface =
                 cairo::ImageSurface::try_from(web_favicon.to_owned().unwrap()).unwrap();
-            let favicon_width = favicon_surface.get_width();
-            let favicon_height = favicon_surface.get_height();
+            let favicon_width = favicon_surface.width();
+            let favicon_height = favicon_surface.height();
             match favicon_width < 32 && favicon_height < 32 {
                 true => {
                     favicon.set_from_surface(Some(&favicon_surface));
@@ -525,9 +527,9 @@ fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
 ///
 /// * `tabs` - The notebook containing the tabs & pages of the current browser session
 fn update_title(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
-    let current_tab_label: gtk::Box = tabs.get_tab_label(web_view).unwrap().downcast().unwrap();
-    let new_label_text = new_tab_label(&web_view.get_title().unwrap());
-    current_tab_label.remove(&current_tab_label.get_children()[1]);
+    let current_tab_label: gtk::Box = tabs.tab_label(web_view).unwrap().downcast().unwrap();
+    let new_label_text = new_tab_label(&web_view.title().unwrap());
+    current_tab_label.remove(&current_tab_label.children()[1]);
     current_tab_label.add(&new_label_text);
     current_tab_label.reorder_child(&new_label_text, 1);
 }
@@ -540,7 +542,7 @@ fn update_title(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
 ///
 /// * `web_view` - The WebKit instance for the current tab
 fn update_load_progress(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
-    let load_progress = web_view.get_estimated_load_progress();
+    let load_progress = web_view.estimated_load_progress();
     if load_progress as i64 == 1 {
         nav_entry.set_progress_fraction(0.00)
     } else {
@@ -565,7 +567,7 @@ fn new_about_dialog()
 
 /// The main function of Oku
 fn main() {
-    let matches = clap_app!(myapp =>
+    let matches = clap_app!(Oku =>
         (version: VERSION.unwrap())
         (author: "Emil Sayahi <limesayahi@gmail.com>")
         (about: "A hive browser written in Rust")
@@ -574,17 +576,11 @@ fn main() {
         (@arg private: -p --private "Open a private session")
     ).get_matches();
 
-    let application = gtk::Application::new(Some("com.github.madebyemil.oku"), Default::default())
-        .expect("Initialization failed … ");
-
-    application.add_main_option("url", glib::Char('u' as i8), OptionFlags::NONE, OptionArg::String, "An optional URL to open in the browser", Some("An optional URL to open in the browser"));
-    application.add_main_option("verbose", glib::Char('v' as i8), OptionFlags::NONE, OptionArg::None, "Output browser messages to standard output", None);
-    application.add_main_option("private", glib::Char('p' as i8), OptionFlags::NONE, OptionArg::None, "Open a private session", None);
+    let application = gtk::Application::new(Some("com.github.dirout.oku"), Default::default());
 
     application.connect_activate(move |app| {
         new_window(app, matches.to_owned());
     });
-
 
     application.run_with_args(&args().collect::<Vec<_>>());
 }
@@ -620,68 +616,68 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
     let glade_src = include_str!("oku.glade");
     let builder = gtk::Builder::from_string(glade_src);
 
-    let window: gtk::ApplicationWindow = builder.get_object("window").unwrap();
+    let window: gtk::ApplicationWindow = builder.object("window").unwrap();
     window.set_title("Oku");
 
-    let downloads_button: gtk::Button = builder.get_object("downloads_button").unwrap();
-    let downloads_popover: gtk::Popover = builder.get_object("downloads_popover").unwrap();
+    let downloads_button: gtk::Button = builder.object("downloads_button").unwrap();
+    let downloads_popover: gtk::Popover = builder.object("downloads_popover").unwrap();
 
-    let find_button: gtk::Button = builder.get_object("find_button").unwrap();
-    let find_popover: gtk::Popover = builder.get_object("find_popover").unwrap();
-    let previous_find_button: gtk::Button = builder.get_object("previous_find_button").unwrap();
-    let next_find_button: gtk::Button = builder.get_object("next_find_button").unwrap();
-    let find_case_insensitive: gtk::ToggleButton = builder.get_object("find_case_insensitive").unwrap();
-    let find_at_word_starts: gtk::ToggleButton = builder.get_object("find_at_word_starts").unwrap();
-    let find_treat_medial_capital_as_word_start: gtk::ToggleButton = builder.get_object("find_treat_medial_capital_as_word_start").unwrap();
-    let find_backwards: gtk::ToggleButton = builder.get_object("find_backwards").unwrap();
-    let find_wrap_around: gtk::ToggleButton = builder.get_object("find_wrap_around").unwrap();
-    let find_search_entry: gtk::SearchEntry = builder.get_object("find_search_entry").unwrap();
-    let current_match_label: gtk::Label = builder.get_object("current_match_label").unwrap();
-    let total_matches_label: gtk::Label = builder.get_object("total_matches_label").unwrap();
+    let find_button: gtk::Button = builder.object("find_button").unwrap();
+    let find_popover: gtk::Popover = builder.object("find_popover").unwrap();
+    let previous_find_button: gtk::Button = builder.object("previous_find_button").unwrap();
+    let next_find_button: gtk::Button = builder.object("next_find_button").unwrap();
+    let find_case_insensitive: gtk::ToggleButton = builder.object("find_case_insensitive").unwrap();
+    let find_at_word_starts: gtk::ToggleButton = builder.object("find_at_word_starts").unwrap();
+    let find_treat_medial_capital_as_word_start: gtk::ToggleButton = builder.object("find_treat_medial_capital_as_word_start").unwrap();
+    let find_backwards: gtk::ToggleButton = builder.object("find_backwards").unwrap();
+    let find_wrap_around: gtk::ToggleButton = builder.object("find_wrap_around").unwrap();
+    let find_search_entry: gtk::SearchEntry = builder.object("find_search_entry").unwrap();
+    let current_match_label: gtk::Label = builder.object("current_match_label").unwrap();
+    let total_matches_label: gtk::Label = builder.object("total_matches_label").unwrap();
 
-    let menu_button: gtk::Button = builder.get_object("menu_button").unwrap();
-    let menu: gtk::Popover = builder.get_object("menu").unwrap();
+    let menu_button: gtk::Button = builder.object("menu_button").unwrap();
+    let menu: gtk::Popover = builder.object("menu").unwrap();
 
-    let back_button: gtk::Button = builder.get_object("back_button").unwrap();
-    let forward_button: gtk::Button = builder.get_object("forward_button").unwrap();
-    let refresh_button: gtk::Button = builder.get_object("refresh_button").unwrap();
-    let add_tab: gtk::Button = builder.get_object("add_tab").unwrap();
+    let back_button: gtk::Button = builder.object("back_button").unwrap();
+    let forward_button: gtk::Button = builder.object("forward_button").unwrap();
+    let refresh_button: gtk::Button = builder.object("refresh_button").unwrap();
+    let add_tab: gtk::Button = builder.object("add_tab").unwrap();
 
-    let tabs: gtk::Notebook = builder.get_object("tabs").unwrap();
-    let nav_entry: gtk::Entry = builder.get_object("nav_entry").unwrap();
+    let tabs: gtk::Notebook = builder.object("tabs").unwrap();
+    let nav_entry: gtk::Entry = builder.object("nav_entry").unwrap();
 
-    let zoomout_button: gtk::Button = builder.get_object("zoomout_button").unwrap();
-    let zoomin_button: gtk::Button = builder.get_object("zoomin_button").unwrap();
-    let zoomreset_button: gtk::Button = builder.get_object("zoomreset_button").unwrap();
-    let fullscreen_button: gtk::Button = builder.get_object("fullscreen_button").unwrap();
-    let screenshot_button: gtk::Button = builder.get_object("screenshot_button").unwrap();
-    let new_window_button: gtk::Button = builder.get_object("new_window_button").unwrap();
-    let _history_button: gtk::Button = builder.get_object("history_button").unwrap();
-    let about_button: gtk::Button = builder.get_object("about_button").unwrap();
+    let zoomout_button: gtk::Button = builder.object("zoomout_button").unwrap();
+    let zoomin_button: gtk::Button = builder.object("zoomin_button").unwrap();
+    let zoomreset_button: gtk::Button = builder.object("zoomreset_button").unwrap();
+    let fullscreen_button: gtk::Button = builder.object("fullscreen_button").unwrap();
+    let screenshot_button: gtk::Button = builder.object("screenshot_button").unwrap();
+    let new_window_button: gtk::Button = builder.object("new_window_button").unwrap();
+    let _history_button: gtk::Button = builder.object("history_button").unwrap();
+    let about_button: gtk::Button = builder.object("about_button").unwrap();
 
     window.set_application(Some(application));
 
-    if tabs.get_n_pages() == 0 {
+    if tabs.n_pages() == 0 {
         create_initial_tab(&builder, &tabs, initial_url.to_owned(), verbose, is_private, native)
     }
 
-    tabs.connect_property_page_notify(
+    tabs.connect_page_notify(
         clone!(@weak nav_entry, @weak builder, @weak tabs, @weak window => move |_| {
-            let web_view = get_view(&tabs);
+            let web_view = view(&tabs);
             update_nav_bar(&nav_entry, &web_view);
-            window.set_title(&web_view.get_title().unwrap_or_else(|| glib::GString::from("Oku")));
+            window.set_title(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")));
         }),
     );
 
     tabs.connect_page_added(
         clone!(@weak nav_entry, @weak builder, @weak tabs => move |_, _, _| {
-            match tabs.get_n_pages()
+            match tabs.n_pages()
             {
                 1 => {
                     tabs.set_show_tabs(false);
                 }
                 _ => {
-                    if !tabs.get_show_tabs()
+                    if !tabs.shows_tabs()
                     {
                         tabs.set_show_tabs(true);
                     }
@@ -692,7 +688,7 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
 
     tabs.connect_page_removed(
         clone!(@weak nav_entry, @weak builder, @weak tabs => move |_, _, _| {
-            match tabs.get_n_pages()
+            match tabs.n_pages()
             {
                 0 => {
                     nav_entry.set_text("");
@@ -702,7 +698,7 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
                     tabs.set_show_tabs(false);
                 }
                 _ => {
-                    if !tabs.get_show_tabs()
+                    if !tabs.shows_tabs()
                     {
                         tabs.set_show_tabs(true);
                     }
@@ -712,29 +708,29 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
     );
 
     nav_entry.connect_activate(clone!(@weak tabs, @weak nav_entry, @weak builder, @weak window => move |_| {
-        let web_view = get_view(&tabs);
+        let web_view = view(&tabs);
         connect(&nav_entry, &web_view);
-        web_view.connect_property_title_notify(clone!(@weak tabs, @weak web_view => move |_| {
+        web_view.connect_title_notify(clone!(@weak tabs, @weak web_view => move |_| {
             update_title(&web_view, &tabs)
         }));
-        web_view.connect_property_uri_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
+        web_view.connect_uri_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
             update_nav_bar(&nav_entry, &web_view)
         }));
-        web_view.connect_property_estimated_load_progress_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
+        web_view.connect_estimated_load_progress_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
             update_load_progress(&nav_entry, &web_view)
         }));
-        web_view.connect_property_favicon_notify(clone!(@weak tabs, @weak web_view => move |_| {
+        web_view.connect_favicon_notify(clone!(@weak tabs, @weak web_view => move |_| {
             update_favicon(&web_view, &tabs)
         }));
         web_view.connect_load_changed(clone!(@weak tabs, @weak web_view, @weak nav_entry, @weak window => move |_, _| {
-            window.set_title(&web_view.get_title().unwrap_or_else(|| glib::GString::from("Oku")));
+            window.set_title(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")));
         }));
     }));
 
     add_tab.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-        let web_view = new_tab_page(&builder, &tabs, tabs.get_n_pages(), verbose, is_private, native);
-        let current_tab_label: gtk::Box = tabs.get_tab_label(&web_view).unwrap().downcast().unwrap();
-        let close_button_widget = &current_tab_label.get_children()[2];
+        let web_view = new_tab_page(&builder, &tabs, tabs.n_pages(), verbose, is_private, native);
+        let current_tab_label: gtk::Box = tabs.tab_label(&web_view).unwrap().downcast().unwrap();
+        let close_button_widget = &current_tab_label.children()[2];
         let close_button: gtk::Button = close_button_widget.clone().downcast().unwrap();
         close_button.connect_clicked(clone!(@weak tabs => move |_| {
             tabs.remove_page(tabs.page_num(&web_view));
@@ -743,21 +739,21 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
 
     back_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = get_view(&tabs);
+            let web_view = view(&tabs);
             web_view.go_back()
         }),
     );
 
     forward_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = get_view(&tabs);
+            let web_view = view(&tabs);
             web_view.go_forward()
         }),
     );
 
     refresh_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = get_view(&tabs);
+            let web_view = view(&tabs);
             web_view.reload_bypass_cache()
         }),
     );
@@ -775,17 +771,17 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
     );
     find_search_entry.connect_search_changed(
         clone!(@weak tabs, @weak nav_entry, @weak builder, @weak find_search_entry, @weak find_popover => move |_| {
-            let web_view = get_view(&tabs);
-            let find_controller = web_view.get_find_controller().unwrap();
+            let web_view = view(&tabs);
+            let find_controller = web_view.find_controller().unwrap();
             let mut find_options = webkit2gtk::FindOptions::empty();
-            find_options.set(webkit2gtk::FindOptions::CASE_INSENSITIVE, find_case_insensitive.get_active());
-            find_options.set(webkit2gtk::FindOptions::AT_WORD_STARTS, find_at_word_starts.get_active());
-            find_options.set(webkit2gtk::FindOptions::TREAT_MEDIAL_CAPITAL_AS_WORD_START, find_treat_medial_capital_as_word_start.get_active());
-            find_options.set(webkit2gtk::FindOptions::BACKWARDS, find_backwards.get_active());
-            find_options.set(webkit2gtk::FindOptions::WRAP_AROUND, find_wrap_around.get_active());
-            let max_match_count = find_controller.get_max_match_count();
-            find_controller.count_matches(&find_search_entry.get_text(), find_options.bits(), max_match_count);
-            find_controller.search(&find_search_entry.get_text(), find_options.bits(), max_match_count);
+            find_options.set(webkit2gtk::FindOptions::CASE_INSENSITIVE, find_case_insensitive.is_active());
+            find_options.set(webkit2gtk::FindOptions::AT_WORD_STARTS, find_at_word_starts.is_active());
+            find_options.set(webkit2gtk::FindOptions::TREAT_MEDIAL_CAPITAL_AS_WORD_START, find_treat_medial_capital_as_word_start.is_active());
+            find_options.set(webkit2gtk::FindOptions::BACKWARDS, find_backwards.is_active());
+            find_options.set(webkit2gtk::FindOptions::WRAP_AROUND, find_wrap_around.is_active());
+            let max_match_count = find_controller.max_match_count();
+            find_controller.count_matches(&find_search_entry.text(), find_options.bits(), max_match_count);
+            find_controller.search(&find_search_entry.text(), find_options.bits(), max_match_count);
             find_controller.connect_counted_matches(clone!(@weak web_view, @weak find_controller, @weak find_search_entry, @weak total_matches_label => move |_, total_matches| {
                 if total_matches < u32::MAX
                 {
@@ -794,8 +790,8 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
             }));
             find_search_entry.connect_activate(clone!(@weak web_view, @weak find_controller, @weak find_search_entry, @weak current_match_label, @weak total_matches_label => move |_| {
                 find_controller.search_next();
-                let mut current_match: u32 = current_match_label.get_text().parse().unwrap();
-                let total_matches: u32 = total_matches_label.get_text().parse().unwrap();
+                let mut current_match: u32 = current_match_label.text().parse().unwrap();
+                let total_matches: u32 = total_matches_label.text().parse().unwrap();
                 current_match += 1;
                 if current_match > total_matches
                 {
@@ -807,8 +803,8 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
             }));
             next_find_button.connect_clicked(clone!(@weak web_view, @weak find_controller, @weak find_search_entry, @weak current_match_label, @weak total_matches_label => move |_| {
                 find_controller.search_next();
-                let mut current_match: u32 = current_match_label.get_text().parse().unwrap();
-                let total_matches: u32 = total_matches_label.get_text().parse().unwrap();
+                let mut current_match: u32 = current_match_label.text().parse().unwrap();
+                let total_matches: u32 = total_matches_label.text().parse().unwrap();
                 current_match += 1;
                 if current_match > total_matches
                 {
@@ -820,8 +816,8 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
             }));
             previous_find_button.connect_clicked(clone!(@weak web_view, @weak find_controller, @weak find_search_entry, @weak current_match_label, @weak total_matches_label => move |_| {
                 find_controller.search_previous();
-                let mut current_match: u32 = current_match_label.get_text().parse().unwrap();
-                let total_matches: u32 = total_matches_label.get_text().parse().unwrap();
+                let mut current_match: u32 = current_match_label.text().parse().unwrap();
+                let total_matches: u32 = total_matches_label.text().parse().unwrap();
                 current_match -= 1;
                 if current_match < 1
                 {
@@ -855,30 +851,30 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
 
     zoomin_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = get_view(&tabs);
-            let current_zoom_level = web_view.get_zoom_level();
+            let web_view = view(&tabs);
+            let current_zoom_level = web_view.zoom_level();
             web_view.set_zoom_level(current_zoom_level + 0.1);
         }),
     );
 
     zoomout_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = get_view(&tabs);
-            let current_zoom_level = web_view.get_zoom_level();
+            let web_view = view(&tabs);
+            let current_zoom_level = web_view.zoom_level();
             web_view.set_zoom_level(current_zoom_level - 0.1);
         }),
     );
 
     zoomreset_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = get_view(&tabs);
+            let web_view = view(&tabs);
             web_view.set_zoom_level(1.0);
         }),
     );
 
     fullscreen_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = get_view(&tabs);
+            let web_view = view(&tabs);
             web_view.run_javascript("document.documentElement.webkitRequestFullscreen();", gio::NONE_CANCELLABLE, move |_| {
                 
             })
@@ -887,8 +883,8 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
 
     screenshot_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = get_view(&tabs);
-            web_view.get_snapshot(webkit2gtk::SnapshotRegion::FullDocument, webkit2gtk::SnapshotOptions::all(), gio::NONE_CANCELLABLE, move |snapshot| {
+            let web_view = view(&tabs);
+            web_view.snapshot(webkit2gtk::SnapshotRegion::FullDocument, webkit2gtk::SnapshotOptions::all(), gio::NONE_CANCELLABLE, move |snapshot| {
                 let snapshot_surface = cairo::ImageSurface::try_from(snapshot.unwrap()).unwrap();
                 let mut writer = File::create(format!("{}/{}.png", PICTURES_DIR.to_owned(), Utc::now())).unwrap();
                 snapshot_surface.write_to_png(&mut writer).unwrap();
@@ -898,7 +894,7 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
 
     new_window_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder, @weak window => move |_| {
-            new_window(&window.get_application().unwrap(), matches.to_owned())
+            new_window(&window.application().unwrap(), matches.to_owned())
         }),
     );
 
