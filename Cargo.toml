@@ -40,7 +40,7 @@ gdk-pixbuf = { git = "https://github.com/gtk-rs/gtk-rs-core.git" }
 gio = { git = "https://github.com/gtk-rs/gtk-rs-core.git" }
 glib = { git = "https://github.com/gtk-rs/gtk-rs-core.git" }
 gtk = { git = "https://github.com/gtk-rs/gtk3-rs.git", features = ["v3_24_9"], default-features = false }
-ipfs = "0.2.1"
+ipfs = { git = "https://github.com/Christian7573/rust-ipfs.git", branch = "7573" }
 ipfs-api = { version = "0.11.0", features = ["actix"], default-features = false }
 lazy_static = "1.4.0"
 notify-rust = { version = "4.3.0", features = ["images", "z"], default-features = false }
