@@ -445,7 +445,7 @@ fn new_tab_label(label: &str) -> gtk::Label {
 fn new_tab(label: &str) -> gtk::Box {
     let tab_box = gtk::Box::new(Horizontal, 5);
     let favicon = gtk::Image::from_icon_name(Some("applications-internet"), IconSize::Dnd);
-    let tab_label = new_tab_label(&label);
+    let tab_label = new_tab_label(label);
     let close_button = gtk::Button::new();
     let close_icon = gtk::Image::from_icon_name(Some("list-remove"), IconSize::Button);
     favicon.set_visible(true);
@@ -521,8 +521,8 @@ fn create_initial_tab(
     is_private: bool,
     native: bool,
 ) {
-    let web_view = new_tab_page(&builder, &tabs, 0, verbose, is_private, native);
-    initial_connect(initial_url.to_owned(), &web_view);
+    let web_view = new_tab_page(builder, tabs, 0, verbose, is_private, native);
+    initial_connect(initial_url, &web_view);
     let current_tab_label: gtk::Box = tabs.tab_label(&web_view).unwrap().downcast().unwrap();
     let close_button_widget = &current_tab_label.children()[2];
     let close_button: gtk::Button = close_button_widget.clone().downcast().unwrap();
@@ -632,12 +632,12 @@ fn main() {
 
     application.connect_activate(move |app| {
         let matches = VariantDict::new(None);
-        new_window(app, matches.to_owned());
+        new_window(app, matches);
     });
 
     application.connect_handle_local_options(|app, options| {
         let matches = options.to_owned();
-        new_window(app, matches.to_owned());
+        new_window(app, matches);
         0
     });
 
