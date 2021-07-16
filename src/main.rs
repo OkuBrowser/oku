@@ -68,7 +68,6 @@ use std::env::args;
 use urlencoding::decode;
 use webkit2gtk::traits::*;
 use webkit2gtk::{SettingsExt, URISchemeRequest, URISchemeRequestExt, WebContextExt, WebViewExt};
-use clap::clap_app;
 
 #[macro_use]
 extern crate lazy_static;
@@ -95,6 +94,64 @@ struct DownloadItem {
     destination: String,
     requested_time: String,
     successful: bool,
+}
+
+/// Perform the initial connection at startup when passed a URL as a launch argument
+///
+/// * `initial_url` - The URL passed as a launch argument
+///
+/// * `web_view` - The WebKit instance for the current tab
+fn initial_connect(mut initial_url: String, web_view: &webkit2gtk::WebView)
+{
+    let mut parsed_url = Url::parse(&initial_url);
+    match parsed_url
+    {
+        // When URL is completely OK
+        Ok(_) => {
+            web_view.load_uri(&initial_url);
+        }
+        // When URL is missing a scheme
+        Err(ParseError::RelativeUrlWithoutBase) => {
+            parsed_url = Url::parse(&format!("http://{}", initial_url)); // Try with HTTP first
+            match parsed_url
+            {
+                // If it's now valid with HTTP
+                Ok(_) => {
+                    let split_url: Vec<&str> = initial_url.split('/').collect();
+                    let host = split_url[0];
+                    let cid = Cid::try_from(host);
+                    // Try seeing if we can swap it with IPFS
+                    match cid
+                    {
+                        // It works as IPFS
+                        Ok(_) => {
+                            let unwrapped_cid = cid.unwrap();
+                            let cid1 = Cid::new_v1(unwrapped_cid.codec(), unwrapped_cid.hash().to_owned());
+                            parsed_url = Url::parse(&format!("ipfs://{}", initial_url));
+                            let mut unwrapped_url = parsed_url.unwrap();
+                            let cid1_string = &cid1.to_string_of_base(cid::multibase::Base::Base32Lower).unwrap();
+                            unwrapped_url.set_host(Some(cid1_string)).unwrap();
+                            initial_url = unwrapped_url.as_str().to_owned();
+                            web_view.load_uri(&initial_url);
+                        }
+                        // It doesn't work as IPFS
+                        Err(_) => {
+                            initial_url = parsed_url.unwrap().as_str().to_owned();
+                            web_view.load_uri(&initial_url);
+                        }
+                    }
+                }
+                // Still not valid, even with HTTP
+                Err(e) => {
+                    web_view.load_plain_text(&format!("{:#?}", e));
+                }
+            }
+        }
+        // URL is malformed beyond missing a scheme
+        Err(e) => {
+            web_view.load_plain_text(&format!("{:#?}", e));
+        }
+    }
 }
 
 /// Connect to a page using the current tab
@@ -465,7 +522,7 @@ fn create_initial_tab(
     native: bool,
 ) {
     let web_view = new_tab_page(&builder, &tabs, 0, verbose, is_private, native);
-    web_view.load_uri(&initial_url);
+    initial_connect(initial_url.to_owned(), &web_view);
     let current_tab_label: gtk::Box = tabs.tab_label(&web_view).unwrap().downcast().unwrap();
     let close_button_widget = &current_tab_label.children()[2];
     let close_button: gtk::Button = close_button_widget.clone().downcast().unwrap();
@@ -567,19 +624,21 @@ fn new_about_dialog()
 
 /// The main function of Oku
 fn main() {
-    let matches = clap_app!(Oku =>
-        (version: VERSION.unwrap())
-        (author: "Emil Sayahi <limesayahi@gmail.com>")
-        (about: "A hive browser written in Rust")
-        (@arg INPUT: "An optional URL to open in the browser")
-        (@arg verbose: -v --verbose "Output browser messages to standard output")
-        (@arg private: -p --private "Open a private session")
-    ).get_matches();
-
     let application = gtk::Application::new(Some("com.github.dirout.oku"), Default::default());
 
+    application.add_main_option("url", glib::Char('u' as i8), OptionFlags::NONE, OptionArg::String, "An optional URL to open in the browser", Some("An optional URL to open in the browser"));
+    application.add_main_option("verbose", glib::Char('v' as i8), OptionFlags::NONE, OptionArg::None, "Output browser messages to standard output", None);
+    application.add_main_option("private", glib::Char('p' as i8), OptionFlags::NONE, OptionArg::None, "Open a private session", None);
+
     application.connect_activate(move |app| {
+        let matches = VariantDict::new(None);
         new_window(app, matches.to_owned());
+    });
+
+    application.connect_handle_local_options(|app, options| {
+        let matches = options.to_owned();
+        new_window(app, matches.to_owned());
+        0
     });
 
     application.run_with_args(&args().collect::<Vec<_>>());
@@ -592,25 +651,25 @@ fn main() {
 /// * `application` - The application data representing Oku
 ///
 /// * `matches` - The launch arguments passed to Oku
-fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
+fn new_window(application: &gtk::Application, matches: VariantDict) {
     if gtk::init().is_err() {
         println!("Failed to initialize GTK.");
         return;
     }
 
-    let initial_url;
-    match matches.value_of("INPUT")
+    let initial_url: String;
+    match matches.lookup_value("url", Some(VariantTy::new("s").unwrap()))
     {
         Some(url) => {
-            initial_url = url.to_owned();
+            initial_url = url.to_string()[1..url.to_string().len()-1].to_string();
         }
         None => {
             initial_url = "about:blank".to_owned();
         }
     }
 
-    let is_private = matches.is_present("private");
-    let verbose = matches.is_present("verbose");
+    let is_private = matches.contains("private");
+    let verbose = matches.contains("verbose");
     let native = true;
 
     let glade_src = include_str!("oku.glade");
@@ -894,6 +953,7 @@ fn new_window(application: &gtk::Application, matches: clap::ArgMatches) {
 
     new_window_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder, @weak window => move |_| {
+            matches.remove("url");
             new_window(&window.application().unwrap(), matches.to_owned())
         }),
     );
