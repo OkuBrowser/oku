@@ -21,7 +21,10 @@ use glib::OptionArg;
 use glib::OptionFlags;
 use glib::VariantDict;
 use glib::VariantTy;
+use gtk::prelude::EditableExt;
 use ipfs::Types;
+use webkit2gtk::URISchemeRequest;
+use webkit2gtk::traits::SettingsExt;
 use std::path::PathBuf;
 use ipfs::Keypair;
 
@@ -35,29 +38,26 @@ use cid::Cid;
 use url::Url;
 use url::ParseError;
 use gtk::prelude::ToggleButtonExt;
-use webkit2gtk::FindControllerExt;
-use gtk::prelude::SearchEntryExt;
+use webkit2gtk::FindController;
+use gtk::SearchEntry;
 use chrono::Utc;
 use directories_next::UserDirs;
 use std::fs::File;
-use gtk::prelude::AboutDialogExt;
+use gtk::AboutDialog;
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
 use gio::prelude::*;
 use glib::clone;
 use glib::Cast;
-use gtk::prelude::BuilderExtManual;
-use gtk::prelude::NotebookExtManual;
+use gtk::Builder;
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
-use gtk::prelude::ContainerExt;
 use gtk::prelude::EntryExt;
 use gtk::prelude::GtkWindowExt;
 use gtk::IconSize;
-use gtk::prelude::ImageExt;
+use gtk::Image;
 use gtk::Inhibit;
-use gtk::prelude::LabelExt;
-use gtk::prelude::NotebookExt;
+use gtk::Label;
 use gtk::Orientation::Horizontal;
 use gtk::prelude::PopoverExt;
 use gtk::prelude::WidgetExt;
@@ -67,7 +67,8 @@ use std::convert::TryFrom;
 use std::env::args;
 use urlencoding::decode;
 use webkit2gtk::traits::*;
-use webkit2gtk::{SettingsExt, URISchemeRequest, URISchemeRequestExt, WebContextExt, WebViewExt};
+use webkit2gtk::{traits::{WebContextExt, WebViewExt, URISchemeRequestExt}, WebContext, WebView};
+use libadwaita::TabBar;
 
 #[macro_use]
 extern crate lazy_static;
@@ -437,56 +438,57 @@ fn new_tab_label(label: &str) -> gtk::Label {
     tab_label
 }
 
-/// Create a tab to be placed in the notebook
+/// Create a tab to be placed in the TabBar
 ///
 /// # Arguments
 ///
 /// * `label` - The text to be displayed on a tab
 fn new_tab(label: &str) -> gtk::Box {
     let tab_box = gtk::Box::new(Horizontal, 5);
-    let favicon = gtk::Image::from_icon_name(Some("applications-internet"), IconSize::Dnd);
+    let favicon = gtk::Image::from_icon_name(Some("applications-internet"));
     let tab_label = new_tab_label(label);
     let close_button = gtk::Button::new();
-    let close_icon = gtk::Image::from_icon_name(Some("list-remove"), IconSize::Button);
+    let close_icon = gtk::Image::from_icon_name(Some("list-remove"));
     favicon.set_visible(true);
     tab_box.set_hexpand(true);
     tab_box.set_vexpand(false);
     tab_box.set_visible(true);
     close_button.set_visible(true);
-    close_button.set_image(Some(&close_icon));
+    close_button.set_child(Some(&close_icon));
     close_icon.set_visible(true);
-    tab_box.add(&favicon);
-    tab_box.add(&tab_label);
-    tab_box.add(&close_button);
+    tab_box.append(&favicon);
+    tab_box.append(&tab_label);
+    tab_box.append(&close_button);
     tab_box
 }
 
-/// Create a new entry in the notebook
+/// Create a new entry in the TabBar
 ///
 /// # Arguments
 ///
 /// * `builder` - The object that contains all graphical widgets of the window
 ///
-/// * `tabs` - The notebook containing the tabs & pages of the current browser session
+/// * `tabs` - The TabBar containing the tabs & pages of the current browser session
 ///
-/// * `new_tab_number` - A number representing the position in the notebook where this new entry should
+/// * `new_tab_number` - A number representing the position in the TabBar where this new entry should
 ///  
 /// * `verbose` - Whether browser messages should be printed onto the standard output
 ///
 /// * `is_private` - Whether the window represents a private session
 fn new_tab_page(
     builder: &gtk::Builder,
-    tabs: &gtk::Notebook,
-    new_tab_number: u32,
+    tabs: &libadwaita::TabBar,
+    new_tab_number: i32,
     verbose: bool,
     is_private: bool,
     native: bool,
 ) -> webkit2gtk::WebView {
     let new_view = new_view(builder, verbose, is_private, native);
-    tabs.insert_page(&new_view, Some(&new_tab("New Tab")), Some(new_tab_number));
-    tabs.set_tab_reorderable(&new_view, true);
-    tabs.set_tab_detachable(&new_view, true);
-    tabs.set_current_page(Some(new_tab_number));
+    let tab_view = tabs.view().unwrap();
+    let new_page = tab_view.add_page(&new_view, None).unwrap();
+    new_page.set_title(Some("New Tab"));
+    new_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
+    tab_view.set_selected_page(&new_page);
     new_view
 }
 
@@ -494,42 +496,36 @@ fn new_tab_page(
 ///
 /// # Arguments
 ///
-/// * `tabs` - The notebook containing the tabs & pages of the current browser session
-fn view(tabs: &gtk::Notebook) -> webkit2gtk::WebView {
-    tabs.nth_page(Some(tabs.current_page().unwrap()))
-        .unwrap()
+/// * `tabs` - The TabBar containing the tabs & pages of the current browser session
+fn view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
+    let tab_view = tabs.view().unwrap();
+    tab_view.selected_page()
+        .unwrap().child().unwrap()
         .downcast()
         .unwrap()
 }
 
-/// Create an initial tab, for when the notebook is empty
+/// Create an initial tab, for when the TabBar is empty
 ///
 /// # Arguments
 ///
 /// * `builder` - The object that contains all graphical widgets of the window
 ///
-/// * `tabs` - The notebook containing the tabs & pages of the current browser session
+/// * `tabs` - The TabBar containing the tabs & pages of the current browser session
 /// 
 /// * `verbose` - Whether browser messages should be printed onto the standard output
 ///
 /// * `is_private` - Whether the window represents a private session
 fn create_initial_tab(
     builder: &gtk::Builder,
-    tabs: &gtk::Notebook,
+    tabs: &libadwaita::TabBar,
     initial_url: String,
     verbose: bool,
     is_private: bool,
     native: bool,
 ) {
     let web_view = new_tab_page(builder, tabs, 0, verbose, is_private, native);
-    initial_connect(initial_url, &web_view);
-    let current_tab_label: gtk::Box = tabs.tab_label(&web_view).unwrap().downcast().unwrap();
-    let close_button_widget = &current_tab_label.children()[2];
-    let close_button: gtk::Button = close_button_widget.clone().downcast().unwrap();
-    close_button.connect_clicked(clone!(@weak tabs, @weak web_view => move |_| {
-        tabs.remove_page(tabs.page_num(&web_view));
-    }));
-    tabs.set_show_tabs(false)
+    initial_connect(initial_url, &web_view)
 }
 
 /// Update a tab's icon
@@ -538,11 +534,10 @@ fn create_initial_tab(
 ///
 /// * `web_view` - The WebKit instance for the tab
 ///
-/// * `tabs` - The notebook containing the tabs & pages of the current browser session
-fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
-    let current_tab_label: gtk::Box = tabs.tab_label(web_view).unwrap().downcast().unwrap();
-    let favicon_widget = &current_tab_label.children()[0];
-    let favicon: gtk::Image = favicon_widget.clone().downcast().unwrap();
+/// * `tabs` - The TabBar containing the tabs & pages of the current browser session
+fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
+    let tab_view = tabs.view().unwrap();
+    let current_page = tab_view.selected_page().unwrap();
     let web_favicon = &web_view.favicon();
     match &web_favicon {
         Some(_) => {
@@ -552,7 +547,15 @@ fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
             let favicon_height = favicon_surface.height();
             match favicon_width < 32 && favicon_height < 32 {
                 true => {
-                    favicon.set_from_surface(Some(&favicon_surface));
+                    let favicon_pixbuf = gdk::pixbuf_get_from_surface(
+                        &favicon_surface,
+                        0,
+                        0,
+                        favicon_width,
+                        favicon_height,
+                    )
+                    .unwrap();
+                    current_page.set_icon(Some(&gio::BytesIcon::new(&favicon_pixbuf.pixel_bytes().unwrap())));
                 }
                 false => {
                     let favicon_pixbuf = gdk::pixbuf_get_from_surface(
@@ -566,12 +569,12 @@ fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
                     let scaled_pixbuf = favicon_pixbuf
                         .scale_simple(32, 32, gdk_pixbuf::InterpType::Tiles)
                         .unwrap();
-                    favicon.set_from_pixbuf(Some(&scaled_pixbuf));
+                    current_page.set_icon(Some(&gio::BytesIcon::new(&scaled_pixbuf.pixel_bytes().unwrap())));
                 }
             }
         }
         None => {
-            favicon.set_from_icon_name(Some("applications-internet"), IconSize::Dnd);
+            current_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
         }
     }
 }
@@ -582,13 +585,11 @@ fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
 ///
 /// * `web_view` - The WebKit instance for the tab
 ///
-/// * `tabs` - The notebook containing the tabs & pages of the current browser session
-fn update_title(web_view: &webkit2gtk::WebView, tabs: &gtk::Notebook) {
-    let current_tab_label: gtk::Box = tabs.tab_label(web_view).unwrap().downcast().unwrap();
-    let new_label_text = new_tab_label(&web_view.title().unwrap());
-    current_tab_label.remove(&current_tab_label.children()[1]);
-    current_tab_label.add(&new_label_text);
-    current_tab_label.reorder_child(&new_label_text, 1);
+/// * `tabs` - The TabBar containing the tabs & pages of the current browser session
+fn update_title(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
+    let tab_view = tabs.view().unwrap();
+    let current_page = tab_view.selected_page().unwrap();
+    current_page.set_title(Some(&web_view.title().unwrap().to_string()))
 }
 
 /// Update the load progress indicator under the navigation bar
@@ -612,13 +613,12 @@ fn new_about_dialog()
 {
     let about_dialog = gtk::AboutDialog::new();
     about_dialog.set_version(VERSION);
-    about_dialog.set_program_name("Oku");
+    about_dialog.set_program_name(Some("Oku"));
     about_dialog.set_logo_icon_name(Some("oku"));
     about_dialog.set_icon_name(Some("oku"));
     about_dialog.set_license_type(gtk::License::Agpl30);
     about_dialog.set_destroy_with_parent(true);
     about_dialog.set_modal(true);
-    about_dialog.set_urgency_hint(true);
     about_dialog.show();
 }
 
@@ -676,7 +676,7 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
     let builder = gtk::Builder::from_string(glade_src);
 
     let window: gtk::ApplicationWindow = builder.object("window").unwrap();
-    window.set_title("Oku");
+    window.set_title(Some("Oku"));
 
     let downloads_button: gtk::Button = builder.object("downloads_button").unwrap();
     let downloads_popover: gtk::Popover = builder.object("downloads_popover").unwrap();
@@ -702,7 +702,8 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
     let refresh_button: gtk::Button = builder.object("refresh_button").unwrap();
     let add_tab: gtk::Button = builder.object("add_tab").unwrap();
 
-    let tabs: gtk::Notebook = builder.object("tabs").unwrap();
+    let tabs: libadwaita::TabBar = builder.object("tabs").unwrap();
+    let tab_view: libadwaita::TabView = libadwaita::TabView::new();
     let nav_entry: gtk::Entry = builder.object("nav_entry").unwrap();
 
     let zoomout_button: gtk::Button = builder.object("zoomout_button").unwrap();
@@ -715,54 +716,18 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
     let about_button: gtk::Button = builder.object("about_button").unwrap();
 
     window.set_application(Some(application));
+    tabs.set_view(Some(&tab_view));
+    let tab_view = tabs.view().unwrap();
 
-    if tabs.n_pages() == 0 {
+    if tab_view.n_pages() == 0 {
         create_initial_tab(&builder, &tabs, initial_url.to_owned(), verbose, is_private, native)
     }
 
-    tabs.connect_page_notify(
+    tab_view.connect_pages_notify(
         clone!(@weak nav_entry, @weak builder, @weak tabs, @weak window => move |_| {
             let web_view = view(&tabs);
             update_nav_bar(&nav_entry, &web_view);
-            window.set_title(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")));
-        }),
-    );
-
-    tabs.connect_page_added(
-        clone!(@weak nav_entry, @weak builder, @weak tabs => move |_, _, _| {
-            match tabs.n_pages()
-            {
-                1 => {
-                    tabs.set_show_tabs(false);
-                }
-                _ => {
-                    if !tabs.shows_tabs()
-                    {
-                        tabs.set_show_tabs(true);
-                    }
-                }
-            }
-        }),
-    );
-
-    tabs.connect_page_removed(
-        clone!(@weak nav_entry, @weak builder, @weak tabs => move |_, _, _| {
-            match tabs.n_pages()
-            {
-                0 => {
-                    nav_entry.set_text("");
-                    create_initial_tab(&builder, &tabs, initial_url.to_owned(), verbose, is_private, native)
-                }
-                1 => {
-                    tabs.set_show_tabs(false);
-                }
-                _ => {
-                    if !tabs.shows_tabs()
-                    {
-                        tabs.set_show_tabs(true);
-                    }
-                }
-            }
+            window.set_title(Some(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
         }),
     );
 
@@ -782,18 +747,13 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
             update_favicon(&web_view, &tabs)
         }));
         web_view.connect_load_changed(clone!(@weak tabs, @weak web_view, @weak nav_entry, @weak window => move |_, _| {
-            window.set_title(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")));
+            window.set_title(Some(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
         }));
     }));
 
     add_tab.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-        let web_view = new_tab_page(&builder, &tabs, tabs.n_pages(), verbose, is_private, native);
-        let current_tab_label: gtk::Box = tabs.tab_label(&web_view).unwrap().downcast().unwrap();
-        let close_button_widget = &current_tab_label.children()[2];
-        let close_button: gtk::Button = close_button_widget.clone().downcast().unwrap();
-        close_button.connect_clicked(clone!(@weak tabs => move |_| {
-            tabs.remove_page(tabs.page_num(&web_view));
-        }));
+        let tab_view = tabs.view().unwrap();
+        let web_view = new_tab_page(&builder, &tabs, tab_view.n_pages(), verbose, is_private, native);
     }));
 
     back_button.connect_clicked(
@@ -857,7 +817,6 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
                     current_match = 1;
                 }
                 current_match_label.set_text(&current_match.to_string());
-                find_search_entry.set_progress_fraction(current_match as f64 / total_matches as f64);
                 find_search_entry.set_tooltip_text(Some(&format!("{} / {} matches", current_match, total_matches)));
             }));
             next_find_button.connect_clicked(clone!(@weak web_view, @weak find_controller, @weak find_search_entry, @weak current_match_label, @weak total_matches_label => move |_| {
@@ -870,7 +829,6 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
                     current_match = 1;
                 }
                 current_match_label.set_text(&current_match.to_string());
-                find_search_entry.set_progress_fraction(current_match as f64 / total_matches as f64);
                 find_search_entry.set_tooltip_text(Some(&format!("{} / {} matches", current_match, total_matches)));
             }));
             previous_find_button.connect_clicked(clone!(@weak web_view, @weak find_controller, @weak find_search_entry, @weak current_match_label, @weak total_matches_label => move |_| {
@@ -883,7 +841,6 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
                     current_match = 1;
                 }
                 current_match_label.set_text(&current_match.to_string());
-                find_search_entry.set_progress_fraction(current_match as f64 / total_matches as f64);
                 find_search_entry.set_tooltip_text(Some(&format!("{} / {} matches", current_match, total_matches)));
             }));
             find_popover.connect_closed(
@@ -958,10 +915,5 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
         }),
     );
 
-    window.show_all();
-    window.connect_delete_event(|_, _| {
-        gtk::main_quit();
-        Inhibit(false)
-    });
-    gtk::main();
+    window.show();
 }
