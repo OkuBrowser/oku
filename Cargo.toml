@@ -46,7 +46,7 @@ libadwaita = { git = "https://gitlab.gnome.org/World/Rust/libadwaita-rs.git", re
 notify-rust = { version = "4.3.0", features = ["images", "z"], default-features = false }
 pango = { version = "0.14.0" }
 url = "2.2.1"
-urlencoding = "2.0.0"
+urlencoding = "2.1.0"
 reqwest = { version = "0.11.1", features = ["blocking"] }
 tokio = { version = "0.2", features = ["full"] }
 webkit2gtk = { git = "https://github.com/jangernert/webkit2gtk-rs.git", branch = "gtk4", features = ["v2_34"] }
