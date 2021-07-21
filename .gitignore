@@ -23,3 +23,6 @@ build
 flatpak-cargo-generator.py
 build-aux/cargo-sources.json
 flatpak.sh
+
+# Generated when building WebKit
+gtk4-dependencies
