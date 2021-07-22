@@ -5,7 +5,7 @@ rm -rf ./gtk4-dependencies
 mkdir gtk4-dependencies && cd gtk4-dependencies
 
 # libsoup 3
-git clone --depth 1 --recurse-submodules --shallow-submodules https://gitlab.gnome.org/GNOME/libsoup.git
+git clone --recurse-submodules --shallow-submodules https://gitlab.gnome.org/GNOME/libsoup.git
 git checkout d9f97292b71e7f14f91158750c81f33bb8386973
 git reset --hard
 # Get latest version of glib-2.0 as a build dependency
