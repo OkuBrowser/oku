@@ -20,8 +20,6 @@ cd ../../
 
 # WebKit with GTK4 support
 git clone --depth 1 --recurse-submodules --shallow-submodules --branch Safari-612.1.24 https://github.com/WebKit/WebKit.git
-git checkout d0af291a438d9656773fa31fc09deb14c4672a51
-git reset --hard
 cd ./WebKit
 cmake -DPORT=GTK -DUSE_GTK4=ON -DENABLE_EXPERIMENTAL_FEATURES=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -GNinja && ninja
 sudo ninja install
