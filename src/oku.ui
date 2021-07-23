@@ -1,20 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- This file is part of Oku.
-
-    Oku is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Affero General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    Oku is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Affero General Public License for more details.
-
-    You should have received a copy of the GNU Affero General Public License
-    along with Oku.  If not, see <https://www.gnu.org/licenses/>. -->
 <interface>
-  <requires lib="gtk+" version="3.20"/>
   <requires lib="gtk" version="4.0"/>
   <requires lib="webkit2gtk" version="2.34"/>
   <requires lib="libadwaita" version="1.0"/>
@@ -25,6 +10,8 @@
     <property name="modal">1</property>
     <property name="destroy-with-parent">1</property>
     <property name="icon-name">oku</property>
+    <property name="type-hint">dialog</property>
+    <property name="urgency-hint">True</property>
     <child internal-child="content_area">
       <object class="GtkBox">
         <property name="visible">0</property>
@@ -56,6 +43,7 @@
                 <property name="hexpand">1</property>
                 <property name="vexpand">1</property>
                 <property name="label" translatable="yes">Download</property>
+                <property name="track-visited-links">False</property>
               </object>
             </child>
           </object>
@@ -68,6 +56,7 @@
         <property name="can-focus">0</property>
         <property name="hexpand">1</property>
         <property name="vexpand">1</property>
+        <property name="spacing">0</property>
         <child type="title">
           <object class="GtkImage">
             <property name="visible">0</property>
@@ -81,14 +70,14 @@
       </object>
     </child>
     <child internal-child="action_area">
-      <object class="GtkBox">
-        <property name="visible">0</property>
-        <property name="can-focus">0</property>
+      <object class="GtkButtonBox">
+        <property name="can-focus">False</property>
         <property name="margin-start">8</property>
         <property name="margin-end">8</property>
-        <property name="hexpand">1</property>
+        <property name="hexpand">True</property>
         <property name="vexpand">1</property>
-        <property name="homogeneous">1</property>
+        <property name="homogeneous">True</property>
+        <property name="layout-style">center</property>
         <child>
           <object class="GtkButton" id="download_dialog_cancel_button">
             <property name="visible">0</property>
@@ -97,6 +86,8 @@
             <property name="margin-bottom">4</property>
             <property name="hexpand">1</property>
             <property name="vexpand">1</property>
+            <property name="relief">half</property>
+            <property name="always-show-image">True</property>
             <child>
               <object class="GtkImage">
                 <property name="visible">0</property>
@@ -105,6 +96,11 @@
               </object>
             </child>
           </object>
+          <packing>
+            <property name="expand">True</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
         </child>
         <child>
           <object class="GtkButton" id="download_dialog_save_button">
@@ -114,6 +110,8 @@
             <property name="margin-bottom">4</property>
             <property name="hexpand">1</property>
             <property name="vexpand">1</property>
+            <property name="relief">half</property>
+            <property name="always-show-image">True</property>
             <child>
               <object class="GtkImage">
                 <property name="visible">0</property>
@@ -122,6 +120,11 @@
               </object>
             </child>
           </object>
+          <packing>
+            <property name="expand">True</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
         </child>
       </object>
     </child>
@@ -129,6 +132,7 @@
   <object class="GtkEntryCompletion" id="entrycompletion"/>
   <object class="GtkApplicationWindow" id="window">
     <property name="can-focus">0</property>
+    <property name="window-position">center</property>
     <property name="icon-name">oku</property>
     <child>
       <object class="GtkBox">
@@ -136,11 +140,13 @@
         <property name="can-focus">0</property>
         <property name="orientation">vertical</property>
         <child>
-          <object class="AdwTabBar" id="tabs">
+          <object class="AdwTabView" id="tabs">
             <property name="visible">True</property>
             <property name="can-focus">True</property>
             <property name="hexpand">True</property>
             <property name="vexpand">1</property>
+            <property name="show-border">False</property>
+            <property name="scrollable">True</property>
             <child>
               <placeholder/>
             </child>
@@ -161,6 +167,7 @@
       <object class="GtkHeaderBar">
         <property name="visible">0</property>
         <property name="can-focus">0</property>
+        <property name="spacing">0</property>
         <child type="title">
           <object class="GtkEntry" id="nav_entry">
             <property name="visible">0</property>
@@ -179,10 +186,11 @@
             <property name="can-focus">0</property>
             <property name="margin-end">4</property>
             <child>
-              <object class="GtkBox">
-                <property name="visible">0</property>
-                <property name="can-focus">0</property>
-                <property name="homogeneous">1</property>
+              <object class="GtkButtonBox">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="homogeneous">True</property>
+                <property name="layout-style">expand</property>
                 <child>
                   <object class="GtkButton" id="back_button">
                     <property name="visible">0</property>
@@ -190,6 +198,7 @@
                     <property name="halign">start</property>
                     <property name="margin-top">4</property>
                     <property name="margin-bottom">4</property>
+                    <property name="always-show-image">True</property>
                     <child>
                       <object class="GtkImage">
                         <property name="visible">0</property>
@@ -201,6 +210,11 @@
                       <class name="linked"/>
                     </style>
                   </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
                 </child>
                 <child>
                   <object class="GtkButton" id="forward_button">
@@ -209,6 +223,7 @@
                     <property name="halign">start</property>
                     <property name="margin-top">4</property>
                     <property name="margin-bottom">4</property>
+                    <property name="always-show-image">True</property>
                     <child>
                       <object class="GtkImage">
                         <property name="visible">0</property>
@@ -220,6 +235,11 @@
                       <class name="linked"/>
                     </style>
                   </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
                 </child>
               </object>
             </child>
@@ -230,6 +250,7 @@
                 <property name="margin-start">4</property>
                 <property name="margin-top">4</property>
                 <property name="margin-bottom">4</property>
+                <property name="always-show-image">True</property>
                 <child>
                   <object class="GtkImage">
                     <property name="visible">0</property>
@@ -248,6 +269,7 @@
                 <property name="margin-end">8</property>
                 <property name="margin-top">4</property>
                 <property name="margin-bottom">4</property>
+                <property name="always-show-image">True</property>
                 <child>
                   <object class="GtkImage">
                     <property name="visible">0</property>
@@ -273,6 +295,8 @@
                 <property name="halign">start</property>
                 <property name="margin-top">4</property>
                 <property name="margin-bottom">4</property>
+                <property name="relief">half</property>
+                <property name="always-show-image">True</property>
                 <child>
                   <object class="GtkImage">
                     <property name="visible">0</property>
@@ -289,6 +313,7 @@
                 <property name="halign">start</property>
                 <property name="margin-top">4</property>
                 <property name="margin-bottom">4</property>
+                <property name="always-show-image">True</property>
                 <child>
                   <object class="GtkImage">
                     <property name="visible">0</property>
@@ -305,6 +330,7 @@
                 <property name="halign">start</property>
                 <property name="margin-top">4</property>
                 <property name="margin-bottom">4</property>
+                <property name="always-show-image">True</property>
                 <child>
                   <object class="GtkImage">
                     <property name="visible">0</property>
@@ -321,6 +347,7 @@
   </object>
   <object class="GtkPopover" id="downloads_popover">
     <property name="can-focus">0</property>
+    <property name="relative-to">downloads_button</property>
     <property name="child">
       <object class="GtkListBox">
         <property name="visible">0</property>
@@ -346,6 +373,7 @@
   </object>
   <object class="GtkPopover" id="find_popover">
     <property name="can-focus">0</property>
+    <property name="relative-to">find_button</property>
     <property name="child">
       <object class="GtkBox">
         <property name="visible">0</property>
@@ -356,15 +384,17 @@
         <property name="margin-bottom">4</property>
         <property name="spacing">8</property>
         <child>
-          <object class="GtkBox">
-            <property name="visible">0</property>
-            <property name="can-focus">0</property>
-            <property name="homogeneous">1</property>
+          <object class="GtkButtonBox">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="homogeneous">True</property>
+            <property name="layout-style">expand</property>
             <child>
               <object class="GtkToggleButton" id="find_at_word_starts">
                 <property name="visible">0</property>
                 <property name="receives-default">1</property>
                 <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">Search text only at the begining of the words</property>
+                <property name="relief">half</property>
                 <child>
                   <object class="GtkImage">
                     <property name="visible">0</property>
@@ -376,12 +406,18 @@
                   <class name="linked"/>
                 </style>
               </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">4</property>
+              </packing>
             </child>
             <child>
               <object class="GtkToggleButton" id="find_backwards">
                 <property name="visible">0</property>
                 <property name="receives-default">1</property>
                 <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">Search backwards</property>
+                <property name="relief">half</property>
                 <child>
                   <object class="GtkImage">
                     <property name="visible">0</property>
@@ -393,12 +429,18 @@
                   <class name="linked"/>
                 </style>
               </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">4</property>
+              </packing>
             </child>
             <child>
               <object class="GtkToggleButton" id="find_case_insensitive">
                 <property name="visible">0</property>
                 <property name="receives-default">1</property>
                 <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">Case insensitive search</property>
+                <property name="relief">half</property>
                 <child>
                   <object class="GtkImage">
                     <property name="visible">0</property>
@@ -410,12 +452,18 @@
                   <class name="linked"/>
                 </style>
               </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">4</property>
+              </packing>
             </child>
             <child>
               <object class="GtkToggleButton" id="find_treat_medial_capital_as_word_start">
                 <property name="visible">0</property>
                 <property name="receives-default">1</property>
                 <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">Treat capital letters in the middle of words as word start</property>
+                <property name="relief">half</property>
                 <child>
                   <object class="GtkImage">
                     <property name="visible">0</property>
@@ -427,12 +475,18 @@
                   <class name="linked"/>
                 </style>
               </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">4</property>
+              </packing>
             </child>
             <child>
               <object class="GtkToggleButton" id="find_wrap_around">
                 <property name="visible">0</property>
                 <property name="receives-default">1</property>
                 <property name="tooltip-text" translatable="yes" comments="From GTK documentation: https://webkitgtk.org/reference/webkit2gtk/stable/WebKitFindController.html">If not present search will stop at the end of the document</property>
+                <property name="relief">half</property>
                 <child>
                   <object class="GtkImage">
                     <property name="visible">0</property>
@@ -444,6 +498,11 @@
                   <class name="linked"/>
                 </style>
               </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">4</property>
+              </packing>
             </child>
           </object>
         </child>
@@ -458,6 +517,10 @@
                 <property name="margin-bottom">4</property>
                 <property name="hexpand">1</property>
                 <property name="vexpand">1</property>
+                <property name="truncate-multiline">True</property>
+                <property name="primary-icon-name">edit-find-symbolic</property>
+                <property name="primary-icon-activatable">False</property>
+                <property name="primary-icon-sensitive">False</property>
                 <property name="placeholder-text" translatable="yes">Find … </property>
               </object>
             </child>
@@ -501,10 +564,11 @@
           </object>
         </child>
         <child>
-          <object class="GtkBox">
-            <property name="visible">0</property>
-            <property name="can-focus">0</property>
-            <property name="homogeneous">1</property>
+          <object class="GtkButtonBox">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="homogeneous">True</property>
+            <property name="layout-style">expand</property>
             <child>
               <object class="GtkButton" id="previous_find_button">
                 <property name="visible">0</property>
@@ -512,6 +576,7 @@
                 <property name="halign">start</property>
                 <property name="margin-top">4</property>
                 <property name="margin-bottom">4</property>
+                <property name="always-show-image">True</property>
                 <child>
                   <object class="GtkImage">
                     <property name="visible">0</property>
@@ -523,6 +588,11 @@
                   <class name="linked"/>
                 </style>
               </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
             </child>
             <child>
               <object class="GtkButton" id="next_find_button">
@@ -531,6 +601,7 @@
                 <property name="halign">start</property>
                 <property name="margin-top">4</property>
                 <property name="margin-bottom">4</property>
+                <property name="always-show-image">True</property>
                 <child>
                   <object class="GtkImage">
                     <property name="visible">0</property>
@@ -542,6 +613,11 @@
                   <class name="linked"/>
                 </style>
               </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
             </child>
           </object>
         </child>
@@ -550,6 +626,7 @@
   </object>
   <object class="GtkPopoverMenu" id="menu">
     <property name="can-focus">0</property>
+    <property name="relative-to">menu_button</property>
     <property name="child">
       <object class="GtkBox">
         <property name="visible">0</property>
@@ -560,10 +637,11 @@
         <property name="margin-bottom">4</property>
         <property name="spacing">8</property>
         <child>
-          <object class="GtkBox">
-            <property name="visible">0</property>
-            <property name="can-focus">0</property>
-            <property name="homogeneous">1</property>
+          <object class="GtkButtonBox">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="homogeneous">True</property>
+            <property name="layout-style">expand</property>
             <child>
               <object class="GtkButton" id="zoomout_button">
                 <property name="visible">0</property>
@@ -571,6 +649,7 @@
                 <property name="halign">start</property>
                 <property name="margin-top">4</property>
                 <property name="margin-bottom">4</property>
+                <property name="always-show-image">True</property>
                 <child>
                   <object class="GtkImage">
                     <property name="visible">0</property>
@@ -582,6 +661,11 @@
                   <class name="linked"/>
                 </style>
               </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
             </child>
             <child>
               <object class="GtkButton" id="zoomin_button">
@@ -590,6 +674,7 @@
                 <property name="halign">start</property>
                 <property name="margin-top">4</property>
                 <property name="margin-bottom">4</property>
+                <property name="always-show-image">True</property>
                 <child>
                   <object class="GtkImage">
                     <property name="visible">0</property>
@@ -601,6 +686,11 @@
                   <class name="linked"/>
                 </style>
               </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
             </child>
           </object>
         </child>
@@ -611,6 +701,7 @@
             <property name="halign">start</property>
             <property name="margin-top">4</property>
             <property name="margin-bottom">4</property>
+            <property name="always-show-image">True</property>
             <child>
               <object class="GtkImage">
                 <property name="visible">0</property>
@@ -627,6 +718,7 @@
             <property name="halign">start</property>
             <property name="margin-top">4</property>
             <property name="margin-bottom">4</property>
+            <property name="always-show-image">True</property>
             <child>
               <object class="GtkImage">
                 <property name="visible">0</property>
@@ -643,6 +735,7 @@
             <property name="halign">start</property>
             <property name="margin-top">4</property>
             <property name="margin-bottom">4</property>
+            <property name="always-show-image">True</property>
             <child>
               <object class="GtkImage">
                 <property name="visible">0</property>
@@ -659,6 +752,7 @@
             <property name="halign">start</property>
             <property name="margin-top">4</property>
             <property name="margin-bottom">4</property>
+            <property name="always-show-image">True</property>
             <child>
               <object class="GtkImage">
                 <property name="visible">0</property>
@@ -675,6 +769,7 @@
             <property name="halign">start</property>
             <property name="margin-top">4</property>
             <property name="margin-bottom">4</property>
+            <property name="always-show-image">True</property>
             <child>
               <object class="GtkImage">
                 <property name="visible">0</property>
@@ -691,6 +786,7 @@
             <property name="halign">start</property>
             <property name="margin-top">4</property>
             <property name="margin-bottom">4</property>
+            <property name="always-show-image">True</property>
             <child>
               <object class="GtkImage">
                 <property name="visible">0</property>
@@ -707,6 +803,8 @@
             <property name="halign">start</property>
             <property name="margin-top">4</property>
             <property name="margin-bottom">4</property>
+            <property name="relief">half</property>
+            <property name="always-show-image">True</property>
             <child>
               <object class="GtkImage">
                 <property name="visible">0</property>
@@ -717,6 +815,9 @@
           </object>
         </child>
       </object>
+      <packing>
+        <property name="submenu">main</property>
+      </packing>
     </property>
   </object>
   <object class="WebKitSettings" type-func="webkit_settings_get_type" id="webkit_settings">
