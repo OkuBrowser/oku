@@ -28,4 +28,4 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 -DUSE_AVIF=ON \
 -GNinja .. && ninja
 sudo ninja install
-cd ../
+cd ../../
