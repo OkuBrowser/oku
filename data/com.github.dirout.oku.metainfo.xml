@@ -15,7 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with Oku.  If not, see <https://www.gnu.org/licenses/>. -->
 <component type="desktop-application">
-  <id>com.github.madebyemil.oku</id>
+  <id>com.github.dirout.oku</id>
   <metadata_license>CC0</metadata_license>
   <project_license>AGPL-3.0+</project_license>
   <name>Oku</name>
@@ -23,7 +23,7 @@
   <description>
     <p>Oku is a hive browser written in Rust.</p>
   </description>
-  <url type="homepage">https://madebyemil.github.io/oku/oku</url>
+  <url type="homepage">https://dirout.github.io/oku/oku</url>
     <!--
     Open Age Rating Service
     https://hughsie.github.io/oars/index.html
@@ -47,5 +47,5 @@
   </kudos>
   <developer_name>Emil Sayahi</developer_name>
   <update_contact>limesayahi@gmail.com</update_contact>
-    <launchable type="desktop-id">com.github.madebyemil.oku.desktop</launchable>
+    <launchable type="desktop-id">com.github.dirout.oku.desktop</launchable>
 </component>

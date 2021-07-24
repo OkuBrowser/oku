@@ -1,8 +1,8 @@
 # Oku
 
-<a href="https://MadeByEmil.github.io/oku">
+<a href="https://Dirout.github.io/oku">
 <p align="center">
-<img src="https://raw.githubusercontent.com/MadeByEmil/oku/master/branding/logo.svg" width="256" height="256">
+<img src="https://raw.githubusercontent.com/Dirout/oku/master/branding/logo.svg" width="256" height="256">
 </p>
 </a>
 

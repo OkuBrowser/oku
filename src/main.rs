@@ -626,7 +626,7 @@ fn new_about_dialog()
 fn main() {
     let application = gtk::Application::new(Some("com.github.dirout.oku"), Default::default());
 
-    application.add_main_option("url", glib::Char('u' as i8), OptionFlags::NONE, OptionArg::String, "An optional URL to open in the browser", Some("An optional URL to open in the browser"));
+    application.add_main_option("url", glib::Char('u' as i8), OptionFlags::NONE, OptionArg::String, "An optional URL to open", Some("Open a URL in the browser"));
     application.add_main_option("verbose", glib::Char('v' as i8), OptionFlags::NONE, OptionArg::None, "Output browser messages to standard output", None);
     application.add_main_option("private", glib::Char('p' as i8), OptionFlags::NONE, OptionArg::None, "Open a private session", None);
 
@@ -635,13 +635,15 @@ fn main() {
         new_window(app, matches);
     });
 
-    application.connect_handle_local_options(|app, options| {
-        let matches = options.to_owned();
-        new_window(app, matches);
-        0
-    });
+    // application.connect_handle_local_options(|app, options| {
+    //     let matches = options.to_owned();
+    //     app.run_with_args(&args().collect::<Vec<_>>());
+    //     new_window(app, matches);
+    //     0
+    // });
 
     application.run_with_args(&args().collect::<Vec<_>>());
+    // application.run();
 }
 
 /// Create a new functional & graphical browser window
@@ -676,7 +678,9 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
     let builder = gtk::Builder::from_string(glade_src);
 
     let window: gtk::ApplicationWindow = builder.object("window").unwrap();
+    window.set_application(Some(application));
     window.set_title(Some("Oku"));
+    window.set_default_size(1920, 1080);
 
     let downloads_button: gtk::Button = builder.object("downloads_button").unwrap();
     let downloads_popover: gtk::Popover = builder.object("downloads_popover").unwrap();
@@ -715,8 +719,8 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
     let _history_button: gtk::Button = builder.object("history_button").unwrap();
     let about_button: gtk::Button = builder.object("about_button").unwrap();
 
-    window.set_application(Some(application));
     tabs.set_view(Some(&tab_view));
+
     let tab_view = tabs.view().unwrap();
 
     if tab_view.n_pages() == 0 {

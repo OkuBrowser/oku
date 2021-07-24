@@ -1,13 +1,13 @@
 {
-    "app-id": "com.github.madebyemil.oku",
-    "runtime": "org.gnome.Platform",
-    "runtime-version": "3.38",
-    "sdk": "org.gnome.Sdk",
+    "app-id" : "com.github.dirout.oku",
+    "runtime" : "org.gnome.Platform",
+    "runtime-version" : "40",
+    "sdk" : "org.gnome.Sdk",
     "sdk-extensions" : [
         "org.freedesktop.Sdk.Extension.rust-stable"
     ],
-    "command": "oku",
-    "finish-args": [
+    "command" : "oku",
+    "finish-args" : [
         "--share=network",
         "--share=ipc",
         "--socket=fallback-x11",
@@ -18,18 +18,18 @@
         "--filesystem=xdg-pictures",
         "--device=all"
     ],
-    "build-options": {
+    "build-options" : {
         "append-path" : "/usr/lib/sdk/rust-stable/bin",
         "env" : {
             "RUSTFLAGS" : "--remap-path-prefix =../",
             "CARGO_HOME" : "/run/build/oku/cargo"
         }
     },
-    "modules": [
+    "modules" : [
         {
-            "name": "oku",
-            "buildsystem": "simple",
-            "build-commands": [
+            "name" : "oku",
+            "buildsystem" : "simple",
+            "build-commands" : [
                 "cargo --offline fetch --manifest-path Cargo.toml --verbose",
                 "cargo --offline build --release --verbose",
                 "install -Dm755 ./target/release/oku -t /app/bin/",
@@ -41,10 +41,10 @@
                 "install -Dm644 ./README.md -t /app/share/doc/oku/",
                 "install -Dm644 ./COPYING -t /app/share/doc/oku/"
             ],
-            "sources": [
+            "sources" : [
                 {
-                    "type": "dir",
-                    "path": "../"
+                    "type" : "dir",
+                    "path" : "../"
                 },
                 "cargo-sources.json"
             ]

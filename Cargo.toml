@@ -20,8 +20,8 @@ edition = "2018"
 exclude = ["/.github/**/*", "/branding/**/*", "/.gitignore", "/.whitesource", "/renovate.json", "/CODE_OF_CONDUCT.md", "/CONTRIBUTING.md", "/LICENSE.md", "/SECURITY.md", "/COPYING", "/NOTICE", "/src/window.glade"]
 license = "AGPL-3.0-or-later"
 description = "A hive browser written in Rust."
-repository = "https://github.com/MadeByEmil/oku"
-homepage = "https://github.com/MadeByEmil/oku"
+repository = "https://github.com/Dirout/oku"
+homepage = "https://github.com/Dirout/oku"
 readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -34,22 +34,22 @@ chrono = { version = "0.4.19", features = ["unstable-locales"] }
 cid = "0.6.1"
 directories-next = "2.0.0"
 futures = "0.3.13"
-gdk = { version = "0.1.0", package = "gdk4" }
+gdk = { version = "0.2.0", package = "gdk4" }
 gdk-pixbuf = { version = "0.14.0" }
 gio = { version = "0.14.0" }
 glib = { version = "0.14.0" }
-gtk = { version = "0.1.0", package = "gtk4", features = ["v4_2"], default-features = false }
+gtk = { version = "0.2.0", package = "gtk4", features = ["v4_2"], default-features = false }
 ipfs = { git = "https://github.com/Christian7573/rust-ipfs.git", rev = "c1d073d" }
 ipfs-api = { version = "0.11.0", features = ["actix"], default-features = false }
 lazy_static = "1.4.0"
-libadwaita = { git = "https://gitlab.gnome.org/World/Rust/libadwaita-rs.git", rev = "7a16aa0d" }
+libadwaita = { git = "https://gitlab.gnome.org/World/Rust/libadwaita-rs.git", rev = "24e935db" }
 notify-rust = { version = "4.3.0", features = ["images", "z"], default-features = false }
 pango = { version = "0.14.0" }
 url = "2.2.1"
 urlencoding = "2.0.0"
 reqwest = { version = "0.11.1", features = ["blocking"] }
 tokio = { version = "0.2", features = ["full"] }
-webkit2gtk = { git = "https://github.com/jangernert/webkit2gtk-rs.git", rev = "9cda66d", features = ["v2_34"] }
+webkit2gtk = { git = "https://github.com/jangernert/webkit2gtk-rs.git", rev = "5b8620d", features = ["v2_34"] }
 
 [profile.release]
 codegen-units = 1
