@@ -38,7 +38,7 @@ gdk = { version = "0.1.0", package = "gdk4" }
 gdk-pixbuf = { version = "0.14.0" }
 gio = { version = "0.14.0" }
 glib = { version = "0.14.0" }
-gtk = { version = "0.1.0", package = "gtk4", features = ["v4_2"], default-features = false }
+gtk = { version = "0.2.0", package = "gtk4", features = ["v4_2"], default-features = false }
 ipfs = { git = "https://github.com/Christian7573/rust-ipfs.git", rev = "c1d073d" }
 ipfs-api = { version = "0.11.0", features = ["actix"], default-features = false }
 lazy_static = "1.4.0"
