@@ -22,6 +22,7 @@ use glib::OptionFlags;
 use glib::VariantDict;
 use glib::VariantTy;
 use gtk::prelude::EditableExt;
+use gtk::prelude::StyleContextExt;
 use ipfs::Types;
 use webkit2gtk::URISchemeRequest;
 use webkit2gtk::traits::SettingsExt;
@@ -266,17 +267,21 @@ fn handle_ipfs_request_natively(request: &URISchemeRequest) {
     request.finish(&stream, -1, None);
 }
 
+fn new_webkit_settings() -> webkit2gtk::Settings
+{
+    let settings_builder = webkit2gtk::SettingsBuilder::new();
+    let settings = settings_builder.build();
+    settings
+}
+
 /// Create a new WebKit instance for the current tab
 ///
 /// # Arguments
-///
-/// * `builder` - The object that contains all graphical widgets of the window
 ///  
 /// * `verbose` - Whether browser messages should be printed onto the standard output
 ///
 /// * `is_private` - Whether the window represents a private session
 fn new_view(
-    builder: &gtk::Builder,
     verbose: bool,
     is_private: bool,
     native: bool,
@@ -284,7 +289,7 @@ fn new_view(
     let web_kit = webkit2gtk::WebViewBuilder::new()
         .is_ephemeral(is_private)
         .automation_presentation_type(webkit2gtk::AutomationBrowsingContextPresentation::Tab);
-    let web_settings: webkit2gtk::Settings = builder.object("webkit_settings").unwrap();
+    let web_settings: webkit2gtk::Settings = new_webkit_settings();
     let web_view = web_kit.build();
     let web_context = web_view.context().unwrap();
     let extensions_path = format!("{}/web-extensions/", DATA_DIR.to_string());
@@ -476,14 +481,13 @@ fn new_tab(label: &str) -> gtk::Box {
 ///
 /// * `is_private` - Whether the window represents a private session
 fn new_tab_page(
-    builder: &gtk::Builder,
     tabs: &libadwaita::TabBar,
-    new_tab_number: i32,
     verbose: bool,
     is_private: bool,
     native: bool,
 ) -> webkit2gtk::WebView {
-    let new_view = new_view(builder, verbose, is_private, native);
+    let tab_view = tabs.view().unwrap();
+    let new_view = new_view(verbose, is_private, native);
     let tab_view = tabs.view().unwrap();
     let new_page = tab_view.add_page(&new_view, None).unwrap();
     new_page.set_title(Some("New Tab"));
@@ -524,7 +528,7 @@ fn create_initial_tab(
     is_private: bool,
     native: bool,
 ) {
-    let web_view = new_tab_page(builder, tabs, 0, verbose, is_private, native);
+    let web_view = new_tab_page(tabs, verbose, is_private, native);
     initial_connect(initial_url, &web_view)
 }
 
@@ -626,14 +630,15 @@ fn new_about_dialog()
 fn main() {
     let application = gtk::Application::new(Some("com.github.dirout.oku"), Default::default());
 
-    application.add_main_option("url", glib::Char('u' as i8), OptionFlags::NONE, OptionArg::String, "An optional URL to open", Some("Open a URL in the browser"));
-    application.add_main_option("verbose", glib::Char('v' as i8), OptionFlags::NONE, OptionArg::None, "Output browser messages to standard output", None);
-    application.add_main_option("private", glib::Char('p' as i8), OptionFlags::NONE, OptionArg::None, "Open a private session", None);
+    // application.add_main_option("url", glib::Char('u' as i8), OptionFlags::NONE, OptionArg::String, "An optional URL to open", Some("Open a URL in the browser"));
+    // application.add_main_option("verbose", glib::Char('v' as i8), OptionFlags::NONE, OptionArg::None, "Output browser messages to standard output", None);
+    // application.add_main_option("private", glib::Char('p' as i8), OptionFlags::NONE, OptionArg::None, "Open a private session", None);
 
-    application.connect_activate(move |app| {
-        let matches = VariantDict::new(None);
-        new_window(app, matches);
-    });
+    // application.connect_activate(move |app| {
+    //     let matches = VariantDict::new(None);
+    //     new_window(app, matches);
+    // });
+    application.connect_activate(new_window_four);
 
     // application.connect_handle_local_options(|app, options| {
     //     let matches = options.to_owned();
@@ -642,8 +647,8 @@ fn main() {
     //     0
     // });
 
-    application.run_with_args(&args().collect::<Vec<_>>());
-    // application.run();
+    // application.run_with_args(&args().collect::<Vec<_>>());
+    application.run();
 }
 
 /// Create a new functional & graphical browser window
@@ -757,7 +762,7 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
 
     add_tab.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
         let tab_view = tabs.view().unwrap();
-        let web_view = new_tab_page(&builder, &tabs, tab_view.n_pages(), verbose, is_private, native);
+        let web_view = new_tab_page(&tabs, verbose, is_private, native);
     }));
 
     back_button.connect_clicked(
@@ -924,10 +929,102 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
 
 fn new_window_four(application: &gtk::Application)
 {
-    let headerbar_builder = gtk::HeaderBarBuilder::new();
-    let headerbar = headerbar_builder.can_focus(false).show_title_buttons(true).build();
+    // Options
+    let verbose = true;
+    let is_private = true;
+    let native = false;
 
+    // Browser header
+    // Navigation bar
+    let nav_entry_builder = gtk::EntryBuilder::new();
+    let nav_entry = nav_entry_builder.can_focus(true).margin_top(4).margin_bottom(4).hexpand(true).truncate_multiline(true).placeholder_text("Enter an address … ").input_purpose(gtk::InputPurpose::Url).build();
+
+    // Back button
+    let back_button_builder = gtk::ButtonBuilder::new();
+    let back_button = back_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("go-previous").build();
+    back_button.style_context().add_class("linked");
+
+    // Forward button
+    let forward_button_builder = gtk::ButtonBuilder::new();
+    let forward_button = forward_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("go-next").build();
+    forward_button.style_context().add_class("linked");
+
+    // All navigation buttons
+    let navigation_buttons_builder = gtk::BoxBuilder::new();
+    let navigation_buttons = navigation_buttons_builder.can_focus(false).homogeneous(true).build();
+    navigation_buttons.append(&back_button);
+    navigation_buttons.append(&forward_button);
+    navigation_buttons.style_context().add_class("linked");
+
+    // Add Tab button
+    let add_tab_builder = gtk::ButtonBuilder::new();
+    let add_tab = add_tab_builder.can_focus(true).receives_default(true).margin_start(4).margin_top(4).margin_bottom(4).icon_name("list-add").build();
+
+    // Refresh button
+    let refresh_button_builder = gtk::ButtonBuilder::new();
+    let refresh_button = refresh_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_start(4).margin_end(8).margin_top(4).margin_bottom(4).icon_name("view-refresh").build();
+
+    // All header buttons
+    let header_buttons_builder = gtk::BoxBuilder::new();
+    let header_buttons = header_buttons_builder.can_focus(false).margin_end(4).build();
+    header_buttons.append(&navigation_buttons);
+    header_buttons.append(&add_tab);
+    header_buttons.append(&refresh_button);
+
+    // HeaderBar
+    let headerbar_builder = gtk::HeaderBarBuilder::new();
+    let headerbar = headerbar_builder.can_focus(false).show_title_buttons(true).title_widget(&nav_entry).build();
+    headerbar.pack_start(&header_buttons);
+    // End of browser header
+
+
+
+    // Tabs
+    let tab_view_builder = libadwaita::TabViewBuilder::new();
+    let tab_view = tab_view_builder.build();
+
+    let tabs_builder = libadwaita::TabBarBuilder::new();
+    let tabs = tabs_builder.autohide(true).expand_tabs(true).view(&tab_view).build();
+    // End of Tabs
+
+
+    // Signals
+    // Add Tab button clicked
+    add_tab.connect_clicked(clone!(@weak tabs, @weak nav_entry => move |_| {
+        let web_view = new_tab_page(&tabs, verbose, is_private, native);
+    }));
+
+    // Back button clicked
+    back_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry => move |_| {
+            let web_view = view(&tabs);
+            web_view.go_back()
+        }),
+    );
+
+    // Forward button clicked
+    forward_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry => move |_| {
+            let web_view = view(&tabs);
+            web_view.go_forward()
+        }),
+    );
+
+    // Refresh button clicked
+    refresh_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry => move |_| {
+            let web_view = view(&tabs);
+            web_view.reload_bypass_cache()
+        }),
+    );
+    // End of signals
+
+
+    // Window
     let window_builder = gtk::ApplicationWindowBuilder::new();
     let window = window_builder.application(application).can_focus(true).title("Oku").icon_name("oku").build();
     window.set_titlebar(Some(&headerbar));
+    window.set_child(Some(&tabs.view().unwrap()));
+    window.show();
+    // End of Window
 }
