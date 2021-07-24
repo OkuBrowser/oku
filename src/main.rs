@@ -921,3 +921,13 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
 
     window.show();
 }
+
+fn new_window_four(application: &gtk::Application)
+{
+    let headerbar_builder = gtk::HeaderBarBuilder::new();
+    let headerbar = headerbar_builder.can_focus(false).show_title_buttons(true).build();
+
+    let window_builder = gtk::ApplicationWindowBuilder::new();
+    let window = window_builder.application(application).can_focus(true).title("Oku").icon_name("oku").build();
+    window.set_titlebar(Some(&headerbar));
+}
