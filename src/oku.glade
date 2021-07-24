@@ -45,7 +45,6 @@
                 <property name="hexpand">1</property>
                 <property name="vexpand">1</property>
                 <property name="icon-name">document-save-as</property>
-                <property name="icon_size">6</property>
               </object>
             </child>
             <child>
@@ -74,7 +73,6 @@
             <property name="hexpand">1</property>
             <property name="vexpand">1</property>
             <property name="icon-name">emblem-downloads</property>
-            <property name="icon_size">6</property>
           </object>
         </child>
       </object>

@@ -3,11 +3,11 @@
 #### **Did you find a bug?**
 
 * **Do not open up a GitHub issue if the bug is a security vulnerability
-  in Oku**, and instead to refer to our [security policy](https://github.com/MadeByEmil/oku/blob/master/SECURITY.md).
+  in Oku**, and instead to refer to our [security policy](https://github.com/Dirout/oku/blob/master/SECURITY.md).
 
-* **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/MadeByEmil/oku/issues).
+* **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/Dirout/oku/issues).
 
-* If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/MadeByEmil/oku/issues/new/choose). Be sure to include a **title and clear description**, as much relevant information as possible, and a **code sample** or an **executable test case** demonstrating the expected behavior that is not occurring.
+* If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/Dirout/oku/issues/new/choose). Be sure to include a **title and clear description**, as much relevant information as possible, and a **code sample** or an **executable test case** demonstrating the expected behavior that is not occurring.
 
 #### **Did you write a patch that fixes a bug?**
 
@@ -21,9 +21,9 @@ Changes that are cosmetic in nature and do not add anything substantial to the s
 
 #### **Do you intend to add a new feature or change an existing one?**
 
-* If someone hasn't already suggested the same thing, [open a new issue](https://github.com/MadeByEmil/oku/issues/new/choose) and start writing code.
+* If someone hasn't already suggested the same thing, [open a new issue](https://github.com/Dirout/oku/issues/new/choose) and start writing code.
 
-Oku is a volunteer effort. We encourage you to pitch in and join [The Team](https://github.com/MadeByEmil/oku/graphs/contributors)!
+Oku is a volunteer effort. We encourage you to pitch in and join [The Team](https://github.com/Dirout/oku/graphs/contributors)!
 
 Merci!
 

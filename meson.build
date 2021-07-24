@@ -6,17 +6,17 @@ dependency('gio-2.0')
 dependency('glib-2.0')
 dependency('gtk+-3.0')
 dependency('pango')
-dependency('webkit2gtk-4.0')
+dependency('webkit2gtk-5.0')
 dependency('atk')
 dependency('cairo')
 dependency('gobject-2.0')
-dependency('libsoup-2.4')
-dependency('webkit2gtk-web-extension-4.0')
+dependency('libsoup-3.0')
+dependency('webkit2gtk-web-extension-5.0')
 subdir('data')
 subdir('src')
 datadir = get_option('prefix') / get_option('datadir')
 
-application_id = 'com.github.madebyemil.oku'
+application_id = 'com.github.dirout.oku'
 # Read more https://mesonbuild.com/Reference-manual.html#install_data
 
 install_data(
