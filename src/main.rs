@@ -270,7 +270,7 @@ fn handle_ipfs_request_natively(request: &URISchemeRequest) {
 fn new_webkit_settings() -> webkit2gtk::Settings
 {
     let settings_builder = webkit2gtk::SettingsBuilder::new();
-    let settings = settings_builder.build();
+    let settings = settings_builder.load_icons_ignoring_image_load_setting(true).enable_plugins(true).javascript_can_open_windows_automatically(true).enable_developer_extras(true).enable_dns_prefetching(true).enable_caret_browsing(true).allow_modal_dialogs(true).javascript_can_access_clipboard(true).media_playback_requires_user_gesture(true).enable_smooth_scrolling(true).enable_accelerated_2d_canvas(true).enable_media_stream(true).enable_spatial_navigation(true).enable_encrypted_media(true).enable_media_capabilities(true).allow_file_access_from_file_urls(true).allow_universal_access_from_file_urls(true).allow_top_navigation_to_data_urls(true).enable_back_forward_navigation_gestures(true).build();
     settings
 }
 
@@ -287,8 +287,7 @@ fn new_view(
     native: bool,
 ) -> webkit2gtk::WebView {
     let web_kit = webkit2gtk::WebViewBuilder::new()
-        .is_ephemeral(is_private)
-        .automation_presentation_type(webkit2gtk::AutomationBrowsingContextPresentation::Tab);
+        .is_ephemeral(is_private);
     let web_settings: webkit2gtk::Settings = new_webkit_settings();
     let web_view = web_kit.build();
     let web_context = web_view.context().unwrap();
@@ -488,8 +487,7 @@ fn new_tab_page(
 ) -> webkit2gtk::WebView {
     let tab_view = tabs.view().unwrap();
     let new_view = new_view(verbose, is_private, native);
-    let tab_view = tabs.view().unwrap();
-    let new_page = tab_view.add_page(&new_view, None).unwrap();
+    let new_page = tab_view.append(&new_view).unwrap();
     new_page.set_title(Some("New Tab"));
     new_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
     tab_view.set_selected_page(&new_page);
@@ -521,7 +519,6 @@ fn view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
 ///
 /// * `is_private` - Whether the window represents a private session
 fn create_initial_tab(
-    builder: &gtk::Builder,
     tabs: &libadwaita::TabBar,
     initial_url: String,
     verbose: bool,
@@ -729,7 +726,7 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
     let tab_view = tabs.view().unwrap();
 
     if tab_view.n_pages() == 0 {
-        create_initial_tab(&builder, &tabs, initial_url.to_owned(), verbose, is_private, native)
+        create_initial_tab(&tabs, initial_url.to_owned(), verbose, is_private, native)
     }
 
     tab_view.connect_pages_notify(
@@ -933,11 +930,12 @@ fn new_window_four(application: &gtk::Application)
     let verbose = true;
     let is_private = true;
     let native = false;
+    let initial_url = "https://www.iana.org/domains/reserved";
 
     // Browser header
     // Navigation bar
     let nav_entry_builder = gtk::EntryBuilder::new();
-    let nav_entry = nav_entry_builder.can_focus(true).margin_top(4).margin_bottom(4).hexpand(true).truncate_multiline(true).placeholder_text("Enter an address … ").input_purpose(gtk::InputPurpose::Url).build();
+    let nav_entry = nav_entry_builder.can_focus(true).focusable(true).focus_on_click(true).editable(true).margin_top(4).margin_bottom(4).hexpand(true).truncate_multiline(true).placeholder_text("Enter an address … ").input_purpose(gtk::InputPurpose::Url).build();
 
     // Back button
     let back_button_builder = gtk::ButtonBuilder::new();
@@ -985,7 +983,24 @@ fn new_window_four(application: &gtk::Application)
 
     let tabs_builder = libadwaita::TabBarBuilder::new();
     let tabs = tabs_builder.autohide(true).expand_tabs(true).view(&tab_view).build();
+
+    if tab_view.n_pages() == 0 {
+        create_initial_tab(&tabs, initial_url.to_owned(), verbose, is_private, native)
+    }
     // End of Tabs
+
+
+    // Window
+    let main_box_builder = gtk::BoxBuilder::new();
+    let main_box = main_box_builder.orientation(gtk::Orientation::Vertical).build();
+    main_box.append(&tabs);
+    main_box.append(&tabs.view().unwrap());
+
+    let window_builder = gtk::ApplicationWindowBuilder::new();
+    let window = window_builder.application(application).can_focus(true).title("Oku").icon_name("oku").build();
+    window.set_titlebar(Some(&headerbar));
+    window.set_child(Some(&main_box));
+    // End of Window
 
 
     // Signals
@@ -1017,14 +1032,44 @@ fn new_window_four(application: &gtk::Application)
             web_view.reload_bypass_cache()
         }),
     );
+
+    tab_view.connect_selected_page_notify(
+        clone!(@weak nav_entry, @weak tabs, @weak window => move |_| {
+            let web_view = view(&tabs);
+            update_nav_bar(&nav_entry, &web_view);
+            window.set_title(Some(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
+        }),
+    );
+
+    nav_entry.connect_activate(clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
+        let web_view = view(&tabs);
+        connect(&nav_entry, &web_view);
+        web_view.connect_title_notify(clone!(@weak tabs, @weak web_view => move |_| {
+            update_title(&web_view, &tabs)
+        }));
+        web_view.connect_uri_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
+            update_nav_bar(&nav_entry, &web_view)
+        }));
+        web_view.connect_estimated_load_progress_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
+            let tab_view = tabs.view().unwrap();
+            let current_page = tab_view.page(&web_view).unwrap();
+            current_page.set_loading(true);
+            update_load_progress(&nav_entry, &web_view)
+        }));
+        web_view.connect_is_loading_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
+            let tab_view = tabs.view().unwrap();
+            let current_page = tab_view.page(&web_view).unwrap();
+            current_page.set_loading(web_view.is_loading())
+        }));
+        // web_view.connect_favicon_notify(clone!(@weak tabs, @weak web_view => move |_| {
+        //     update_favicon(&web_view, &tabs)
+        // }));
+        web_view.connect_load_changed(clone!(@weak tabs, @weak web_view, @weak nav_entry, @weak window => move |_, _| {
+            window.set_title(Some(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
+        }));
+    }));
     // End of signals
 
 
-    // Window
-    let window_builder = gtk::ApplicationWindowBuilder::new();
-    let window = window_builder.application(application).can_focus(true).title("Oku").icon_name("oku").build();
-    window.set_titlebar(Some(&headerbar));
-    window.set_child(Some(&tabs.view().unwrap()));
     window.show();
-    // End of Window
 }

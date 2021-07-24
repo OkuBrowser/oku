@@ -16,12 +16,13 @@ jobs:
     steps:
       - name: Checkout codebase
         uses: actions/checkout@v2
-      - name: Install development dependencies
-        run: |
-          sudo dnf -q -y install gtk3-devel clutter-devel webkit2gtk3-devel libgda-devel gobject-introspection-devel > /dev/null
       - name: Install compiler toolchain
         run: |
           sudo dnf -q -y install gcc rpm-build > /dev/null
+      - name: Install development dependencies
+        run: |
+          sudo dnf -q -y install gtk3-devel clutter-devel webkit2gtk3-devel libgda-devel gobject-introspection-devel > /dev/null
+          ./build-dependencies.sh
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
