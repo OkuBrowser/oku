@@ -12,7 +12,10 @@ jobs:
       - name: Install development dependencies
         run: |
           sudo apt-get update > /dev/null
-          sudo apt-get install -qq gtk3.0 gtk2.0 libgtk-3-dev libgtk2.0-dev libglib2.0-dev glade libsoup-gnome2.4-dev libwebkit2gtk-4.0-dev > /dev/null
+          sudo apt-get install -qq libgtk-4-0 libgtk-4-dev libglib2.0-dev > /dev/null
+          git clone https://gitlab.gnome.org/GNOME/glib.git && cd glib > /dev/null
+          meson _build && ninja -C _build
+          sudo ninja -C _build install
           ./build-dependencies.sh
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1

@@ -27,6 +27,60 @@
     },
     "modules" : [
         {
+            "name": "libadwaita",
+            "builddir": true,
+            "buildsystem": "meson",
+            "config-opts": [
+                "-Dprofiling=false",
+                "-Dintrospection=enabled",
+                "-Dgtk_doc=false",
+                "-Dtests=false",
+                "-Dexamples=false",
+                "-Dvapi=false",
+                "-Dglade_catalog=disabled"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://gitlab.gnome.org/GNOME/libadwaita",
+                    "commit": "24e935db148613a355b44d0ff694d61a5125da20"
+                }
+            ]
+        },
+        {
+            "name": "libsoup",
+            "builddir": true,
+            "buildsystem": "meson",
+            "config-opts": [
+                "--buildtype=release"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://gitlab.gnome.org/GNOME/libsoup",
+                    "commit": "fe8491d86f3c99997126818f9af614964f0a50a0"
+                }
+            ]
+        },
+        {
+            "name": "libwebkitgtk",
+            "builddir": true,
+            "buildsystem": "cmake-ninja",
+            "config-opts": [
+                "-DCMAKE_BUILD_TYPE=Release",
+                "-DCMAKE_SKIP_RPATH=ON",
+                "-DPORT=GTK",
+                "-DUSE_GTK4=ON",
+                "-DUSE_AVIF=ON"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/WebKit/WebKit"
+                }
+            ]
+        },
+        {
             "name" : "oku",
             "buildsystem" : "simple",
             "build-commands" : [
