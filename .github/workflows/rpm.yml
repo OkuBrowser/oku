@@ -21,7 +21,7 @@ jobs:
           sudo dnf -q -y install gcc rpm-build > /dev/null
       - name: Install development dependencies
         run: |
-          sudo dnf -q -y install gtk4 gtk4-devel clutter-devel libgda-devel gobject-introspection-devel openssl > /dev/null
+          sudo dnf -q -y install gtk4 gtk4-devel clutter-devel libgda-devel gobject-introspection-devel openssl git-all cmake meson ninja-build > /dev/null
           ./build-dependencies.sh
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
