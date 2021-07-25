@@ -4,19 +4,22 @@
 rm -rf ./gtk4-dependencies
 mkdir gtk4-dependencies && cd gtk4-dependencies
 
+# GLib
+git clone --depth 1 --recurse-submodules --shallow-submodules https://gitlab.gnome.org/GNOME/glib.git
+cd ./glib
+meson _build && ninja -C _build
+sudo ninja -C _build install
+cd ../
+
 # libsoup 3
 git clone --depth 1 --recurse-submodules --shallow-submodules https://gitlab.gnome.org/GNOME/libsoup.git
-# Get latest version of glib-2.0 as a build dependency
-cd ./libsoup/subprojects
-git clone --depth 1 --recurse-submodules --shallow-submodules https://gitlab.gnome.org/GNOME/glib.git
-cd ../
-# Build libsoup
+cd ./libsoup
 mkdir build && cd build
 meson --prefix=/usr --buildtype=release .. && ninja
 sudo ninja install
 cd ../../
 
-# WebKit with GTK4 support
+# WebKitGTK 5.0
 git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/WebKit/WebKit.git
 cd ./WebKit
 mkdir build && cd build
