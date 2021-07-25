@@ -1,0 +1,37 @@
+on:
+  push:
+    branches:    
+        - master
+
+name: Revise codebase
+
+jobs:
+  code_fix:
+    name: Revise codebase
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout codebase
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: minimal
+          components: clippy, rustfmt
+      - name: Install 'cargo-fix'
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-fix
+      - name: Revise code files
+        uses: actions-rs/cargo@v1
+        with:
+          command: fix
+      - name: Commit changes to code, if any
+        run: |
+          git config --global user.name 'Oku'
+          git config --global user.email 'Dirout@users.noreply.github.com'
+          git diff --quiet && git diff --staged --quiet || git commit -am "Automatically apply compiler suggestions"
+          git push
