@@ -11,6 +11,14 @@ meson _build && ninja -C _build
 sudo ninja -C _build install
 cd ../
 
+# glib-networking
+git clone --depth 1 --recurse-submodules --shallow-submodules https://gitlab.gnome.org/GNOME/glib-networking.git
+cd ./glib-networking
+mkdir build && cd build
+meson --prefix=/usr --buildtype=release .. && ninja
+sudo ninja install
+cd ../../
+
 # libsoup 3
 git clone --depth 1 --recurse-submodules --shallow-submodules https://gitlab.gnome.org/GNOME/libsoup.git
 cd ./libsoup
