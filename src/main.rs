@@ -17,8 +17,8 @@
 
 
 
-use glib::OptionArg;
-use glib::OptionFlags;
+
+
 use glib::VariantDict;
 use glib::VariantTy;
 use gtk::prelude::EditableExt;
@@ -39,37 +39,37 @@ use cid::Cid;
 use url::Url;
 use url::ParseError;
 use gtk::prelude::ToggleButtonExt;
-use webkit2gtk::FindController;
-use gtk::SearchEntry;
+
+
 use chrono::Utc;
 use directories_next::UserDirs;
 use std::fs::File;
-use gtk::AboutDialog;
+
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
 use gio::prelude::*;
 use glib::clone;
 use glib::Cast;
-use gtk::Builder;
+
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
 use gtk::prelude::EntryExt;
 use gtk::prelude::GtkWindowExt;
-use gtk::IconSize;
-use gtk::Image;
-use gtk::Inhibit;
-use gtk::Label;
+
+
+
+
 use gtk::Orientation::Horizontal;
 use gtk::prelude::PopoverExt;
 use gtk::prelude::WidgetExt;
 use ipfs_api::IpfsClient;
 use pango::EllipsizeMode;
 use std::convert::TryFrom;
-use std::env::args;
+
 use urlencoding::decode;
 use webkit2gtk::traits::*;
-use webkit2gtk::{traits::{WebContextExt, WebViewExt, URISchemeRequestExt}, WebContext, WebView};
-use libadwaita::TabBar;
+use webkit2gtk::{traits::{WebContextExt, WebViewExt, URISchemeRequestExt}};
+
 
 #[macro_use]
 extern crate lazy_static;
@@ -758,8 +758,8 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
     }));
 
     add_tab.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-        let tab_view = tabs.view().unwrap();
-        let web_view = new_tab_page(&tabs, verbose, is_private, native);
+        let _tab_view = tabs.view().unwrap();
+        let _web_view = new_tab_page(&tabs, verbose, is_private, native);
     }));
 
     back_button.connect_clicked(
@@ -1006,7 +1006,7 @@ fn new_window_four(application: &gtk::Application)
     // Signals
     // Add Tab button clicked
     add_tab.connect_clicked(clone!(@weak tabs, @weak nav_entry => move |_| {
-        let web_view = new_tab_page(&tabs, verbose, is_private, native);
+        let _web_view = new_tab_page(&tabs, verbose, is_private, native);
     }));
 
     // Back button clicked
