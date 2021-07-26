@@ -938,17 +938,37 @@ fn new_window_four(application: &gtk::Application)
     let refresh_button_builder = gtk::ButtonBuilder::new();
     let refresh_button = refresh_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_start(4).margin_end(8).margin_top(4).margin_bottom(4).icon_name("view-refresh").build();
 
-    // All header buttons
-    let header_buttons_builder = gtk::BoxBuilder::new();
-    let header_buttons = header_buttons_builder.can_focus(false).margin_end(4).build();
-    header_buttons.append(&navigation_buttons);
-    header_buttons.append(&add_tab);
-    header_buttons.append(&refresh_button);
+    // Left header buttons
+    let left_header_buttons_builder = gtk::BoxBuilder::new();
+    let left_header_buttons = left_header_buttons_builder.can_focus(false).margin_end(4).build();
+    left_header_buttons.append(&navigation_buttons);
+    left_header_buttons.append(&add_tab);
+    left_header_buttons.append(&refresh_button);
+
+    // Downloads button
+    let downloads_button_builder = gtk::ButtonBuilder::new();
+    let downloads_button = downloads_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_start(4).margin_bottom(4).icon_name("emblem-downloads").build();
+
+    // Find button
+    let find_button_builder = gtk::ButtonBuilder::new();
+    let find_button = find_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_start(4).margin_bottom(4).icon_name("edit-find").build();
+
+    // Menu button
+    let menu_button_builder = gtk::ButtonBuilder::new();
+    let menu_button = menu_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_start(4).margin_bottom(4).icon_name("document-properties").build();
+
+    // Right header buttons
+    let right_header_buttons_builder = gtk::BoxBuilder::new();
+    let right_header_buttons = right_header_buttons_builder.can_focus(false).margin_start(4).spacing(2).homogeneous(true).build();
+    right_header_buttons.append(&downloads_button);
+    right_header_buttons.append(&find_button);
+    right_header_buttons.append(&menu_button);
 
     // HeaderBar
     let headerbar_builder = gtk::HeaderBarBuilder::new();
     let headerbar = headerbar_builder.can_focus(true).show_title_buttons(true).title_widget(&nav_entry).build();
-    headerbar.pack_start(&header_buttons);
+    headerbar.pack_start(&left_header_buttons);
+    headerbar.pack_end(&right_header_buttons);
     // End of browser header
 
 
