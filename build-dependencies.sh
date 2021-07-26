@@ -13,7 +13,11 @@ cd ../
 
 # glib-networking
 git clone --depth 1 --recurse-submodules --shallow-submodules https://gitlab.gnome.org/GNOME/glib-networking.git
+# Get latest version of glib-2.0 as a build dependency
 cd ./glib-networking
+mkdir subprojects && cd subprojects
+git clone --depth 1 --recurse-submodules --shallow-submodules https://gitlab.gnome.org/GNOME/glib.git
+cd ../
 mkdir build && cd build
 meson --prefix=/usr --buildtype=release .. && ninja
 sudo ninja install
