@@ -48,6 +48,36 @@
             ]
         },
         {
+            "name": "glib",
+            "builddir": true,
+            "buildsystem": "meson",
+            "config-opts": [
+                "--buildtype=release"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://gitlab.gnome.org/GNOME/glib.git",
+                    "commit": "5ade56decd1dd5ad9bee352c2c986c3b062c0e68"
+                }
+            ]
+        },
+        {
+            "name": "glib-networking",
+            "builddir": true,
+            "buildsystem": "meson",
+            "config-opts": [
+                "--buildtype=release"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://gitlab.gnome.org/GNOME/glib-networking.git",
+                    "commit": "c1e4de821b418282a229ec4048dc9020b5ef55ad"
+                }
+            ]
+        },
+        {
             "name": "libsoup",
             "builddir": true,
             "buildsystem": "meson",
@@ -76,7 +106,8 @@
             "sources": [
                 {
                     "type": "git",
-                    "url": "https://github.com/WebKit/WebKit"
+                    "url": "https://github.com/WebKit/WebKit",
+                    "commit": "8d5e5fd60f0712a47548a3b84c397836c481db75"
                 }
             ]
         },
