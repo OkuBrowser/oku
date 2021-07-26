@@ -973,6 +973,32 @@ fn new_window_four(application: &gtk::Application)
 
 
 
+    // Menu popover
+    let zoomout_button_builder = gtk::ButtonBuilder::new();
+    let zoomout_button = zoomout_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("zoom-out").build();
+    zoomout_button.style_context().add_class("linked");
+
+    let zoomin_button_builder = gtk::ButtonBuilder::new();
+    let zoomin_button = zoomin_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("zoom-in").build();
+    zoomin_button.style_context().add_class("linked");
+
+    let zoom_buttons_builder = gtk::BoxBuilder::new();
+    let zoom_buttons = zoom_buttons_builder.can_focus(false).homogeneous(true).build();
+    zoom_buttons.append(&zoomin_button);
+    zoom_buttons.append(&zoomout_button);
+    zoom_buttons.style_context().add_class("linked");
+
+    let menu_box_builder = gtk::BoxBuilder::new();
+    let menu_box = menu_box_builder.can_focus(false).margin_start(4).margin_end(4).margin_top(4).margin_bottom(4).spacing(8).build();
+    menu_box.append(&zoom_buttons);
+
+    let menu_builder = gtk::PopoverBuilder::new();
+    let menu = menu_builder.can_focus(false).child(&menu_box).build();
+    menu.set_parent(&menu_button);
+    // End of menu popover
+
+
+
     // Tabs
     let tab_view_builder = libadwaita::TabViewBuilder::new();
     let tab_view = tab_view_builder.build();
@@ -1064,6 +1090,28 @@ fn new_window_four(application: &gtk::Application)
             window.set_title(Some(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
         }));
     }));
+
+    menu_button.connect_clicked(
+        clone!(@weak menu => move |_| {
+            menu.popup();
+        }),
+    );
+
+    zoomin_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry => move |_| {
+            let web_view = view(&tabs);
+            let current_zoom_level = web_view.zoom_level();
+            web_view.set_zoom_level(current_zoom_level + 0.1);
+        }),
+    );
+
+    zoomout_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry => move |_| {
+            let web_view = view(&tabs);
+            let current_zoom_level = web_view.zoom_level();
+            web_view.set_zoom_level(current_zoom_level - 0.1);
+        }),
+    );
     // End of signals
 
 
