@@ -971,7 +971,7 @@ fn new_window_four(application: &gtk::Application)
 
     // HeaderBar
     let headerbar_builder = gtk::HeaderBarBuilder::new();
-    let headerbar = headerbar_builder.can_focus(false).show_title_buttons(true).title_widget(&nav_entry).build();
+    let headerbar = headerbar_builder.can_focus(true).show_title_buttons(true).title_widget(&nav_entry).build();
     headerbar.pack_start(&header_buttons);
     // End of browser header
 
