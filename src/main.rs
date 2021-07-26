@@ -26,6 +26,7 @@ use gtk::prelude::StyleContextExt;
 use ipfs::Types;
 use webkit2gtk::URISchemeRequest;
 use webkit2gtk::traits::SettingsExt;
+use std::io::BufWriter;
 use std::path::PathBuf;
 use ipfs::Keypair;
 
@@ -544,35 +545,10 @@ fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
         Some(_) => {
             let favicon_surface =
                 cairo::ImageSurface::try_from(web_favicon.to_owned().unwrap()).unwrap();
-            let favicon_width = favicon_surface.width();
-            let favicon_height = favicon_surface.height();
-            match favicon_width < 32 && favicon_height < 32 {
-                true => {
-                    let favicon_pixbuf = gdk::pixbuf_get_from_surface(
-                        &favicon_surface,
-                        0,
-                        0,
-                        favicon_width,
-                        favicon_height,
-                    )
-                    .unwrap();
-                    current_page.set_icon(Some(&gio::BytesIcon::new(&favicon_pixbuf.pixel_bytes().unwrap())));
-                }
-                false => {
-                    let favicon_pixbuf = gdk::pixbuf_get_from_surface(
-                        &favicon_surface,
-                        0,
-                        0,
-                        favicon_width,
-                        favicon_height,
-                    )
-                    .unwrap();
-                    let scaled_pixbuf = favicon_pixbuf
-                        .scale_simple(32, 32, gdk_pixbuf::InterpType::Tiles)
-                        .unwrap();
-                    current_page.set_icon(Some(&gio::BytesIcon::new(&scaled_pixbuf.pixel_bytes().unwrap())));
-                }
-            }
+            let mut favicon_png_bytes: Vec<u8> = Vec::new();
+            favicon_surface.write_to_png(&mut favicon_png_bytes).unwrap();
+            let icon = gio::BytesIcon::new(&glib::Bytes::from(&favicon_png_bytes));
+            current_page.set_icon(Some(&icon));
         }
         None => {
             current_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
@@ -930,7 +906,7 @@ fn new_window_four(application: &gtk::Application)
     let verbose = true;
     let is_private = true;
     let native = false;
-    let initial_url = "https://www.iana.org/domains/reserved";
+    let initial_url = "about:blank";
 
     // Browser header
     // Navigation bar
@@ -992,7 +968,7 @@ fn new_window_four(application: &gtk::Application)
 
     // Window
     let main_box_builder = gtk::BoxBuilder::new();
-    let main_box = main_box_builder.orientation(gtk::Orientation::Vertical).build();
+    let main_box = main_box_builder.orientation(gtk::Orientation::Vertical).vexpand(true).build();
     main_box.append(&tabs);
     main_box.append(&tabs.view().unwrap());
 
@@ -1061,9 +1037,9 @@ fn new_window_four(application: &gtk::Application)
             let current_page = tab_view.page(&web_view).unwrap();
             current_page.set_loading(web_view.is_loading())
         }));
-        // web_view.connect_favicon_notify(clone!(@weak tabs, @weak web_view => move |_| {
-        //     update_favicon(&web_view, &tabs)
-        // }));
+        web_view.connect_favicon_notify(clone!(@weak tabs, @weak web_view => move |_| {
+            update_favicon(&web_view, &tabs)
+        }));
         web_view.connect_load_changed(clone!(@weak tabs, @weak web_view, @weak nav_entry, @weak window => move |_, _| {
             window.set_title(Some(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
         }));
