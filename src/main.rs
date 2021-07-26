@@ -78,7 +78,7 @@ extern crate lazy_static;
 lazy_static! {
     /// The platform-specific directories intended for Oku's use
     static ref PROJECT_DIRECTORIES: ProjectDirs =
-        ProjectDirs::from("org", "Emil Sayahi", "Oku").unwrap();
+        ProjectDirs::from("com", "github.dirout", "oku").unwrap();
     /// The platform-specific directory where Oku caches data
     static ref CACHE_DIR: &'static str = PROJECT_DIRECTORIES.cache_dir().to_str().unwrap();
     /// The platform-specific directory where Oku stores user data
@@ -591,8 +591,8 @@ fn new_about_dialog()
     let about_dialog = gtk::AboutDialog::new();
     about_dialog.set_version(VERSION);
     about_dialog.set_program_name(Some("Oku"));
-    about_dialog.set_logo_icon_name(Some("oku"));
-    about_dialog.set_icon_name(Some("oku"));
+    about_dialog.set_logo_icon_name(Some("com.github.dirout.oku"));
+    about_dialog.set_icon_name(Some("com.github.dirout.oku"));
     about_dialog.set_license_type(gtk::License::Agpl30);
     about_dialog.set_destroy_with_parent(true);
     about_dialog.set_modal(true);
@@ -973,7 +973,7 @@ fn new_window_four(application: &gtk::Application)
     main_box.append(&tabs.view().unwrap());
 
     let window_builder = gtk::ApplicationWindowBuilder::new();
-    let window = window_builder.application(application).can_focus(true).title("Oku").icon_name("oku").build();
+    let window = window_builder.application(application).can_focus(true).title("Oku").icon_name("com.github.dirout.oku").build();
     window.set_titlebar(Some(&headerbar));
     window.set_child(Some(&main_box));
     // End of Window
