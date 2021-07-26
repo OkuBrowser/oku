@@ -21,7 +21,11 @@ cd ../../
 
 # libsoup 3
 git clone --depth 1 --recurse-submodules --shallow-submodules https://gitlab.gnome.org/GNOME/libsoup.git
-cd ./libsoup
+# Get latest version of glib-2.0 as a build dependency
+cd ./libsoup/subprojects
+git clone --depth 1 --recurse-submodules --shallow-submodules https://gitlab.gnome.org/GNOME/glib.git
+cd ../
+# Build libsoup
 mkdir build && cd build
 meson --prefix=/usr --buildtype=release .. && ninja
 sudo ninja install
