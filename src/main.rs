@@ -611,7 +611,11 @@ fn main() {
     //     let matches = VariantDict::new(None);
     //     new_window(app, matches);
     // });
-    application.connect_activate(new_window_four);
+    application.connect_activate(
+        clone!(@weak application => move |_| {
+            new_window_four(&application);
+        })
+    );
 
     // application.connect_handle_local_options(|app, options| {
     //     let matches = options.to_owned();
@@ -900,7 +904,7 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
     window.show();
 }
 
-fn new_window_four(application: &gtk::Application)
+fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
 {
     // Options
     let verbose = true;
@@ -1180,8 +1184,8 @@ fn new_window_four(application: &gtk::Application)
 
     new_window_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
-            new_window_four(&window.application().unwrap())
-        }),
+            new_window_four(&window.application().unwrap());
+        })
     );
 
     about_button.connect_clicked(
@@ -1189,8 +1193,20 @@ fn new_window_four(application: &gtk::Application)
             new_about_dialog()
         }),
     );
+
+    tab_view.connect_create_window(
+        create_window_from_drag
+    );
     // End of signals
 
 
     window.show();
+    return tab_view
+}
+
+fn create_window_from_drag(tab_view: &libadwaita::TabView) -> std::option::Option<libadwaita::TabView>
+{
+    let window: gtk::ApplicationWindow = tab_view.parent().unwrap().parent().unwrap().downcast().unwrap();
+    let application = window.application().unwrap();
+    Some(new_window_four(&application))
 }
