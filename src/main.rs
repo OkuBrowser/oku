@@ -925,7 +925,7 @@ fn new_window_four(application: &gtk::Application)
 
     // All navigation buttons
     let navigation_buttons_builder = gtk::BoxBuilder::new();
-    let navigation_buttons = navigation_buttons_builder.can_focus(false).homogeneous(true).build();
+    let navigation_buttons = navigation_buttons_builder.homogeneous(true).build();
     navigation_buttons.append(&back_button);
     navigation_buttons.append(&forward_button);
     navigation_buttons.style_context().add_class("linked");
@@ -940,7 +940,7 @@ fn new_window_four(application: &gtk::Application)
 
     // Left header buttons
     let left_header_buttons_builder = gtk::BoxBuilder::new();
-    let left_header_buttons = left_header_buttons_builder.can_focus(false).margin_end(4).build();
+    let left_header_buttons = left_header_buttons_builder.margin_end(4).build();
     left_header_buttons.append(&navigation_buttons);
     left_header_buttons.append(&add_tab);
     left_header_buttons.append(&refresh_button);
@@ -959,7 +959,7 @@ fn new_window_four(application: &gtk::Application)
 
     // Right header buttons
     let right_header_buttons_builder = gtk::BoxBuilder::new();
-    let right_header_buttons = right_header_buttons_builder.can_focus(false).margin_start(4).spacing(2).homogeneous(true).build();
+    let right_header_buttons = right_header_buttons_builder.margin_start(4).spacing(2).homogeneous(true).build();
     right_header_buttons.append(&downloads_button);
     right_header_buttons.append(&find_button);
     right_header_buttons.append(&menu_button);
@@ -973,27 +973,65 @@ fn new_window_four(application: &gtk::Application)
 
 
 
-    // Menu popover
+    // Zoom out button
     let zoomout_button_builder = gtk::ButtonBuilder::new();
     let zoomout_button = zoomout_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("zoom-out").build();
     zoomout_button.style_context().add_class("linked");
 
+    // Zoom in button
     let zoomin_button_builder = gtk::ButtonBuilder::new();
     let zoomin_button = zoomin_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("zoom-in").build();
     zoomin_button.style_context().add_class("linked");
 
+    // Both zoom buttons
     let zoom_buttons_builder = gtk::BoxBuilder::new();
-    let zoom_buttons = zoom_buttons_builder.can_focus(false).homogeneous(true).build();
-    zoom_buttons.append(&zoomin_button);
+    let zoom_buttons = zoom_buttons_builder.homogeneous(true).build();
     zoom_buttons.append(&zoomout_button);
+    zoom_buttons.append(&zoomin_button);
     zoom_buttons.style_context().add_class("linked");
 
+    // Zoom reset button
+    let zoomreset_button_builder = gtk::ButtonBuilder::new();
+    let zoomreset_button = zoomreset_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("zoom-original").build();
+
+    // Fullscreen button
+    let fullscreen_button_builder = gtk::ButtonBuilder::new();
+    let fullscreen_button = fullscreen_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("video-display").build();
+
+    // Screenshot button
+    let screenshot_button_builder = gtk::ButtonBuilder::new();
+    let screenshot_button = screenshot_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("camera-photo").build();
+
+    // New Window button
+    let new_window_button_builder = gtk::ButtonBuilder::new();
+    let new_window_button = new_window_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("window-new").build();
+
+    // History button
+    let history_button_builder = gtk::ButtonBuilder::new();
+    let history_button = history_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("document-open-recent").build();
+
+    // Settings button
+    let settings_button_builder = gtk::ButtonBuilder::new();
+    let settings_button = settings_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("preferences-system").build();
+
+    // About button
+    let about_button_builder = gtk::ButtonBuilder::new();
+    let about_button = about_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("help-about").build();
+
+    // Menu popover
     let menu_box_builder = gtk::BoxBuilder::new();
-    let menu_box = menu_box_builder.can_focus(false).margin_start(4).margin_end(4).margin_top(4).margin_bottom(4).spacing(8).build();
+    let menu_box = menu_box_builder.margin_start(4).margin_end(4).margin_top(4).margin_bottom(4).spacing(8).build();
     menu_box.append(&zoom_buttons);
+    menu_box.append(&zoomreset_button);
+    menu_box.append(&fullscreen_button);
+    menu_box.append(&screenshot_button);
+    menu_box.append(&new_window_button);
+    menu_box.append(&history_button);
+    menu_box.append(&settings_button);
+    menu_box.append(&about_button);
 
     let menu_builder = gtk::PopoverBuilder::new();
-    let menu = menu_builder.can_focus(false).child(&menu_box).build();
+    let menu = menu_builder.child(&menu_box).build();
     menu.set_parent(&menu_button);
     // End of menu popover
 
@@ -1110,6 +1148,45 @@ fn new_window_four(application: &gtk::Application)
             let web_view = view(&tabs);
             let current_zoom_level = web_view.zoom_level();
             web_view.set_zoom_level(current_zoom_level - 0.1);
+        }),
+    );
+
+    zoomreset_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry => move |_| {
+            let web_view = view(&tabs);
+            web_view.set_zoom_level(1.0);
+        }),
+    );
+
+    fullscreen_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry => move |_| {
+            let web_view = view(&tabs);
+            web_view.run_javascript("document.documentElement.webkitRequestFullscreen();", gio::NONE_CANCELLABLE, move |_| {
+                
+            })
+        }),
+    );
+
+    screenshot_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry => move |_| {
+            let web_view = view(&tabs);
+            web_view.snapshot(webkit2gtk::SnapshotRegion::FullDocument, webkit2gtk::SnapshotOptions::all(), gio::NONE_CANCELLABLE, move |snapshot| {
+                let snapshot_surface = cairo::ImageSurface::try_from(snapshot.unwrap()).unwrap();
+                let mut writer = File::create(format!("{}/{}.png", PICTURES_DIR.to_owned(), Utc::now())).unwrap();
+                snapshot_surface.write_to_png(&mut writer).unwrap();
+            });
+        }),
+    );
+
+    new_window_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
+            new_window_four(&window.application().unwrap())
+        }),
+    );
+
+    about_button.connect_clicked(
+        clone!(@weak tabs, @weak nav_entry => move |_| {
+            new_about_dialog()
         }),
     );
     // End of signals
