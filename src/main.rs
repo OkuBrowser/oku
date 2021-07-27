@@ -229,23 +229,19 @@ fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 ///
 /// * `web_view` - The WebKit instance for the current tab
 fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
-    let blank_url = "about:blank".to_string();
     let mut url = web_view.uri().unwrap().to_string();
-    match url {
-        blank_url => {
-            nav_entry.set_text("");
-        },
-        _ => {
-            let cid = url
-                .replacen("http://", "", 1)
-                .replacen(".ipfs.localhost:8080", "", 1);
-            let split_cid: Vec<&str> = cid.split('/').collect();
-            if url.starts_with(&format!("http://{}.ipfs.localhost:8080/", split_cid[0])) {
-                url = cid;
-            }
-            nav_entry.set_text(&url);
-        }
+    let cid = url
+        .replacen("http://", "", 1)
+        .replacen(".ipfs.localhost:8080", "", 1);
+    let split_cid: Vec<&str> = cid.split('/').collect();
+    if url.starts_with(&format!("http://{}.ipfs.localhost:8080/", split_cid[0])) {
+        url = cid;
     }
+    if url == "about:blank"
+    {
+        url = "".to_string();
+    }
+    nav_entry.set_text(&url);
 }
 
 /// Comply with a request using the IPFS scheme
@@ -541,7 +537,6 @@ fn get_view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
     let tab_view = tabs.view().unwrap();
     let current_page = tab_view.selected_page().unwrap();
     let current_page_number = tab_view.page_position(&current_page);
-    println!("{}", current_page_number);
     let specific_page = tab_view.nth_page(current_page_number).unwrap();
     specific_page.child().unwrap()
         .downcast()
