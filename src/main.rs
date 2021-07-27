@@ -602,14 +602,20 @@ fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
 fn update_title(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
     let tab_view = tabs.view().unwrap();
     let relevant_page = tab_view.page(web_view).unwrap();
-    match &web_view.title()
+    let web_page_title = &web_view.title();
+    match web_page_title
     {
         Some(page_title) => {
-            relevant_page.set_title(Some(&page_title.to_string()))
-        }
+            if page_title.as_str() == "" {
+                relevant_page.set_title(Some("Untitled"));
+            }
+            else {
+                relevant_page.set_title(Some(&page_title.to_string()))
+            }
+        },
         None => {
             relevant_page.set_title(Some("Untitled"));
-        },
+        }
     }
 }
 
