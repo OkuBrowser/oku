@@ -288,6 +288,7 @@ fn new_view(
     native: bool,
 ) -> webkit2gtk::WebView {
     let web_kit = webkit2gtk::WebViewBuilder::new()
+        .vexpand(true)
         .is_ephemeral(is_private);
     let web_settings: webkit2gtk::Settings = new_webkit_settings();
     let web_view = web_kit.build();
@@ -1043,7 +1044,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
 
     // Tabs
     let tab_view_builder = libadwaita::TabViewBuilder::new();
-    let tab_view = tab_view_builder.build();
+    let tab_view = tab_view_builder.vexpand(true).build();
 
     let tabs_builder = libadwaita::TabBarBuilder::new();
     let tabs = tabs_builder.autohide(true).expand_tabs(true).view(&tab_view).build();
@@ -1058,7 +1059,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
     let main_box_builder = gtk::BoxBuilder::new();
     let main_box = main_box_builder.orientation(gtk::Orientation::Vertical).vexpand(true).build();
     main_box.append(&tabs);
-    main_box.append(&tabs.view().unwrap());
+    main_box.append(&tab_view);
 
     let window_builder = gtk::ApplicationWindowBuilder::new();
     let window = window_builder.application(application).can_focus(true).title("Oku").icon_name("com.github.dirout.oku").build();
