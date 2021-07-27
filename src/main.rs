@@ -229,15 +229,23 @@ fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 ///
 /// * `web_view` - The WebKit instance for the current tab
 fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
+    let blank_url = "about:blank".to_string();
     let mut url = web_view.uri().unwrap().to_string();
-    let cid = url
-        .replacen("http://", "", 1)
-        .replacen(".ipfs.localhost:8080", "", 1);
-    let split_cid: Vec<&str> = cid.split('/').collect();
-    if url.starts_with(&format!("http://{}.ipfs.localhost:8080/", split_cid[0])) {
-        url = cid;
+    match url {
+        blank_url => {
+            nav_entry.set_text("");
+        },
+        _ => {
+            let cid = url
+                .replacen("http://", "", 1)
+                .replacen(".ipfs.localhost:8080", "", 1);
+            let split_cid: Vec<&str> = cid.split('/').collect();
+            if url.starts_with(&format!("http://{}.ipfs.localhost:8080/", split_cid[0])) {
+                url = cid;
+            }
+            nav_entry.set_text(&url);
+        }
     }
-    nav_entry.set_text(&url);
 }
 
 /// Comply with a request using the IPFS scheme
@@ -286,6 +294,8 @@ fn new_view(
     verbose: bool,
     is_private: bool,
     native: bool,
+    tabs: &libadwaita::TabBar,
+    nav_entry: &gtk::Entry
 ) -> webkit2gtk::WebView {
     let web_kit = webkit2gtk::WebViewBuilder::new()
         .vexpand(true)
@@ -314,6 +324,31 @@ fn new_view(
     web_view.set_width_request(1024);
     web_view.set_height_request(640);
     web_view.load_uri("about:blank");
+
+    web_view.connect_title_notify(clone!(@weak tabs, @weak web_view => move |_| {
+        update_title(&web_view, &tabs)
+    }));
+    web_view.connect_uri_notify(clone!(@weak web_view, @weak nav_entry => move |_| {
+        update_nav_bar(&nav_entry, &web_view)
+    }));
+    web_view.connect_estimated_load_progress_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
+        let tab_view = tabs.view().unwrap();
+        let current_page = tab_view.page(&web_view).unwrap();
+        current_page.set_loading(true);
+        update_load_progress(&nav_entry, &web_view)
+    }));
+    web_view.connect_is_loading_notify(clone!(@weak tabs, @weak web_view => move |_| {
+        let tab_view = tabs.view().unwrap();
+        let current_page = tab_view.page(&web_view).unwrap();
+        current_page.set_loading(web_view.is_loading())
+    }));
+    web_view.connect_favicon_notify(clone!(@weak tabs, @weak web_view => move |_| {
+        update_favicon(&web_view, &tabs)
+    }));
+    web_view.connect_load_changed(clone!(@weak tabs, @weak web_view => move |_, _| {
+        let window: gtk::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().downcast().unwrap();
+        window.set_title(Some(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
+    }));
 
     web_view
 }
@@ -483,12 +518,13 @@ fn new_tab(label: &str) -> gtk::Box {
 /// * `is_private` - Whether the window represents a private session
 fn new_tab_page(
     tabs: &libadwaita::TabBar,
+    nav_entry: &gtk::Entry,
     verbose: bool,
     is_private: bool,
     native: bool,
 ) -> webkit2gtk::WebView {
     let tab_view = tabs.view().unwrap();
-    let new_view = new_view(verbose, is_private, native);
+    let new_view = new_view(verbose, is_private, native, tabs, nav_entry);
     let new_page = tab_view.append(&new_view).unwrap();
     new_page.set_title(Some("New Tab"));
     new_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
@@ -501,10 +537,13 @@ fn new_tab_page(
 /// # Arguments
 ///
 /// * `tabs` - The TabBar containing the tabs & pages of the current browser session
-fn view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
+fn get_view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
     let tab_view = tabs.view().unwrap();
-    tab_view.selected_page()
-        .unwrap().child().unwrap()
+    let current_page = tab_view.selected_page().unwrap();
+    let current_page_number = tab_view.page_position(&current_page);
+    println!("{}", current_page_number);
+    let specific_page = tab_view.nth_page(current_page_number).unwrap();
+    specific_page.child().unwrap()
         .downcast()
         .unwrap()
 }
@@ -522,12 +561,13 @@ fn view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
 /// * `is_private` - Whether the window represents a private session
 fn create_initial_tab(
     tabs: &libadwaita::TabBar,
+    nav_entry: &gtk::Entry,
     initial_url: String,
     verbose: bool,
     is_private: bool,
     native: bool,
 ) {
-    let web_view = new_tab_page(tabs, verbose, is_private, native);
+    let web_view = new_tab_page(tabs, nav_entry, verbose, is_private, native);
     initial_connect(initial_url, &web_view)
 }
 
@@ -540,7 +580,7 @@ fn create_initial_tab(
 /// * `tabs` - The TabBar containing the tabs & pages of the current browser session
 fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
     let tab_view = tabs.view().unwrap();
-    let current_page = tab_view.selected_page().unwrap();
+    let relevant_page = tab_view.page(web_view).unwrap();
     let web_favicon = &web_view.favicon();
     match &web_favicon {
         Some(_) => {
@@ -549,10 +589,10 @@ fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
             let mut favicon_png_bytes: Vec<u8> = Vec::new();
             favicon_surface.write_to_png(&mut favicon_png_bytes).unwrap();
             let icon = gio::BytesIcon::new(&glib::Bytes::from(&favicon_png_bytes));
-            current_page.set_icon(Some(&icon));
+            relevant_page.set_icon(Some(&icon));
         }
         None => {
-            current_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
+            relevant_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
         }
     }
 }
@@ -566,8 +606,16 @@ fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
 /// * `tabs` - The TabBar containing the tabs & pages of the current browser session
 fn update_title(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
     let tab_view = tabs.view().unwrap();
-    let current_page = tab_view.selected_page().unwrap();
-    current_page.set_title(Some(&web_view.title().unwrap().to_string()))
+    let relevant_page = tab_view.page(web_view).unwrap();
+    match &web_view.title()
+    {
+        Some(page_title) => {
+            relevant_page.set_title(Some(&page_title.to_string()))
+        }
+        None => {
+            relevant_page.set_title(Some("Untitled"));
+        },
+    }
 }
 
 /// Update the load progress indicator under the navigation bar
@@ -707,59 +755,44 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
     let tab_view = tabs.view().unwrap();
 
     if tab_view.n_pages() == 0 {
-        create_initial_tab(&tabs, initial_url.to_owned(), verbose, is_private, native)
+        create_initial_tab(&tabs, &nav_entry,initial_url.to_owned(), verbose, is_private, native)
     }
 
     tab_view.connect_pages_notify(
         clone!(@weak nav_entry, @weak builder, @weak tabs, @weak window => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             update_nav_bar(&nav_entry, &web_view);
             window.set_title(Some(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
         }),
     );
 
     nav_entry.connect_activate(clone!(@weak tabs, @weak nav_entry, @weak builder, @weak window => move |_| {
-        let web_view = view(&tabs);
+        let web_view = get_view(&tabs);
         connect(&nav_entry, &web_view);
-        web_view.connect_title_notify(clone!(@weak tabs, @weak web_view => move |_| {
-            update_title(&web_view, &tabs)
-        }));
-        web_view.connect_uri_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
-            update_nav_bar(&nav_entry, &web_view)
-        }));
-        web_view.connect_estimated_load_progress_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
-            update_load_progress(&nav_entry, &web_view)
-        }));
-        web_view.connect_favicon_notify(clone!(@weak tabs, @weak web_view => move |_| {
-            update_favicon(&web_view, &tabs)
-        }));
-        web_view.connect_load_changed(clone!(@weak tabs, @weak web_view, @weak nav_entry, @weak window => move |_, _| {
-            window.set_title(Some(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
-        }));
     }));
 
     add_tab.connect_clicked(clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
         let _tab_view = tabs.view().unwrap();
-        let _web_view = new_tab_page(&tabs, verbose, is_private, native);
+        let _web_view = new_tab_page(&tabs, &nav_entry, verbose, is_private, native);
     }));
 
     back_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             web_view.go_back()
         }),
     );
 
     forward_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             web_view.go_forward()
         }),
     );
 
     refresh_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             web_view.reload_bypass_cache()
         }),
     );
@@ -777,7 +810,7 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
     );
     find_search_entry.connect_search_changed(
         clone!(@weak tabs, @weak nav_entry, @weak builder, @weak find_search_entry, @weak find_popover => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             let find_controller = web_view.find_controller().unwrap();
             let mut find_options = webkit2gtk::FindOptions::empty();
             find_options.set(webkit2gtk::FindOptions::CASE_INSENSITIVE, find_case_insensitive.is_active());
@@ -854,7 +887,7 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
 
     zoomin_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             let current_zoom_level = web_view.zoom_level();
             web_view.set_zoom_level(current_zoom_level + 0.1);
         }),
@@ -862,7 +895,7 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
 
     zoomout_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             let current_zoom_level = web_view.zoom_level();
             web_view.set_zoom_level(current_zoom_level - 0.1);
         }),
@@ -870,14 +903,14 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
 
     zoomreset_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             web_view.set_zoom_level(1.0);
         }),
     );
 
     fullscreen_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             web_view.run_javascript("document.documentElement.webkitRequestFullscreen();", gio::NONE_CANCELLABLE, move |_| {
                 
             })
@@ -886,7 +919,7 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
 
     screenshot_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             web_view.snapshot(webkit2gtk::SnapshotRegion::FullDocument, webkit2gtk::SnapshotOptions::all(), gio::NONE_CANCELLABLE, move |snapshot| {
                 let snapshot_surface = cairo::ImageSurface::try_from(snapshot.unwrap()).unwrap();
                 let mut writer = File::create(format!("{}/{}.png", PICTURES_DIR.to_owned(), Utc::now())).unwrap();
@@ -1050,7 +1083,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
     let tabs = tabs_builder.autohide(true).expand_tabs(true).view(&tab_view).build();
 
     if tab_view.n_pages() == 0 {
-        create_initial_tab(&tabs, initial_url.to_owned(), verbose, is_private, native)
+        create_initial_tab(&tabs, &nav_entry, initial_url.to_owned(), verbose, is_private, native)
     }
     // End of Tabs
 
@@ -1071,13 +1104,13 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
     // Signals
     // Add Tab button clicked
     add_tab.connect_clicked(clone!(@weak tabs, @weak nav_entry => move |_| {
-        let _web_view = new_tab_page(&tabs, verbose, is_private, native);
+        let _web_view = new_tab_page(&tabs, &nav_entry, verbose, is_private, native);
     }));
 
     // Back button clicked
     back_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             web_view.go_back()
         }),
     );
@@ -1085,7 +1118,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
     // Forward button clicked
     forward_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             web_view.go_forward()
         }),
     );
@@ -1093,45 +1126,23 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
     // Refresh button clicked
     refresh_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             web_view.reload_bypass_cache()
         }),
     );
 
     tab_view.connect_selected_page_notify(
         clone!(@weak nav_entry, @weak tabs, @weak window => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             update_nav_bar(&nav_entry, &web_view);
             window.set_title(Some(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
         }),
     );
 
     nav_entry.connect_activate(clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
-        let web_view = view(&tabs);
+        let web_view = get_view(&tabs);
         connect(&nav_entry, &web_view);
-        web_view.connect_title_notify(clone!(@weak tabs, @weak web_view => move |_| {
-            update_title(&web_view, &tabs)
-        }));
-        web_view.connect_uri_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
-            update_nav_bar(&nav_entry, &web_view)
-        }));
-        web_view.connect_estimated_load_progress_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
-            let tab_view = tabs.view().unwrap();
-            let current_page = tab_view.page(&web_view).unwrap();
-            current_page.set_loading(true);
-            update_load_progress(&nav_entry, &web_view)
-        }));
-        web_view.connect_is_loading_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
-            let tab_view = tabs.view().unwrap();
-            let current_page = tab_view.page(&web_view).unwrap();
-            current_page.set_loading(web_view.is_loading())
-        }));
-        web_view.connect_favicon_notify(clone!(@weak tabs, @weak web_view => move |_| {
-            update_favicon(&web_view, &tabs)
-        }));
-        web_view.connect_load_changed(clone!(@weak tabs, @weak web_view, @weak nav_entry, @weak window => move |_, _| {
-            window.set_title(Some(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
-        }));
+        
     }));
 
     menu_button.connect_clicked(
@@ -1142,7 +1153,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
 
     zoomin_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             let current_zoom_level = web_view.zoom_level();
             web_view.set_zoom_level(current_zoom_level + 0.1);
         }),
@@ -1150,7 +1161,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
 
     zoomout_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             let current_zoom_level = web_view.zoom_level();
             web_view.set_zoom_level(current_zoom_level - 0.1);
         }),
@@ -1158,14 +1169,14 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
 
     zoomreset_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             web_view.set_zoom_level(1.0);
         }),
     );
 
     fullscreen_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             web_view.run_javascript("document.documentElement.webkitRequestFullscreen();", gio::NONE_CANCELLABLE, move |_| {
                 
             })
@@ -1174,7 +1185,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
 
     screenshot_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = view(&tabs);
+            let web_view = get_view(&tabs);
             web_view.snapshot(webkit2gtk::SnapshotRegion::FullDocument, webkit2gtk::SnapshotOptions::all(), gio::NONE_CANCELLABLE, move |snapshot| {
                 let snapshot_surface = cairo::ImageSurface::try_from(snapshot.unwrap()).unwrap();
                 let mut writer = File::create(format!("{}/{}.png", PICTURES_DIR.to_owned(), Utc::now())).unwrap();
