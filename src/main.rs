@@ -56,7 +56,6 @@ use ipfs_api::IpfsClient;
 use std::convert::TryFrom;
 
 use urlencoding::decode;
-use webkit2gtk::traits::*;
 use webkit2gtk::traits::{URISchemeRequestExt, WebContextExt, WebViewExt};
 
 #[macro_use]
@@ -290,7 +289,6 @@ fn new_view(
     is_private: bool,
     native: bool,
     tabs: &libadwaita::TabBar,
-    nav_entry: &gtk::Entry,
 ) -> webkit2gtk::WebView {
     let web_kit = webkit2gtk::WebViewBuilder::new()
         .vexpand(true)
@@ -322,27 +320,33 @@ fn new_view(
     web_view.set_height_request(640);
     web_view.load_uri("about:blank");
 
-    web_view.connect_title_notify(clone!(@weak tabs, @weak web_view => move |_| {
-        update_title(&web_view, &tabs)
+    web_view.connect_title_notify(clone!(@weak web_view => move |_| {
+        update_title(&web_view)
     }));
-    web_view.connect_uri_notify(clone!(@weak web_view, @weak nav_entry => move |_| {
+    web_view.connect_uri_notify(clone!(@weak web_view => move |_| {
+        let window: gtk::ApplicationWindow = web_view.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+        let headerbar: gtk::HeaderBar = window.titlebar().unwrap().downcast().unwrap();
+        let nav_entry: gtk::Entry = headerbar.title_widget().unwrap().downcast().unwrap();
         update_nav_bar(&nav_entry, &web_view)
     }));
     web_view.connect_estimated_load_progress_notify(
-        clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
-            let tab_view = tabs.view().unwrap();
+        clone!(@weak tabs, @weak web_view => move |_| {
+            let window: gtk::ApplicationWindow = web_view.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+            let headerbar: gtk::HeaderBar = window.titlebar().unwrap().downcast().unwrap();
+            let nav_entry: gtk::Entry = headerbar.title_widget().unwrap().downcast().unwrap();
+            let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
             let current_page = tab_view.page(&web_view).unwrap();
             current_page.set_loading(true);
             update_load_progress(&nav_entry, &web_view)
         }),
     );
     web_view.connect_is_loading_notify(clone!(@weak tabs, @weak web_view => move |_| {
-        let tab_view = tabs.view().unwrap();
+        let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
         let current_page = tab_view.page(&web_view).unwrap();
         current_page.set_loading(web_view.is_loading())
     }));
     web_view.connect_favicon_notify(clone!(@weak tabs, @weak web_view => move |_| {
-        update_favicon(&web_view, &tabs)
+        update_favicon(&web_view)
     }));
     web_view.connect_load_changed(clone!(@weak tabs, @weak web_view => move |_, _| {
         let window: gtk::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().downcast().unwrap();
@@ -458,8 +462,6 @@ fn ipfs_options() -> ipfs::IpfsOptions {
 /// # Arguments
 ///
 /// * `tabs` - The TabBar containing the tabs of the current browser session
-///
-/// * `nav_entry` - The navigation bar of the browser
 ///  
 /// * `verbose` - Whether browser messages should be printed onto the standard output
 ///
@@ -468,13 +470,12 @@ fn ipfs_options() -> ipfs::IpfsOptions {
 /// * `native` - Whether the browser is using a built-in (native) IPFS handler, or an external one
 fn new_tab_page(
     tabs: &libadwaita::TabBar,
-    nav_entry: &gtk::Entry,
     verbose: bool,
     is_private: bool,
     native: bool,
 ) -> webkit2gtk::WebView {
     let tab_view = tabs.view().unwrap();
-    let new_view = new_view(verbose, is_private, native, tabs, nav_entry);
+    let new_view = new_view(verbose, is_private, native, tabs);
     let new_page = tab_view.append(&new_view).unwrap();
     new_page.set_title(Some("New Tab"));
     new_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
@@ -501,8 +502,6 @@ fn get_view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
 ///
 /// * `tabs` - The TabBar containing the tabs of the current browser session
 ///
-/// * `nav_entry` - The navigation bar of the browser
-///
 /// * `verbose` - Whether browser messages should be printed onto the standard output
 ///
 /// * `is_private` - Whether the window represents a private session
@@ -510,13 +509,12 @@ fn get_view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
 /// * `native` - Whether the browser is using a built-in (native) IPFS handler, or an external one
 fn create_initial_tab(
     tabs: &libadwaita::TabBar,
-    nav_entry: &gtk::Entry,
     initial_url: String,
     verbose: bool,
     is_private: bool,
     native: bool,
 ) {
-    let web_view = new_tab_page(tabs, nav_entry, verbose, is_private, native);
+    let web_view = new_tab_page(tabs, verbose, is_private, native);
     initial_connect(initial_url, &web_view)
 }
 
@@ -525,10 +523,8 @@ fn create_initial_tab(
 /// # Arguments
 ///
 /// * `web_view` - The WebKit instance for the tab
-///
-/// * `tabs` - The TabBar containing the tabs of the current browser session
-fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
-    let tab_view = tabs.view().unwrap();
+fn update_favicon(web_view: &webkit2gtk::WebView) {
+    let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
     let relevant_page = tab_view.page(web_view).unwrap();
     let web_favicon = &web_view.favicon();
     match &web_favicon {
@@ -553,10 +549,8 @@ fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
 /// # Arguments
 ///
 /// * `web_view` - The WebKit instance for the tab
-///
-/// * `tabs` - The TabBar containing the tabs of the current browser session
-fn update_title(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
-    let tab_view = tabs.view().unwrap();
+fn update_title(web_view: &webkit2gtk::WebView) {
+    let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
     let relevant_page = tab_view.page(web_view).unwrap();
     let web_page_title = &web_view.title();
     match web_page_title {
@@ -1191,7 +1185,6 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     if tab_view.n_pages() == 0 {
         create_initial_tab(
             &tabs,
-            &nav_entry,
             initial_url.to_owned(),
             verbose,
             is_private,
@@ -1222,8 +1215,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
 
     // Signals
     // Add Tab button clicked
-    add_tab.connect_clicked(clone!(@weak tabs, @weak nav_entry => move |_| {
-        let _web_view = new_tab_page(&tabs, &nav_entry, verbose, is_private, native);
+    add_tab.connect_clicked(clone!(@weak tabs => move |_| {
+        let _web_view = new_tab_page(&tabs, verbose, is_private, native);
     }));
 
     // Back button clicked
@@ -1346,5 +1339,6 @@ fn create_window_from_drag(
         .downcast()
         .unwrap();
     let application = window.application().unwrap();
-    Some(new_window_four(&application))
+    let new_window = new_window_four(&application);
+    Some(new_window)
 }
