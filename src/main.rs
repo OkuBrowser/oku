@@ -636,16 +636,21 @@ fn update_load_progress(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) 
 }
 
 /// Create a dialog box showing information about Oku
-fn new_about_dialog()
+fn new_about_dialog(application: &gtk::Application)
 {
-    let about_dialog = gtk::AboutDialog::new();
-    about_dialog.set_version(VERSION);
-    about_dialog.set_program_name(Some("Oku"));
-    about_dialog.set_logo_icon_name(Some("com.github.dirout.oku"));
-    about_dialog.set_icon_name(Some("com.github.dirout.oku"));
-    about_dialog.set_license_type(gtk::License::Agpl30);
-    about_dialog.set_destroy_with_parent(true);
-    about_dialog.set_modal(true);
+    let about_dialog_builder = gtk::AboutDialogBuilder::new();
+    let about_dialog = about_dialog_builder
+        .version(VERSION.unwrap())
+        .program_name("Oku")
+        .logo_icon_name("com.github.dirout.oku")
+        .title("About Oku")
+        .application(application)
+        .icon_name("com.github.dirout.oku")
+        .license_type(gtk::License::Agpl30)
+        .copyright("Copyright © 2020, 2021 Emil Sayahi")
+        .destroy_with_parent(true)
+        .modal(true)
+        .build();
     about_dialog.show();
 }
 
@@ -881,8 +886,8 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
     );
 
     about_button.connect_clicked(
-        clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
-            new_about_dialog()
+        clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
+            new_about_dialog(&window.application().unwrap())
         }),
     );
 
@@ -1202,8 +1207,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
     );
 
     about_button.connect_clicked(
-        clone!(@weak tabs, @weak nav_entry => move |_| {
-            new_about_dialog()
+        clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
+            new_about_dialog(&window.application().unwrap())
         }),
     );
 
