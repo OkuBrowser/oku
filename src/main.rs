@@ -15,32 +15,24 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-
-
-
-
-use glib::VariantDict;
-use glib::VariantTy;
 use gtk::prelude::EditableExt;
 use gtk::prelude::StyleContextExt;
 use ipfs::Types;
-use webkit2gtk::URISchemeRequest;
 use webkit2gtk::traits::SettingsExt;
+use webkit2gtk::URISchemeRequest;
 
-use std::path::PathBuf;
 use ipfs::Keypair;
+use std::path::PathBuf;
 
-use tokio::stream::StreamExt;
 use ipfs::IpfsPath;
 use ipfs::UninitializedIpfs;
+use tokio::stream::StreamExt;
 
+use cid::Cid;
 use ipfs::Ipfs;
 use ipfs::IpfsOptions;
-use cid::Cid;
-use url::Url;
 use url::ParseError;
-use gtk::prelude::ToggleButtonExt;
-
+use url::Url;
 
 use chrono::Utc;
 use directories_next::UserDirs;
@@ -57,10 +49,6 @@ use gtk::prelude::ButtonExt;
 use gtk::prelude::EntryExt;
 use gtk::prelude::GtkWindowExt;
 
-
-
-
-
 use gtk::prelude::PopoverExt;
 use gtk::prelude::WidgetExt;
 use ipfs_api::IpfsClient;
@@ -69,8 +57,7 @@ use std::convert::TryFrom;
 
 use urlencoding::decode;
 use webkit2gtk::traits::*;
-use webkit2gtk::{traits::{WebContextExt, WebViewExt, URISchemeRequestExt}};
-
+use webkit2gtk::traits::{URISchemeRequestExt, WebContextExt, WebViewExt};
 
 #[macro_use]
 extern crate lazy_static;
@@ -97,11 +84,9 @@ const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 /// * `initial_url` - The URL passed as a launch argument
 ///
 /// * `web_view` - The WebKit instance for the current tab
-fn initial_connect(mut initial_url: String, web_view: &webkit2gtk::WebView)
-{
+fn initial_connect(mut initial_url: String, web_view: &webkit2gtk::WebView) {
     let mut parsed_url = Url::parse(&initial_url);
-    match parsed_url
-    {
+    match parsed_url {
         // When URL is completely OK
         Ok(_) => {
             web_view.load_uri(&initial_url);
@@ -109,23 +94,24 @@ fn initial_connect(mut initial_url: String, web_view: &webkit2gtk::WebView)
         // When URL is missing a scheme
         Err(ParseError::RelativeUrlWithoutBase) => {
             parsed_url = Url::parse(&format!("http://{}", initial_url)); // Try with HTTP first
-            match parsed_url
-            {
+            match parsed_url {
                 // If it's now valid with HTTP
                 Ok(_) => {
                     let split_url: Vec<&str> = initial_url.split('/').collect();
                     let host = split_url[0];
                     let cid = Cid::try_from(host);
                     // Try seeing if we can swap it with IPFS
-                    match cid
-                    {
+                    match cid {
                         // It works as IPFS
                         Ok(_) => {
                             let unwrapped_cid = cid.unwrap();
-                            let cid1 = Cid::new_v1(unwrapped_cid.codec(), unwrapped_cid.hash().to_owned());
+                            let cid1 =
+                                Cid::new_v1(unwrapped_cid.codec(), unwrapped_cid.hash().to_owned());
                             parsed_url = Url::parse(&format!("ipfs://{}", initial_url));
                             let mut unwrapped_url = parsed_url.unwrap();
-                            let cid1_string = &cid1.to_string_of_base(cid::multibase::Base::Base32Lower).unwrap();
+                            let cid1_string = &cid1
+                                .to_string_of_base(cid::multibase::Base::Base32Lower)
+                                .unwrap();
                             unwrapped_url.set_host(Some(cid1_string)).unwrap();
                             initial_url = unwrapped_url.as_str().to_owned();
                             web_view.load_uri(&initial_url);
@@ -161,8 +147,7 @@ fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
     let mut nav_text = nav_entry.text().to_string();
 
     let mut parsed_url = Url::parse(&nav_text);
-    match parsed_url
-    {
+    match parsed_url {
         // When URL is completely OK
         Ok(_) => {
             web_view.load_uri(&nav_text);
@@ -170,23 +155,24 @@ fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
         // When URL is missing a scheme
         Err(ParseError::RelativeUrlWithoutBase) => {
             parsed_url = Url::parse(&format!("http://{}", nav_text)); // Try with HTTP first
-            match parsed_url
-            {
+            match parsed_url {
                 // If it's now valid with HTTP
                 Ok(_) => {
                     let split_url: Vec<&str> = nav_text.split('/').collect();
                     let host = split_url[0];
                     let cid = Cid::try_from(host);
                     // Try seeing if we can swap it with IPFS
-                    match cid
-                    {
+                    match cid {
                         // It works as IPFS
                         Ok(_) => {
                             let unwrapped_cid = cid.unwrap();
-                            let cid1 = Cid::new_v1(unwrapped_cid.codec(), unwrapped_cid.hash().to_owned());
+                            let cid1 =
+                                Cid::new_v1(unwrapped_cid.codec(), unwrapped_cid.hash().to_owned());
                             parsed_url = Url::parse(&format!("ipfs://{}", nav_text));
                             let mut unwrapped_url = parsed_url.unwrap();
-                            let cid1_string = &cid1.to_string_of_base(cid::multibase::Base::Base32Lower).unwrap();
+                            let cid1_string = &cid1
+                                .to_string_of_base(cid::multibase::Base::Base32Lower)
+                                .unwrap();
                             unwrapped_url.set_host(Some(cid1_string)).unwrap();
                             nav_text = unwrapped_url.as_str().to_owned();
                             web_view.load_uri(&nav_text);
@@ -211,7 +197,6 @@ fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
             web_view.load_plain_text(&format!("{:#?}", e));
         }
     }
-
 }
 
 /// Update the contents of the navigation bar
@@ -230,8 +215,7 @@ fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
     if url.starts_with(&format!("http://{}.ipfs.localhost:8080/", split_cid[0])) {
         url = cid;
     }
-    if url == "about:blank"
-    {
+    if url == "about:blank" {
         url = "".to_string();
     }
     nav_entry.set_text(&url);
@@ -265,11 +249,30 @@ fn handle_ipfs_request_natively(request: &URISchemeRequest) {
     request.finish(&stream, -1, None);
 }
 
-fn new_webkit_settings() -> webkit2gtk::Settings
-{
+fn new_webkit_settings() -> webkit2gtk::Settings {
     let settings_builder = webkit2gtk::SettingsBuilder::new();
-    let settings = settings_builder.load_icons_ignoring_image_load_setting(true).enable_plugins(true).javascript_can_open_windows_automatically(true).enable_developer_extras(true).enable_dns_prefetching(true).enable_caret_browsing(true).allow_modal_dialogs(true).javascript_can_access_clipboard(true).media_playback_requires_user_gesture(true).enable_smooth_scrolling(true).enable_accelerated_2d_canvas(true).enable_media_stream(true).enable_spatial_navigation(true).enable_encrypted_media(true).enable_media_capabilities(true).allow_file_access_from_file_urls(true).allow_universal_access_from_file_urls(true).allow_top_navigation_to_data_urls(true).enable_back_forward_navigation_gestures(true).build();
-    settings
+
+    settings_builder
+        .load_icons_ignoring_image_load_setting(true)
+        .enable_plugins(true)
+        .javascript_can_open_windows_automatically(true)
+        .enable_developer_extras(true)
+        .enable_dns_prefetching(true)
+        .enable_caret_browsing(true)
+        .allow_modal_dialogs(true)
+        .javascript_can_access_clipboard(true)
+        .media_playback_requires_user_gesture(true)
+        .enable_smooth_scrolling(true)
+        .enable_accelerated_2d_canvas(true)
+        .enable_media_stream(true)
+        .enable_spatial_navigation(true)
+        .enable_encrypted_media(true)
+        .enable_media_capabilities(true)
+        .allow_file_access_from_file_urls(true)
+        .allow_universal_access_from_file_urls(true)
+        .allow_top_navigation_to_data_urls(true)
+        .enable_back_forward_navigation_gestures(true)
+        .build()
 }
 
 /// Create a new WebKit instance for the current tab
@@ -284,7 +287,7 @@ fn new_view(
     is_private: bool,
     native: bool,
     tabs: &libadwaita::TabBar,
-    nav_entry: &gtk::Entry
+    nav_entry: &gtk::Entry,
 ) -> webkit2gtk::WebView {
     let web_kit = webkit2gtk::WebViewBuilder::new()
         .vexpand(true)
@@ -295,13 +298,15 @@ fn new_view(
     let extensions_path = format!("{}/web-extensions/", DATA_DIR.to_string());
     let favicon_database_path = format!("{}/favicon-database/", CACHE_DIR.to_string());
 
-    match native
-    {
+    match native {
         true => {
-            web_context.register_uri_scheme("ipfs", move |request| handle_ipfs_request_natively(request));
+            web_context
+                .register_uri_scheme("ipfs", move |request| handle_ipfs_request_natively(request));
         }
         false => {
-            web_context.register_uri_scheme("ipfs", move |request| handle_ipfs_request_using_api(request));
+            web_context.register_uri_scheme("ipfs", move |request| {
+                handle_ipfs_request_using_api(request)
+            });
         }
     };
     web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
@@ -320,12 +325,14 @@ fn new_view(
     web_view.connect_uri_notify(clone!(@weak web_view, @weak nav_entry => move |_| {
         update_nav_bar(&nav_entry, &web_view)
     }));
-    web_view.connect_estimated_load_progress_notify(clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
-        let tab_view = tabs.view().unwrap();
-        let current_page = tab_view.page(&web_view).unwrap();
-        current_page.set_loading(true);
-        update_load_progress(&nav_entry, &web_view)
-    }));
+    web_view.connect_estimated_load_progress_notify(
+        clone!(@weak tabs, @weak web_view, @weak nav_entry => move |_| {
+            let tab_view = tabs.view().unwrap();
+            let current_page = tab_view.page(&web_view).unwrap();
+            current_page.set_loading(true);
+            update_load_progress(&nav_entry, &web_view)
+        }),
+    );
     web_view.connect_is_loading_notify(clone!(@weak tabs, @weak web_view => move |_| {
         let tab_view = tabs.view().unwrap();
         let current_page = tab_view.page(&web_view).unwrap();
@@ -343,8 +350,7 @@ fn new_view(
 }
 
 /// Setup an IPFS node
-async fn setup_native_ipfs() -> Ipfs<Types>
-{
+async fn setup_native_ipfs() -> Ipfs<Types> {
     // Initialize an in-memory repo and start a daemon.
     let opts = ipfs_options();
     let (ipfs, fut): (Ipfs<Types>, _) = UninitializedIpfs::new(opts).start().await.unwrap();
@@ -398,9 +404,7 @@ async fn download_ipfs_file_from_api(file_hash: String) -> Vec<u8> {
         .try_concat()
         .await
     {
-        Ok(res) => {
-            res
-        }
+        Ok(res) => res,
         Err(_) => {
             let split_path: Vec<&str> = file_hash.split('/').collect();
             let rest_of_path = file_hash.replacen(split_path[0], "", 1);
@@ -421,12 +425,10 @@ async fn download_ipfs_file_natively(file_hash: String) -> Vec<u8> {
     let ipfs = setup_native_ipfs().await;
 
     // Get the IPFS file
-    let path = file_hash
-        .parse::<IpfsPath>()
-        .unwrap();
+    let path = file_hash.parse::<IpfsPath>().unwrap();
     let stream = ipfs.cat_unixfs(path, None).await.unwrap();
     tokio::pin!(stream);
-    let mut file_vec: Vec<u8> = vec!();
+    let mut file_vec: Vec<u8> = vec![];
     loop {
         match stream.next().await {
             Some(Ok(bytes)) => {
@@ -441,10 +443,8 @@ async fn download_ipfs_file_natively(file_hash: String) -> Vec<u8> {
     file_vec
 }
 
-fn ipfs_options() -> ipfs::IpfsOptions
-{
-    IpfsOptions
-    {
+fn ipfs_options() -> ipfs::IpfsOptions {
+    IpfsOptions {
         ipfs_path: PathBuf::from(CACHE_DIR.to_owned()),
         keypair: Keypair::generate_ed25519(),
         mdns: true,
@@ -494,9 +494,7 @@ fn get_view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
     let current_page = tab_view.selected_page().unwrap();
     let current_page_number = tab_view.page_position(&current_page);
     let specific_page = tab_view.nth_page(current_page_number).unwrap();
-    specific_page.child().unwrap()
-        .downcast()
-        .unwrap()
+    specific_page.child().unwrap().downcast().unwrap()
 }
 
 /// Create an initial tab, for when the TabBar is empty
@@ -506,7 +504,7 @@ fn get_view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
 /// * `builder` - The object that contains all graphical widgets of the window
 ///
 /// * `tabs` - The TabBar containing the tabs & pages of the current browser session
-/// 
+///
 /// * `verbose` - Whether browser messages should be printed onto the standard output
 ///
 /// * `is_private` - Whether the window represents a private session
@@ -538,7 +536,9 @@ fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
             let favicon_surface =
                 cairo::ImageSurface::try_from(web_favicon.to_owned().unwrap()).unwrap();
             let mut favicon_png_bytes: Vec<u8> = Vec::new();
-            favicon_surface.write_to_png(&mut favicon_png_bytes).unwrap();
+            favicon_surface
+                .write_to_png(&mut favicon_png_bytes)
+                .unwrap();
             let icon = gio::BytesIcon::new(&glib::Bytes::from(&favicon_png_bytes));
             relevant_page.set_icon(Some(&icon));
         }
@@ -559,16 +559,14 @@ fn update_title(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
     let tab_view = tabs.view().unwrap();
     let relevant_page = tab_view.page(web_view).unwrap();
     let web_page_title = &web_view.title();
-    match web_page_title
-    {
+    match web_page_title {
         Some(page_title) => {
             if page_title.as_str() == "" {
                 relevant_page.set_title(Some("Untitled"));
-            }
-            else {
+            } else {
                 relevant_page.set_title(Some(&page_title.to_string()))
             }
-        },
+        }
         None => {
             relevant_page.set_title(Some("Untitled"));
         }
@@ -592,8 +590,7 @@ fn update_load_progress(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) 
 }
 
 /// Create a dialog box showing information about Oku
-fn new_about_dialog(application: &gtk::Application)
-{
+fn new_about_dialog(application: &gtk::Application) {
     let about_dialog_builder = gtk::AboutDialogBuilder::new();
     let about_dialog = about_dialog_builder
         .version(VERSION.unwrap())
@@ -622,11 +619,9 @@ fn main() {
     //     let matches = VariantDict::new(None);
     //     new_window(app, matches);
     // });
-    application.connect_activate(
-        clone!(@weak application => move |_| {
-            new_window_four(&application);
-        })
-    );
+    application.connect_activate(clone!(@weak application => move |_| {
+        new_window_four(&application);
+    }));
 
     // application.connect_handle_local_options(|app, options| {
     //     let matches = options.to_owned();
@@ -875,7 +870,7 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
         clone!(@weak tabs, @weak nav_entry, @weak builder => move |_| {
             let web_view = get_view(&tabs);
             web_view.run_javascript("document.documentElement.webkitRequestFullscreen();", gio::NONE_CANCELLABLE, move |_| {
-                
+
             })
         }),
     );
@@ -902,8 +897,7 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
 }
 */
 
-fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
-{
+fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     // Options
     let verbose = true;
     let is_private = true;
@@ -913,16 +907,41 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
     // Browser header
     // Navigation bar
     let nav_entry_builder = gtk::EntryBuilder::new();
-    let nav_entry = nav_entry_builder.can_focus(true).focusable(true).focus_on_click(true).editable(true).margin_top(4).margin_bottom(4).hexpand(true).truncate_multiline(true).placeholder_text("Enter an address … ").input_purpose(gtk::InputPurpose::Url).build();
+    let nav_entry = nav_entry_builder
+        .can_focus(true)
+        .focusable(true)
+        .focus_on_click(true)
+        .editable(true)
+        .margin_top(4)
+        .margin_bottom(4)
+        .hexpand(true)
+        .truncate_multiline(true)
+        .placeholder_text("Enter an address … ")
+        .input_purpose(gtk::InputPurpose::Url)
+        .build();
 
     // Back button
     let back_button_builder = gtk::ButtonBuilder::new();
-    let back_button = back_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("go-previous").build();
+    let back_button = back_button_builder
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_top(4)
+        .margin_bottom(4)
+        .icon_name("go-previous")
+        .build();
     back_button.style_context().add_class("linked");
 
     // Forward button
     let forward_button_builder = gtk::ButtonBuilder::new();
-    let forward_button = forward_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("go-next").build();
+    let forward_button = forward_button_builder
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_top(4)
+        .margin_bottom(4)
+        .icon_name("go-next")
+        .build();
     forward_button.style_context().add_class("linked");
 
     // All navigation buttons
@@ -934,11 +953,27 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
 
     // Add Tab button
     let add_tab_builder = gtk::ButtonBuilder::new();
-    let add_tab = add_tab_builder.can_focus(true).receives_default(true).margin_start(4).margin_top(4).margin_bottom(4).icon_name("list-add").build();
+    let add_tab = add_tab_builder
+        .can_focus(true)
+        .receives_default(true)
+        .margin_start(4)
+        .margin_top(4)
+        .margin_bottom(4)
+        .icon_name("list-add")
+        .build();
 
     // Refresh button
     let refresh_button_builder = gtk::ButtonBuilder::new();
-    let refresh_button = refresh_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_start(4).margin_end(8).margin_top(4).margin_bottom(4).icon_name("view-refresh").build();
+    let refresh_button = refresh_button_builder
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_start(4)
+        .margin_end(8)
+        .margin_top(4)
+        .margin_bottom(4)
+        .icon_name("view-refresh")
+        .build();
 
     // Left header buttons
     let left_header_buttons_builder = gtk::BoxBuilder::new();
@@ -949,40 +984,81 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
 
     // Downloads button
     let downloads_button_builder = gtk::ButtonBuilder::new();
-    let downloads_button = downloads_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_start(4).margin_bottom(4).icon_name("emblem-downloads").build();
+    let downloads_button = downloads_button_builder
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_start(4)
+        .margin_bottom(4)
+        .icon_name("emblem-downloads")
+        .build();
 
     // Find button
     let find_button_builder = gtk::ButtonBuilder::new();
-    let find_button = find_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_start(4).margin_bottom(4).icon_name("edit-find").build();
+    let find_button = find_button_builder
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_start(4)
+        .margin_bottom(4)
+        .icon_name("edit-find")
+        .build();
 
     // Menu button
     let menu_button_builder = gtk::ButtonBuilder::new();
-    let menu_button = menu_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_start(4).margin_bottom(4).icon_name("document-properties").build();
+    let menu_button = menu_button_builder
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_start(4)
+        .margin_bottom(4)
+        .icon_name("document-properties")
+        .build();
 
     // Right header buttons
     let right_header_buttons_builder = gtk::BoxBuilder::new();
-    let right_header_buttons = right_header_buttons_builder.margin_start(4).spacing(2).homogeneous(true).build();
+    let right_header_buttons = right_header_buttons_builder
+        .margin_start(4)
+        .spacing(2)
+        .homogeneous(true)
+        .build();
     right_header_buttons.append(&downloads_button);
     right_header_buttons.append(&find_button);
     right_header_buttons.append(&menu_button);
 
     // HeaderBar
     let headerbar_builder = gtk::HeaderBarBuilder::new();
-    let headerbar = headerbar_builder.can_focus(true).show_title_buttons(true).title_widget(&nav_entry).build();
+    let headerbar = headerbar_builder
+        .can_focus(true)
+        .show_title_buttons(true)
+        .title_widget(&nav_entry)
+        .build();
     headerbar.pack_start(&left_header_buttons);
     headerbar.pack_end(&right_header_buttons);
     // End of browser header
 
-
-
     // Zoom out button
     let zoomout_button_builder = gtk::ButtonBuilder::new();
-    let zoomout_button = zoomout_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("zoom-out").build();
+    let zoomout_button = zoomout_button_builder
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_top(4)
+        .margin_bottom(4)
+        .icon_name("zoom-out")
+        .build();
     zoomout_button.style_context().add_class("linked");
 
     // Zoom in button
     let zoomin_button_builder = gtk::ButtonBuilder::new();
-    let zoomin_button = zoomin_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("zoom-in").build();
+    let zoomin_button = zoomin_button_builder
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_top(4)
+        .margin_bottom(4)
+        .icon_name("zoom-in")
+        .build();
     zoomin_button.style_context().add_class("linked");
 
     // Both zoom buttons
@@ -994,35 +1070,90 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
 
     // Zoom reset button
     let zoomreset_button_builder = gtk::ButtonBuilder::new();
-    let zoomreset_button = zoomreset_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("zoom-original").build();
+    let zoomreset_button = zoomreset_button_builder
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_top(4)
+        .margin_bottom(4)
+        .icon_name("zoom-original")
+        .build();
 
     // Fullscreen button
     let fullscreen_button_builder = gtk::ButtonBuilder::new();
-    let fullscreen_button = fullscreen_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("video-display").build();
+    let fullscreen_button = fullscreen_button_builder
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_top(4)
+        .margin_bottom(4)
+        .icon_name("video-display")
+        .build();
 
     // Screenshot button
     let screenshot_button_builder = gtk::ButtonBuilder::new();
-    let screenshot_button = screenshot_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("camera-photo").build();
+    let screenshot_button = screenshot_button_builder
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_top(4)
+        .margin_bottom(4)
+        .icon_name("camera-photo")
+        .build();
 
     // New Window button
     let new_window_button_builder = gtk::ButtonBuilder::new();
-    let new_window_button = new_window_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("window-new").build();
+    let new_window_button = new_window_button_builder
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_top(4)
+        .margin_bottom(4)
+        .icon_name("window-new")
+        .build();
 
     // History button
     let history_button_builder = gtk::ButtonBuilder::new();
-    let history_button = history_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("document-open-recent").build();
+    let history_button = history_button_builder
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_top(4)
+        .margin_bottom(4)
+        .icon_name("document-open-recent")
+        .build();
 
     // Settings button
     let settings_button_builder = gtk::ButtonBuilder::new();
-    let settings_button = settings_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("preferences-system").build();
+    let settings_button = settings_button_builder
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_top(4)
+        .margin_bottom(4)
+        .icon_name("preferences-system")
+        .build();
 
     // About button
     let about_button_builder = gtk::ButtonBuilder::new();
-    let about_button = about_button_builder.can_focus(true).receives_default(true).halign(gtk::Align::Start).margin_top(4).margin_bottom(4).icon_name("help-about").build();
+    let about_button = about_button_builder
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_top(4)
+        .margin_bottom(4)
+        .icon_name("help-about")
+        .build();
 
     // Menu popover
     let menu_box_builder = gtk::BoxBuilder::new();
-    let menu_box = menu_box_builder.margin_start(4).margin_end(4).margin_top(4).margin_bottom(4).spacing(8).build();
+    let menu_box = menu_box_builder
+        .margin_start(4)
+        .margin_end(4)
+        .margin_top(4)
+        .margin_bottom(4)
+        .spacing(8)
+        .build();
     menu_box.append(&zoom_buttons);
     menu_box.append(&zoomreset_button);
     menu_box.append(&fullscreen_button);
@@ -1037,33 +1168,48 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
     menu.set_parent(&menu_button);
     // End of menu popover
 
-
-
     // Tabs
     let tab_view_builder = libadwaita::TabViewBuilder::new();
     let tab_view = tab_view_builder.vexpand(true).build();
 
     let tabs_builder = libadwaita::TabBarBuilder::new();
-    let tabs = tabs_builder.autohide(true).expand_tabs(true).view(&tab_view).build();
+    let tabs = tabs_builder
+        .autohide(true)
+        .expand_tabs(true)
+        .view(&tab_view)
+        .build();
 
     if tab_view.n_pages() == 0 {
-        create_initial_tab(&tabs, &nav_entry, initial_url.to_owned(), verbose, is_private, native)
+        create_initial_tab(
+            &tabs,
+            &nav_entry,
+            initial_url.to_owned(),
+            verbose,
+            is_private,
+            native,
+        )
     }
     // End of Tabs
 
-
     // Window
     let main_box_builder = gtk::BoxBuilder::new();
-    let main_box = main_box_builder.orientation(gtk::Orientation::Vertical).vexpand(true).build();
+    let main_box = main_box_builder
+        .orientation(gtk::Orientation::Vertical)
+        .vexpand(true)
+        .build();
     main_box.append(&tabs);
     main_box.append(&tab_view);
 
     let window_builder = gtk::ApplicationWindowBuilder::new();
-    let window = window_builder.application(application).can_focus(true).title("Oku").icon_name("com.github.dirout.oku").build();
+    let window = window_builder
+        .application(application)
+        .can_focus(true)
+        .title("Oku")
+        .icon_name("com.github.dirout.oku")
+        .build();
     window.set_titlebar(Some(&headerbar));
     window.set_child(Some(&main_box));
     // End of Window
-
 
     // Signals
     // Add Tab button clicked
@@ -1072,28 +1218,22 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
     }));
 
     // Back button clicked
-    back_button.connect_clicked(
-        clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = get_view(&tabs);
-            web_view.go_back()
-        }),
-    );
+    back_button.connect_clicked(clone!(@weak tabs, @weak nav_entry => move |_| {
+        let web_view = get_view(&tabs);
+        web_view.go_back()
+    }));
 
     // Forward button clicked
-    forward_button.connect_clicked(
-        clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = get_view(&tabs);
-            web_view.go_forward()
-        }),
-    );
+    forward_button.connect_clicked(clone!(@weak tabs, @weak nav_entry => move |_| {
+        let web_view = get_view(&tabs);
+        web_view.go_forward()
+    }));
 
     // Refresh button clicked
-    refresh_button.connect_clicked(
-        clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = get_view(&tabs);
-            web_view.reload_bypass_cache()
-        }),
-    );
+    refresh_button.connect_clicked(clone!(@weak tabs, @weak nav_entry => move |_| {
+        let web_view = get_view(&tabs);
+        web_view.reload_bypass_cache()
+    }));
 
     tab_view.connect_selected_page_notify(
         clone!(@weak nav_entry, @weak tabs, @weak window => move |_| {
@@ -1103,40 +1243,34 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
         }),
     );
 
-    nav_entry.connect_activate(clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
-        let web_view = get_view(&tabs);
-        connect(&nav_entry, &web_view);
-        
+    nav_entry.connect_activate(
+        clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
+            let web_view = get_view(&tabs);
+            connect(&nav_entry, &web_view);
+
+        }),
+    );
+
+    menu_button.connect_clicked(clone!(@weak menu => move |_| {
+        menu.popup();
     }));
 
-    menu_button.connect_clicked(
-        clone!(@weak menu => move |_| {
-            menu.popup();
-        }),
-    );
+    zoomin_button.connect_clicked(clone!(@weak tabs, @weak nav_entry => move |_| {
+        let web_view = get_view(&tabs);
+        let current_zoom_level = web_view.zoom_level();
+        web_view.set_zoom_level(current_zoom_level + 0.1);
+    }));
 
-    zoomin_button.connect_clicked(
-        clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = get_view(&tabs);
-            let current_zoom_level = web_view.zoom_level();
-            web_view.set_zoom_level(current_zoom_level + 0.1);
-        }),
-    );
+    zoomout_button.connect_clicked(clone!(@weak tabs, @weak nav_entry => move |_| {
+        let web_view = get_view(&tabs);
+        let current_zoom_level = web_view.zoom_level();
+        web_view.set_zoom_level(current_zoom_level - 0.1);
+    }));
 
-    zoomout_button.connect_clicked(
-        clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = get_view(&tabs);
-            let current_zoom_level = web_view.zoom_level();
-            web_view.set_zoom_level(current_zoom_level - 0.1);
-        }),
-    );
-
-    zoomreset_button.connect_clicked(
-        clone!(@weak tabs, @weak nav_entry => move |_| {
-            let web_view = get_view(&tabs);
-            web_view.set_zoom_level(1.0);
-        }),
-    );
+    zoomreset_button.connect_clicked(clone!(@weak tabs, @weak nav_entry => move |_| {
+        let web_view = get_view(&tabs);
+        web_view.set_zoom_level(1.0);
+    }));
 
     fullscreen_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry => move |_| {
@@ -1161,7 +1295,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
     new_window_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
             new_window_four(&window.application().unwrap());
-        })
+        }),
     );
 
     about_button.connect_clicked(
@@ -1170,19 +1304,23 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
         }),
     );
 
-    tab_view.connect_create_window(
-        create_window_from_drag
-    );
+    tab_view.connect_create_window(create_window_from_drag);
     // End of signals
 
-
     window.show();
-    return tab_view
+    tab_view
 }
 
-fn create_window_from_drag(tab_view: &libadwaita::TabView) -> std::option::Option<libadwaita::TabView>
-{
-    let window: gtk::ApplicationWindow = tab_view.parent().unwrap().parent().unwrap().downcast().unwrap();
+fn create_window_from_drag(
+    tab_view: &libadwaita::TabView,
+) -> std::option::Option<libadwaita::TabView> {
+    let window: gtk::ApplicationWindow = tab_view
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .downcast()
+        .unwrap();
     let application = window.application().unwrap();
     Some(new_window_four(&application))
 }
