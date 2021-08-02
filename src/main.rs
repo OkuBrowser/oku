@@ -225,7 +225,7 @@ fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 ///
 /// # Arguments
 ///
-/// `request` - The request from the browser for the IPFS resource
+/// * `request` - The request from the browser for the IPFS resource
 fn handle_ipfs_request_using_api(request: &URISchemeRequest) {
     let request_url = request.uri().unwrap().to_string();
     let decoded_url = decode(&request_url).unwrap();
@@ -239,7 +239,7 @@ fn handle_ipfs_request_using_api(request: &URISchemeRequest) {
 ///
 /// # Arguments
 ///
-/// `request` - The request from the browser for the IPFS resource
+/// * `request` - The request from the browser for the IPFS resource
 fn handle_ipfs_request_natively(request: &URISchemeRequest) {
     let request_url = request.uri().unwrap().to_string();
     let decoded_url = decode(&request_url).unwrap();
@@ -249,6 +249,7 @@ fn handle_ipfs_request_natively(request: &URISchemeRequest) {
     request.finish(&stream, -1, None);
 }
 
+/// Provide the default configuration for Oku's WebView
 fn new_webkit_settings() -> webkit2gtk::Settings {
     let settings_builder = webkit2gtk::SettingsBuilder::new();
 
@@ -282,6 +283,8 @@ fn new_webkit_settings() -> webkit2gtk::Settings {
 /// * `verbose` - Whether browser messages should be printed onto the standard output
 ///
 /// * `is_private` - Whether the window represents a private session
+///
+/// * `native` - Whether the browser is using a built-in (native) IPFS handler, or an external one
 fn new_view(
     verbose: bool,
     is_private: bool,
@@ -368,9 +371,7 @@ async fn setup_native_ipfs() -> Ipfs<Types> {
 ///
 /// # Arguments
 ///
-/// `client` - The IPFS client running locally
-///
-/// `hash` - The IPFS identifier of the file
+/// * `hash` - The IPFS identifier of the file
 fn from_hash_using_api(hash: String) -> Vec<u8> {
     let mut sys = actix_rt::System::new(format!("Oku IPFS System ({})", hash));
     sys.block_on(download_ipfs_file_from_api(hash))
@@ -380,9 +381,7 @@ fn from_hash_using_api(hash: String) -> Vec<u8> {
 ///
 /// # Arguments
 ///
-/// `client` - The IPFS client running locally
-///
-/// `hash` - The IPFS identifier of the file
+/// * `hash` - The IPFS identifier of the file
 fn from_hash_natively(hash: String) -> Vec<u8> {
     let mut sys = actix_rt::System::new(format!("Oku IPFS System ({})", hash));
     sys.block_on(download_ipfs_file_natively(hash))
@@ -392,9 +391,7 @@ fn from_hash_natively(hash: String) -> Vec<u8> {
 ///
 /// # Arguments
 ///
-/// `client` - The IPFS client running locally
-///
-/// `file_hash` - The CID of the file
+/// * `file_hash` - The CID of the file
 async fn download_ipfs_file_from_api(file_hash: String) -> Vec<u8> {
     let client = IpfsClient::default();
 
@@ -420,7 +417,7 @@ async fn download_ipfs_file_from_api(file_hash: String) -> Vec<u8> {
 ///
 /// # Arguments
 ///
-/// `file_hash` - The CID of the file
+/// * `file_hash` - The CID of the file
 async fn download_ipfs_file_natively(file_hash: String) -> Vec<u8> {
     let ipfs = setup_native_ipfs().await;
 
@@ -443,6 +440,7 @@ async fn download_ipfs_file_natively(file_hash: String) -> Vec<u8> {
     file_vec
 }
 
+/// Get the default IPFS options for Oku's native IPFS instance
 fn ipfs_options() -> ipfs::IpfsOptions {
     IpfsOptions {
         ipfs_path: PathBuf::from(CACHE_DIR.to_owned()),
@@ -459,15 +457,15 @@ fn ipfs_options() -> ipfs::IpfsOptions {
 ///
 /// # Arguments
 ///
-/// * `builder` - The object that contains all graphical widgets of the window
+/// * `tabs` - The TabBar containing the tabs of the current browser session
 ///
-/// * `tabs` - The TabBar containing the tabs & pages of the current browser session
-///
-/// * `new_tab_number` - A number representing the position in the TabBar where this new entry should
+/// * `nav_entry` - The navigation bar of the browser
 ///  
 /// * `verbose` - Whether browser messages should be printed onto the standard output
 ///
 /// * `is_private` - Whether the window represents a private session
+///
+/// * `native` - Whether the browser is using a built-in (native) IPFS handler, or an external one
 fn new_tab_page(
     tabs: &libadwaita::TabBar,
     nav_entry: &gtk::Entry,
@@ -488,7 +486,7 @@ fn new_tab_page(
 ///
 /// # Arguments
 ///
-/// * `tabs` - The TabBar containing the tabs & pages of the current browser session
+/// * `tabs` - The TabBar containing the tabs of the current browser session
 fn get_view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
     let tab_view = tabs.view().unwrap();
     let current_page = tab_view.selected_page().unwrap();
@@ -501,13 +499,15 @@ fn get_view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
 ///
 /// # Arguments
 ///
-/// * `builder` - The object that contains all graphical widgets of the window
+/// * `tabs` - The TabBar containing the tabs of the current browser session
 ///
-/// * `tabs` - The TabBar containing the tabs & pages of the current browser session
+/// * `nav_entry` - The navigation bar of the browser
 ///
 /// * `verbose` - Whether browser messages should be printed onto the standard output
 ///
 /// * `is_private` - Whether the window represents a private session
+///
+/// * `native` - Whether the browser is using a built-in (native) IPFS handler, or an external one
 fn create_initial_tab(
     tabs: &libadwaita::TabBar,
     nav_entry: &gtk::Entry,
@@ -526,7 +526,7 @@ fn create_initial_tab(
 ///
 /// * `web_view` - The WebKit instance for the tab
 ///
-/// * `tabs` - The TabBar containing the tabs & pages of the current browser session
+/// * `tabs` - The TabBar containing the tabs of the current browser session
 fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
     let tab_view = tabs.view().unwrap();
     let relevant_page = tab_view.page(web_view).unwrap();
@@ -554,7 +554,7 @@ fn update_favicon(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
 ///
 /// * `web_view` - The WebKit instance for the tab
 ///
-/// * `tabs` - The TabBar containing the tabs & pages of the current browser session
+/// * `tabs` - The TabBar containing the tabs of the current browser session
 fn update_title(web_view: &webkit2gtk::WebView, tabs: &libadwaita::TabBar) {
     let tab_view = tabs.view().unwrap();
     let relevant_page = tab_view.page(web_view).unwrap();
@@ -590,6 +590,10 @@ fn update_load_progress(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) 
 }
 
 /// Create a dialog box showing information about Oku
+///
+/// # Arguments
+///
+/// * `application` - The application data representing Oku
 fn new_about_dialog(application: &gtk::Application) {
     let about_dialog_builder = gtk::AboutDialogBuilder::new();
     let about_dialog = about_dialog_builder
@@ -897,6 +901,11 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
 }
 */
 
+/// Create a new functional & graphical browser window
+///
+/// # Arguments
+///
+/// * `application` - The application data representing Oku
 fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     // Options
     let verbose = true;
@@ -1235,6 +1244,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         web_view.reload_bypass_cache()
     }));
 
+    // Selected tab changed
     tab_view.connect_selected_page_notify(
         clone!(@weak nav_entry, @weak tabs, @weak window => move |_| {
             let web_view = get_view(&tabs);
@@ -1243,35 +1253,40 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         }),
     );
 
+    // User hit return key in navbar, prompting navigation
     nav_entry.connect_activate(
         clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
             let web_view = get_view(&tabs);
             connect(&nav_entry, &web_view);
-
         }),
     );
 
+    // Menu button clicked
     menu_button.connect_clicked(clone!(@weak menu => move |_| {
         menu.popup();
     }));
 
+    // Zoom-in button clicked
     zoomin_button.connect_clicked(clone!(@weak tabs, @weak nav_entry => move |_| {
         let web_view = get_view(&tabs);
         let current_zoom_level = web_view.zoom_level();
         web_view.set_zoom_level(current_zoom_level + 0.1);
     }));
 
+    // Zoom-out button clicked
     zoomout_button.connect_clicked(clone!(@weak tabs, @weak nav_entry => move |_| {
         let web_view = get_view(&tabs);
         let current_zoom_level = web_view.zoom_level();
         web_view.set_zoom_level(current_zoom_level - 0.1);
     }));
 
+    // Reset Zoom button clicked
     zoomreset_button.connect_clicked(clone!(@weak tabs, @weak nav_entry => move |_| {
         let web_view = get_view(&tabs);
         web_view.set_zoom_level(1.0);
     }));
 
+    // Enter Fullscreen button clicked
     fullscreen_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry => move |_| {
             let web_view = get_view(&tabs);
@@ -1281,6 +1296,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         }),
     );
 
+    // Screenshot button clicked
     screenshot_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry => move |_| {
             let web_view = get_view(&tabs);
@@ -1292,18 +1308,21 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         }),
     );
 
+    // New Window button clicked
     new_window_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
             new_window_four(&window.application().unwrap());
         }),
     );
 
+    // About button clicked
     about_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
             new_about_dialog(&window.application().unwrap())
         }),
     );
 
+    // Tab dragged off to create new browser window
     tab_view.connect_create_window(create_window_from_drag);
     // End of signals
 
@@ -1311,6 +1330,11 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     tab_view
 }
 
+/// Create new browser window when a tab is dragged off
+///
+/// # Arguments
+///
+/// * `tab_view` - The AdwTabView object containing each tab's WebView
 fn create_window_from_drag(
     tab_view: &libadwaita::TabView,
 ) -> std::option::Option<libadwaita::TabView> {
