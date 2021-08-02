@@ -26,7 +26,7 @@ use gtk::prelude::StyleContextExt;
 use ipfs::Types;
 use webkit2gtk::URISchemeRequest;
 use webkit2gtk::traits::SettingsExt;
-use std::io::BufWriter;
+
 use std::path::PathBuf;
 use ipfs::Keypair;
 
@@ -60,11 +60,11 @@ use gtk::prelude::GtkWindowExt;
 
 
 
-use gtk::Orientation::Horizontal;
+
 use gtk::prelude::PopoverExt;
 use gtk::prelude::WidgetExt;
 use ipfs_api::IpfsClient;
-use pango::EllipsizeMode;
+
 use std::convert::TryFrom;
 
 use urlencoding::decode;
@@ -91,13 +91,6 @@ lazy_static! {
 
 /// The current release version number of Oku
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
-
-struct DownloadItem {
-    source: String,
-    destination: String,
-    requested_time: String,
-    successful: bool,
-}
 
 /// Perform the initial connection at startup when passed a URL as a launch argument
 ///
@@ -462,43 +455,6 @@ fn ipfs_options() -> ipfs::IpfsOptions
     }
 }
 
-/// Create the text to be displayed on a tab
-///
-/// # Arguments
-///
-/// * `label` - The text to be displayed on a tab
-fn new_tab_label(label: &str) -> gtk::Label {
-    let tab_label = gtk::Label::new(Some(label));
-    tab_label.set_hexpand(true);
-    tab_label.set_ellipsize(EllipsizeMode::End);
-    tab_label.set_visible(true);
-    tab_label
-}
-
-/// Create a tab to be placed in the TabBar
-///
-/// # Arguments
-///
-/// * `label` - The text to be displayed on a tab
-fn new_tab(label: &str) -> gtk::Box {
-    let tab_box = gtk::Box::new(Horizontal, 5);
-    let favicon = gtk::Image::from_icon_name(Some("applications-internet"));
-    let tab_label = new_tab_label(label);
-    let close_button = gtk::Button::new();
-    let close_icon = gtk::Image::from_icon_name(Some("list-remove"));
-    favicon.set_visible(true);
-    tab_box.set_hexpand(true);
-    tab_box.set_vexpand(false);
-    tab_box.set_visible(true);
-    close_button.set_visible(true);
-    close_button.set_child(Some(&close_icon));
-    close_icon.set_visible(true);
-    tab_box.append(&favicon);
-    tab_box.append(&tab_label);
-    tab_box.append(&close_button);
-    tab_box
-}
-
 /// Create a new entry in the TabBar
 ///
 /// # Arguments
@@ -690,6 +646,7 @@ fn main() {
 /// * `application` - The application data representing Oku
 ///
 /// * `matches` - The launch arguments passed to Oku
+/*
 fn new_window(application: &gtk::Application, matches: VariantDict) {
     if gtk::init().is_err() {
         println!("Failed to initialize GTK.");
@@ -943,6 +900,7 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
 
     window.show();
 }
+*/
 
 fn new_window_four(application: &gtk::Application) -> libadwaita::TabView
 {

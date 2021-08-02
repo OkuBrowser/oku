@@ -1,0 +1,19 @@
+#    This file is part of Oku.
+#
+#    Oku is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Affero General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Oku is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Affero General Public License for more details.
+#
+#    You should have received a copy of the GNU Affero General Public License
+#    along with Oku.  If not, see <https://www.gnu.org/licenses/>.
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=native", "-Z", "tune-cpu=native", "-Z", "strip=symbols", "-Z", "unstable-options"]
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=native", "-Z", "tune-cpu=native", "-Z", "strip=symbols", "-Z", "unstable-options"]
