@@ -12,12 +12,13 @@
 #
 #    You should have received a copy of the GNU Affero General Public License
 #    along with Oku.  If not, see <https://www.gnu.org/licenses/>.
+cargo-features = ["strip"]
 [package]
 name = "oku"
 version = "0.1.0"
 authors = ["Emil Sayahi <limesayahi@gmail.com>"]
 edition = "2018"
-exclude = ["/.github/**/*", "/branding/**/*", "/.gitignore", "/.whitesource", "/renovate.json", "/CODE_OF_CONDUCT.md", "/CONTRIBUTING.md", "/LICENSE.md", "/SECURITY.md", "/COPYING", "/NOTICE"]
+exclude = ["/.github/**/*", "/.cargo/**/*", "/branding/**/*", "/rust-toolchain", "/.gitignore", "/.whitesource", "/renovate.json", "/CODE_OF_CONDUCT.md", "/CONTRIBUTING.md", "/LICENSE.md", "/SECURITY.md", "/COPYING", "/NOTICE"]
 license = "AGPL-3.0-or-later"
 description = "A hive browser written in Rust."
 repository = "https://github.com/Dirout/oku"
