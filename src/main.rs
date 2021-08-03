@@ -345,6 +345,48 @@ fn new_view(
         let current_page = tab_view.page(&web_view).unwrap();
         current_page.set_loading(web_view.is_loading())
     }));
+    web_view.connect_is_playing_audio_notify(clone!(@weak web_view => move |_| {
+        let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
+        let current_page = tab_view.page(&web_view).unwrap();
+        match web_view.is_playing_audio()
+        {
+            true => {
+                current_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-high")));
+                current_page.set_indicator_activatable(true);
+                // current_page.connect_indicator_activated_notify(clone!(@weak web_view => move |_| {
+                //     web_view.set_is_muted(true);
+                // }));
+            },
+            false => {
+                if !web_view.is_muted()
+                {
+                    current_page.set_indicator_icon(Some(&gio::BytesIcon::new(&glib::Bytes::from(b""))));
+                    current_page.set_indicator_activatable(false);    
+                }
+            }
+        }
+    }));
+    web_view.connect_is_muted_notify(clone!(@weak web_view => move |_| {
+        let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
+        let current_page = tab_view.page(&web_view).unwrap();
+        match web_view.is_muted()
+        {
+            true => {
+                current_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-muted")));
+                current_page.set_indicator_activatable(true);
+                // current_page.connect_indicator_activated_notify(clone!(@weak web_view => move |_| {
+                //     web_view.set_is_muted(false);
+                // }));
+            },
+            false => {
+                if !web_view.is_playing_audio()
+                {
+                    current_page.set_indicator_icon(Some(&gio::BytesIcon::new(&glib::Bytes::from(b""))));
+                    current_page.set_indicator_activatable(false);    
+                }
+            }
+        }
+    }));
     web_view.connect_favicon_notify(clone!(@weak tabs, @weak web_view => move |_| {
         update_favicon(&web_view)
     }));
@@ -477,7 +519,7 @@ fn new_tab_page(
     let tab_view = tabs.view().unwrap();
     let new_view = new_view(verbose, is_private, native, tabs);
     let new_page = tab_view.append(&new_view).unwrap();
-    new_page.set_title(Some("New Tab"));
+    new_page.set_title("New Tab");
     new_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
     tab_view.set_selected_page(&new_page);
     new_view
@@ -556,13 +598,13 @@ fn update_title(web_view: &webkit2gtk::WebView) {
     match web_page_title {
         Some(page_title) => {
             if page_title.as_str() == "" {
-                relevant_page.set_title(Some("Untitled"));
+                relevant_page.set_title("Untitled");
             } else {
-                relevant_page.set_title(Some(&page_title.to_string()))
+                relevant_page.set_title(&page_title.to_string())
             }
         }
         None => {
-            relevant_page.set_title(Some("Untitled"));
+            relevant_page.set_title("Untitled");
         }
     }
 }
@@ -1216,7 +1258,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     // Signals
     // Add Tab button clicked
     add_tab.connect_clicked(clone!(@weak tabs => move |_| {
-        let _web_view = new_tab_page(&tabs, verbose, is_private, native);
+        new_tab_page(&tabs, verbose, is_private, native);
     }));
 
     // Back button clicked
