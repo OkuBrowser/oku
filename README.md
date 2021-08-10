@@ -21,3 +21,27 @@ ipfs://bafybeiboj7xkq4jxxbs5r65ditneqanwltqfzis4f4ii2u5bu36twro3yy
 ipfs://bafybeihfg3d7rdltd43u3tfvncx7n5loqofbsobojcadtmokrljfthuc7y/about.html
 ipfs://bafybeihfg3d7rdltd43u3tfvncx7n5loqofbsobojcadtmokrljfthuc7y/983%20-%20Privacy/983%20-%20Privacy.png
 ipfs://bafybeihfg3d7rdltd43u3tfvncx7n5loqofbsobojcadtmokrljfthuc7y/983%20-%20Privacy/983%20-%20Privacy%20-%20transcript.txt
+
+brew install protobuf
+brew install glib
+brew install gtk+4
+export PKG_CONFIG_PATH="/opt/homebrew/opt/icu4c/lib/pkgconfig"
+
+brew install libsoup
+brew install cmake
+brew install ninja
+brew install libgcrypt
+sudo port -t install at-spi2-core
+
+If you need to have icu4c first in your PATH, run:
+  echo 'export PATH="/opt/homebrew/opt/icu4c/bin:$PATH"' >> ~/.zshrc
+  echo 'export PATH="/opt/homebrew/opt/icu4c/sbin:$PATH"' >> ~/.zshrc
+
+For compilers to find icu4c you may need to set:
+  export LDFLAGS="-L/opt/homebrew/opt/icu4c/lib"
+  export CPPFLAGS="-I/opt/homebrew/opt/icu4c/include"
+
+For pkg-config to find icu4c you may need to set:
+  export PKG_CONFIG_PATH="/opt/homebrew/opt/icu4c/lib/pkgconfig"
+
+https://trac.webkit.org/wiki/BuildingGtk#BuildingtheGTKportonMacOS
