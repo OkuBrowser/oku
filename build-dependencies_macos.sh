@@ -4,6 +4,16 @@
 rm -rf ./gtk4-dependencies
 mkdir gtk4-dependencies && cd gtk4-dependencies
 
+# libpsl
+git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/rockdaboot/libpsl
+cd ./libpsl
+./autogen.sh
+./configure
+make
+make check
+sudo make install
+cd ../
+
 # GLib
 git clone --depth 1 --recurse-submodules --shallow-submodules https://gitlab.gnome.org/GNOME/glib.git
 cd ./glib
@@ -28,6 +38,7 @@ git clone --depth 1 --recurse-submodules --shallow-submodules https://gitlab.gno
 # Get latest version of glib-2.0 as a build dependency
 cd ./libsoup/subprojects
 git clone --depth 1 --recurse-submodules --shallow-submodules https://gitlab.gnome.org/GNOME/glib.git
+git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/rockdaboot/libpsl
 cd ../
 # Build libsoup
 mkdir build && cd build

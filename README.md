@@ -44,4 +44,6 @@ For compilers to find icu4c you may need to set:
 For pkg-config to find icu4c you may need to set:
   export PKG_CONFIG_PATH="/opt/homebrew/opt/icu4c/lib/pkgconfig"
 
+brew install autoconf automake libtool
+brew install libunistring
 https://trac.webkit.org/wiki/BuildingGtk#BuildingtheGTKportonMacOS
