@@ -4,6 +4,16 @@
 rm -rf ./gtk4-dependencies
 mkdir gtk4-dependencies && cd gtk4-dependencies
 
+# libunistring
+git clone --depth 1 --recurse-submodules --shallow-submodules https://git.savannah.gnu.org/git/libunistring.git
+cd ./libunistring
+./gitsub.sh pull
+./autogen.sh
+./configure
+make
+sudo make install
+cd ../
+
 # libpsl
 git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/rockdaboot/libpsl
 cd ./libpsl
@@ -29,7 +39,7 @@ mkdir subprojects && cd subprojects
 git clone --depth 1 --recurse-submodules --shallow-submodules https://gitlab.gnome.org/GNOME/glib.git
 cd ../
 mkdir build && cd build
-meson --prefix=/usr --buildtype=release .. && ninja
+meson --buildtype=release .. && ninja
 sudo ninja install
 cd ../../
 
@@ -42,7 +52,7 @@ git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com
 cd ../
 # Build libsoup
 mkdir build && cd build
-meson --prefix=/usr --buildtype=release .. && ninja
+meson --buildtype=release .. && ninja
 sudo ninja install
 cd ../../
 
