@@ -49,7 +49,7 @@ pango = { version = "0.14.0" }
 url = "2.2.1"
 urlencoding = "2.0.0"
 reqwest = { version = "0.11.1", features = ["blocking"] }
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "0.3", features = ["full"] }
 webkit2gtk = { git = "https://github.com/jangernert/webkit2gtk-rs.git", rev = "5b8620d", features = ["v2_34"] }
 
 [profile.release]
