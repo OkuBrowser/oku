@@ -5,7 +5,7 @@ jobs:
     name: Annotate code
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: Install development dependencies
         run: |
           sudo apt-get update
