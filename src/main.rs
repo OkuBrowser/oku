@@ -15,6 +15,7 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use ipfs_api::IpfsApi;
 use gtk::prelude::EditableExt;
 use gtk::prelude::StyleContextExt;
 use ipfs::Types;
@@ -26,7 +27,7 @@ use std::path::PathBuf;
 
 use ipfs::IpfsPath;
 use ipfs::UninitializedIpfs;
-use tokio::stream::StreamExt;
+use tokio_stream::{self as stream, StreamExt};
 
 use cid::Cid;
 use ipfs::Ipfs;
@@ -419,7 +420,7 @@ async fn setup_native_ipfs() -> Ipfs<Types> {
 ///
 /// * `hash` - The IPFS identifier of the file
 fn from_hash_using_api(hash: String) -> Vec<u8> {
-    let mut sys = actix_rt::System::new(format!("Oku IPFS System ({})", hash));
+    let mut sys = actix_rt::System::new();
     sys.block_on(download_ipfs_file_from_api(hash))
 }
 
@@ -429,7 +430,7 @@ fn from_hash_using_api(hash: String) -> Vec<u8> {
 ///
 /// * `hash` - The IPFS identifier of the file
 fn from_hash_natively(hash: String) -> Vec<u8> {
-    let mut sys = actix_rt::System::new(format!("Oku IPFS System ({})", hash));
+    let mut sys = actix_rt::System::new();
     sys.block_on(download_ipfs_file_natively(hash))
 }
 
