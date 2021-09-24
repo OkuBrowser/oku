@@ -35,7 +35,7 @@ chrono = { version = "0.4.19", features = ["unstable-locales"] }
 cid = "0.7.0"
 directories-next = "2.0.0"
 futures = "0.3.17"
-gdk = { version = "0.2.0", package = "gdk4" }
+gdk = { version = "0.3.0", package = "gdk4" }
 gdk-pixbuf = { version = "0.14.0" }
 gio = { version = "0.14.0" }
 glib = { version = "0.14.0" }
