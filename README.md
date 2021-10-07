@@ -22,6 +22,9 @@ ipfs://bafybeihfg3d7rdltd43u3tfvncx7n5loqofbsobojcadtmokrljfthuc7y/about.html
 ipfs://bafybeihfg3d7rdltd43u3tfvncx7n5loqofbsobojcadtmokrljfthuc7y/983%20-%20Privacy/983%20-%20Privacy.png
 ipfs://bafybeihfg3d7rdltd43u3tfvncx7n5loqofbsobojcadtmokrljfthuc7y/983%20-%20Privacy/983%20-%20Privacy%20-%20transcript.txt
 
+https://gitlab.gnome.org/GNOME/gtk-osx/raw/master/gtk-osx-setup.sh
+https://wiki.gnome.org/Projects/GTK/OSX/Building#Prerequisites
+
 brew install protobuf
 brew install glib
 brew install gtk+4
