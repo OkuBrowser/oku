@@ -45,7 +45,7 @@ ipfs-api = { version = "0.12.0", features = ["actix"], default-features = false 
 lazy_static = "1.4.0"
 libadwaita = { git = "https://gitlab.gnome.org/World/Rust/libadwaita-rs.git", rev = "bd2f76da" }
 notify-rust = { version = "4.5.3", features = ["images", "z"], default-features = false }
-pango = { version = "0.14.0" }
+pango = { version = "0.14.8" }
 url = "2.2.2"
 urlencoding = "2.1.0"
 reqwest = { version = "0.11.4", features = ["blocking"] }
