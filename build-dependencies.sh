@@ -45,6 +45,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 -DLIB_INSTALL_DIR=/usr/lib \
 -DUSE_GTK4=ON \
 -DUSE_AVIF=ON \
+-DENABLE_MINIBROWSER=ON \
 -GNinja .. && ninja
 sudo ninja install
 cd ../../
