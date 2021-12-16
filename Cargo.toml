@@ -41,7 +41,7 @@ gio = { git = "https://github.com/gtk-rs/gtk-rs-core" }
 glib = { git = "https://github.com/gtk-rs/gtk-rs-core" }
 gtk = { git = "https://github.com/gtk-rs/gtk4-rs", package = "gtk4", features = ["v4_2"], default-features = false }
 ipfs = { git = "https://github.com/rs-ipfs/rust-ipfs.git", rev = "111f116" }
-ipfs-api = { version = "0.12.0", features = ["actix"], default-features = false }
+ipfs-api = { version = "0.14.0", features = ["actix"], default-features = false }
 lazy_static = "1.4.0"
 libadwaita = { git = "https://gitlab.gnome.org/World/Rust/libadwaita-rs.git" }
 notify-rust = { version = "4.5.3", features = ["images", "z"], default-features = false }
