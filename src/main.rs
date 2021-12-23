@@ -15,6 +15,7 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+use libadwaita::builders::*;
 use ipfs_api::IpfsApi;
 use gtk::prelude::EditableExt;
 use gtk::prelude::StyleContextExt;
@@ -41,6 +42,7 @@ use std::fs::File;
 
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
+use gtk::builders::*;
 use gio::prelude::*;
 use glib::clone;
 use glib::Cast;
@@ -632,8 +634,8 @@ fn update_load_progress(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) 
 ///
 /// * `application` - The application data representing Oku
 fn new_about_dialog(application: &gtk::Application) {
-    let about_dialog_builder = gtk::AboutDialogBuilder::new();
-    let about_dialog = about_dialog_builder
+    //let about_dialog_builder = gtk::AboutDialogBuilder::new();
+    let about_dialog = gtk::AboutDialog::builder()
         .version(VERSION.unwrap())
         .program_name("Oku")
         .logo_icon_name("com.github.dirout.oku")
@@ -952,8 +954,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
 
     // Browser header
     // Navigation bar
-    let nav_entry_builder = gtk::EntryBuilder::new();
-    let nav_entry = nav_entry_builder
+    //let nav_entry_builder = gtk::EntryBuilder::new();
+    let nav_entry = gtk::Entry::builder()
         .can_focus(true)
         .focusable(true)
         .focus_on_click(true)
@@ -967,8 +969,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     // Back button
-    let back_button_builder = gtk::ButtonBuilder::new();
-    let back_button = back_button_builder
+    //let back_button_builder = gtk::ButtonBuilder::new();
+    let back_button = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -979,8 +981,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     back_button.style_context().add_class("linked");
 
     // Forward button
-    let forward_button_builder = gtk::ButtonBuilder::new();
-    let forward_button = forward_button_builder
+    //let forward_button_builder = gtk::ButtonBuilder::new();
+    let forward_button = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -991,15 +993,15 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     forward_button.style_context().add_class("linked");
 
     // All navigation buttons
-    let navigation_buttons_builder = gtk::BoxBuilder::new();
-    let navigation_buttons = navigation_buttons_builder.homogeneous(true).build();
+    //let navigation_buttons_builder = gtk::BoxBuilder::new();
+    let navigation_buttons = gtk::Box::builder().homogeneous(true).build();
     navigation_buttons.append(&back_button);
     navigation_buttons.append(&forward_button);
     navigation_buttons.style_context().add_class("linked");
 
     // Add Tab button
-    let add_tab_builder = gtk::ButtonBuilder::new();
-    let add_tab = add_tab_builder
+    //let add_tab_builder = gtk::ButtonBuilder::new();
+    let add_tab = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .margin_start(4)
@@ -1009,8 +1011,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     // Refresh button
-    let refresh_button_builder = gtk::ButtonBuilder::new();
-    let refresh_button = refresh_button_builder
+    //let refresh_button_builder = gtk::ButtonBuilder::new();
+    let refresh_button = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -1022,15 +1024,15 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     // Left header buttons
-    let left_header_buttons_builder = gtk::BoxBuilder::new();
-    let left_header_buttons = left_header_buttons_builder.margin_end(4).build();
+    //let left_header_buttons_builder = gtk::BoxBuilder::new();
+    let left_header_buttons = gtk::Box::builder().margin_end(4).build();
     left_header_buttons.append(&navigation_buttons);
     left_header_buttons.append(&add_tab);
     left_header_buttons.append(&refresh_button);
 
     // Downloads button
-    let downloads_button_builder = gtk::ButtonBuilder::new();
-    let downloads_button = downloads_button_builder
+    //let downloads_button_builder = gtk::ButtonBuilder::new();
+    let downloads_button = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -1040,8 +1042,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     // Find button
-    let find_button_builder = gtk::ButtonBuilder::new();
-    let find_button = find_button_builder
+    //let find_button_builder = gtk::ButtonBuilder::new();
+    let find_button = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -1051,8 +1053,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     // Menu button
-    let menu_button_builder = gtk::ButtonBuilder::new();
-    let menu_button = menu_button_builder
+    //let menu_button_builder = gtk::ButtonBuilder::new();
+    let menu_button = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -1062,8 +1064,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     // Right header buttons
-    let right_header_buttons_builder = gtk::BoxBuilder::new();
-    let right_header_buttons = right_header_buttons_builder
+    //let right_header_buttons_builder = gtk::BoxBuilder::new();
+    let right_header_buttons = gtk::Box::builder()
         .margin_start(4)
         .spacing(2)
         .homogeneous(true)
@@ -1073,8 +1075,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     right_header_buttons.append(&menu_button);
 
     // HeaderBar
-    let headerbar_builder = gtk::HeaderBarBuilder::new();
-    let headerbar = headerbar_builder
+    //let headerbar_builder = gtk::HeaderBarBuilder::new();
+    let headerbar = gtk::HeaderBar::builder()
         .can_focus(true)
         .show_title_buttons(true)
         .title_widget(&nav_entry)
@@ -1084,8 +1086,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     // End of browser header
 
     // Zoom out button
-    let zoomout_button_builder = gtk::ButtonBuilder::new();
-    let zoomout_button = zoomout_button_builder
+    //let zoomout_button_builder = gtk::ButtonBuilder::new();
+    let zoomout_button = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -1096,8 +1098,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     zoomout_button.style_context().add_class("linked");
 
     // Zoom in button
-    let zoomin_button_builder = gtk::ButtonBuilder::new();
-    let zoomin_button = zoomin_button_builder
+    //let zoomin_button_builder = gtk::ButtonBuilder::new();
+    let zoomin_button = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -1108,15 +1110,15 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     zoomin_button.style_context().add_class("linked");
 
     // Both zoom buttons
-    let zoom_buttons_builder = gtk::BoxBuilder::new();
-    let zoom_buttons = zoom_buttons_builder.homogeneous(true).build();
+    //let zoom_buttons_builder = gtk::BoxBuilder::new();
+    let zoom_buttons = gtk::Box::builder().homogeneous(true).build();
     zoom_buttons.append(&zoomout_button);
     zoom_buttons.append(&zoomin_button);
     zoom_buttons.style_context().add_class("linked");
 
     // Zoom reset button
-    let zoomreset_button_builder = gtk::ButtonBuilder::new();
-    let zoomreset_button = zoomreset_button_builder
+    //let zoomreset_button_builder = gtk::ButtonBuilder::new();
+    let zoomreset_button = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -1126,8 +1128,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     // Fullscreen button
-    let fullscreen_button_builder = gtk::ButtonBuilder::new();
-    let fullscreen_button = fullscreen_button_builder
+    //let fullscreen_button_builder = gtk::ButtonBuilder::new();
+    let fullscreen_button = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -1137,8 +1139,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     // Screenshot button
-    let screenshot_button_builder = gtk::ButtonBuilder::new();
-    let screenshot_button = screenshot_button_builder
+    //let screenshot_button_builder = gtk::ButtonBuilder::new();
+    let screenshot_button = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -1148,8 +1150,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     // New Window button
-    let new_window_button_builder = gtk::ButtonBuilder::new();
-    let new_window_button = new_window_button_builder
+    //let new_window_button_builder = gtk::ButtonBuilder::new();
+    let new_window_button = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -1159,8 +1161,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     // History button
-    let history_button_builder = gtk::ButtonBuilder::new();
-    let history_button = history_button_builder
+    //let history_button_builder = gtk::ButtonBuilder::new();
+    let history_button = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -1170,8 +1172,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     // Settings button
-    let settings_button_builder = gtk::ButtonBuilder::new();
-    let settings_button = settings_button_builder
+    //let settings_button_builder = gtk::ButtonBuilder::new();
+    let settings_button = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -1181,8 +1183,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     // About button
-    let about_button_builder = gtk::ButtonBuilder::new();
-    let about_button = about_button_builder
+    //let about_button_builder = gtk::ButtonBuilder::new();
+    let about_button = gtk::Button::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -1192,8 +1194,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     // Menu popover
-    let menu_box_builder = gtk::BoxBuilder::new();
-    let menu_box = menu_box_builder
+    //let menu_box_builder = gtk::BoxBuilder::new();
+    let menu_box = gtk::Box::builder()
         .margin_start(4)
         .margin_end(4)
         .margin_top(4)
@@ -1209,17 +1211,17 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     menu_box.append(&settings_button);
     menu_box.append(&about_button);
 
-    let menu_builder = gtk::PopoverBuilder::new();
-    let menu = menu_builder.child(&menu_box).build();
+    //let menu_builder = gtk::PopoverBuilder::new();
+    let menu = gtk::Popover::builder().child(&menu_box).build();
     menu.set_parent(&menu_button);
     // End of menu popover
 
     // Tabs
-    let tab_view_builder = libadwaita::TabViewBuilder::new();
-    let tab_view = tab_view_builder.vexpand(true).build();
+    //let tab_view_builder = libadwaita::TabViewBuilder::new();
+    let tab_view = libadwaita::TabView::builder().vexpand(true).build();
 
-    let tabs_builder = libadwaita::TabBarBuilder::new();
-    let tabs = tabs_builder
+    //let tabs_builder = libadwaita::TabBarBuilder::new();
+    let tabs = libadwaita::TabBar::builder()
         .autohide(true)
         .expand_tabs(true)
         .view(&tab_view)
@@ -1237,16 +1239,16 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     // End of Tabs
 
     // Window
-    let main_box_builder = gtk::BoxBuilder::new();
-    let main_box = main_box_builder
+    //let main_box_builder = gtk::BoxBuilder::new();
+    let main_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
         .vexpand(true)
         .build();
     main_box.append(&tabs);
     main_box.append(&tab_view);
 
-    let window_builder = gtk::ApplicationWindowBuilder::new();
-    let window = window_builder
+    //let window_builder = gtk::ApplicationWindowBuilder::new();
+    let window = gtk::ApplicationWindow::builder()
         .application(application)
         .can_focus(true)
         .title("Oku")
@@ -1326,7 +1328,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     fullscreen_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry => move |_| {
             let web_view = get_view(&tabs);
-            web_view.run_javascript("document.documentElement.webkitRequestFullscreen();", gio::NONE_CANCELLABLE, move |_| {
+            web_view.run_javascript("document.documentElement.webkitRequestFullscreen();", gio::Cancellable::NONE, move |_| {
                 
             })
         }),
@@ -1336,7 +1338,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     screenshot_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry => move |_| {
             let web_view = get_view(&tabs);
-            web_view.snapshot(webkit2gtk::SnapshotRegion::FullDocument, webkit2gtk::SnapshotOptions::all(), gio::NONE_CANCELLABLE, move |snapshot| {
+            web_view.snapshot(webkit2gtk::SnapshotRegion::FullDocument, webkit2gtk::SnapshotOptions::all(), gio::Cancellable::NONE, move |snapshot| {
                 let snapshot_surface = cairo::ImageSurface::try_from(snapshot.unwrap()).unwrap();
                 let mut writer = File::create(format!("{}/{}.png", PICTURES_DIR.to_owned(), Utc::now())).unwrap();
                 snapshot_surface.write_to_png(&mut writer).unwrap();
