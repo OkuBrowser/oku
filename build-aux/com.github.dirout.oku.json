@@ -1,10 +1,10 @@
 {
     "app-id" : "com.github.dirout.oku",
     "runtime" : "org.gnome.Platform",
-    "runtime-version" : "40",
+    "runtime-version" : "41",
     "sdk" : "org.gnome.Sdk",
     "sdk-extensions" : [
-        "org.freedesktop.Sdk.Extension.rust-stable"
+        "org.freedesktop.Sdk.Extension.rust-nightly"
     ],
     "command" : "oku",
     "finish-args" : [
@@ -19,98 +19,13 @@
         "--device=all"
     ],
     "build-options" : {
-        "append-path" : "/usr/lib/sdk/rust-stable/bin",
+        "append-path" : "/usr/lib/sdk/rust-nightly/bin",
         "env" : {
             "RUSTFLAGS" : "--remap-path-prefix =../",
             "CARGO_HOME" : "/run/build/oku/cargo"
         }
     },
     "modules" : [
-        {
-            "name": "libadwaita",
-            "builddir": true,
-            "buildsystem": "meson",
-            "config-opts": [
-                "-Dprofiling=false",
-                "-Dintrospection=enabled",
-                "-Dgtk_doc=false",
-                "-Dtests=false",
-                "-Dexamples=false",
-                "-Dvapi=false",
-                "-Dglade_catalog=disabled"
-            ],
-            "sources": [
-                {
-                    "type": "git",
-                    "url": "https://gitlab.gnome.org/GNOME/libadwaita",
-                    "commit": "24e935db148613a355b44d0ff694d61a5125da20"
-                }
-            ]
-        },
-        {
-            "name": "glib",
-            "builddir": true,
-            "buildsystem": "meson",
-            "config-opts": [
-                "--buildtype=release"
-            ],
-            "sources": [
-                {
-                    "type": "git",
-                    "url": "https://gitlab.gnome.org/GNOME/glib.git",
-                    "commit": "5ade56decd1dd5ad9bee352c2c986c3b062c0e68"
-                }
-            ]
-        },
-        {
-            "name": "glib-networking",
-            "builddir": true,
-            "buildsystem": "meson",
-            "config-opts": [
-                "--buildtype=release"
-            ],
-            "sources": [
-                {
-                    "type": "git",
-                    "url": "https://gitlab.gnome.org/GNOME/glib-networking.git",
-                    "commit": "c1e4de821b418282a229ec4048dc9020b5ef55ad"
-                }
-            ]
-        },
-        {
-            "name": "libsoup",
-            "builddir": true,
-            "buildsystem": "meson",
-            "config-opts": [
-                "--buildtype=release"
-            ],
-            "sources": [
-                {
-                    "type": "git",
-                    "url": "https://gitlab.gnome.org/GNOME/libsoup",
-                    "commit": "fe8491d86f3c99997126818f9af614964f0a50a0"
-                }
-            ]
-        },
-        {
-            "name": "libwebkitgtk",
-            "builddir": true,
-            "buildsystem": "cmake-ninja",
-            "config-opts": [
-                "-DCMAKE_BUILD_TYPE=Release",
-                "-DCMAKE_SKIP_RPATH=ON",
-                "-DPORT=GTK",
-                "-DUSE_GTK4=ON",
-                "-DUSE_AVIF=ON"
-            ],
-            "sources": [
-                {
-                    "type": "git",
-                    "url": "https://github.com/WebKit/WebKit",
-                    "commit": "8d5e5fd60f0712a47548a3b84c397836c481db75"
-                }
-            ]
-        },
         {
             "name" : "oku",
             "buildsystem" : "simple",
