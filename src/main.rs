@@ -19,7 +19,7 @@ use gtk::prelude::EditableExt;
 use gtk::prelude::StyleContextExt;
 use ipfs::Types;
 use ipfs_api::IpfsApi;
-use libadwaita::builders::*;
+
 use webkit2gtk::traits::SettingsExt;
 use webkit2gtk::URISchemeRequest;
 
@@ -28,7 +28,7 @@ use std::path::PathBuf;
 
 use ipfs::IpfsPath;
 use ipfs::UninitializedIpfs;
-use tokio_stream::{self as stream, StreamExt};
+use tokio_stream::{StreamExt};
 
 use cid::Cid;
 use ipfs::Ipfs;
@@ -45,7 +45,7 @@ use futures::TryStreamExt;
 use gio::prelude::*;
 use glib::clone;
 use glib::Cast;
-use gtk::builders::*;
+
 
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
@@ -299,13 +299,13 @@ fn new_view(
     let web_settings: webkit2gtk::Settings = new_webkit_settings();
     let web_view = web_kit.build();
     let web_context = web_view.context().unwrap();
-    let extensions_path = format!("{}/web-extensions/", DATA_DIR.to_string());
-    let favicon_database_path = format!("{}/favicon-database/", CACHE_DIR.to_string());
+    let extensions_path = format!("{}/web-extensions/", *DATA_DIR);
+    let favicon_database_path = format!("{}/favicon-database/", *CACHE_DIR);
 
     match native {
         true => {
             web_context
-                .register_uri_scheme("ipfs", move |request| handle_ipfs_request_natively(request));
+                .register_uri_scheme("ipfs", handle_ipfs_request_natively);
         }
         false => {
             web_context.register_uri_scheme("ipfs", move |request| {
@@ -422,7 +422,7 @@ async fn setup_native_ipfs() -> Ipfs<Types> {
 ///
 /// * `hash` - The IPFS identifier of the file
 fn from_hash_using_api(hash: String) -> Vec<u8> {
-    let mut sys = actix_rt::System::new();
+    let sys = actix_rt::System::new();
     sys.block_on(download_ipfs_file_from_api(hash))
 }
 
@@ -432,7 +432,7 @@ fn from_hash_using_api(hash: String) -> Vec<u8> {
 ///
 /// * `hash` - The IPFS identifier of the file
 fn from_hash_natively(hash: String) -> Vec<u8> {
-    let mut sys = actix_rt::System::new();
+    let sys = actix_rt::System::new();
     sys.block_on(download_ipfs_file_natively(hash))
 }
 
@@ -615,7 +615,7 @@ fn update_title(web_view: &webkit2gtk::WebView) {
             if page_title.as_str() == "" {
                 relevant_page.set_title("Untitled");
             } else {
-                relevant_page.set_title(&page_title.to_string())
+                relevant_page.set_title(page_title)
             }
         }
         None => {
