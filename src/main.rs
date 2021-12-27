@@ -28,7 +28,7 @@ use std::path::PathBuf;
 
 use ipfs::IpfsPath;
 use ipfs::UninitializedIpfs;
-use tokio_stream::{StreamExt};
+use tokio_stream::StreamExt;
 
 use cid::Cid;
 use ipfs::Ipfs;
@@ -45,7 +45,6 @@ use futures::TryStreamExt;
 use gio::prelude::*;
 use glib::clone;
 use glib::Cast;
-
 
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
@@ -304,8 +303,7 @@ fn new_view(
 
     match native {
         true => {
-            web_context
-                .register_uri_scheme("ipfs", handle_ipfs_request_natively);
+            web_context.register_uri_scheme("ipfs", handle_ipfs_request_natively);
         }
         false => {
             web_context.register_uri_scheme("ipfs", move |request| {
