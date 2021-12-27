@@ -15,11 +15,11 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-use libadwaita::builders::*;
-use ipfs_api::IpfsApi;
 use gtk::prelude::EditableExt;
 use gtk::prelude::StyleContextExt;
 use ipfs::Types;
+use ipfs_api::IpfsApi;
+use libadwaita::builders::*;
 use webkit2gtk::traits::SettingsExt;
 use webkit2gtk::URISchemeRequest;
 
@@ -42,10 +42,10 @@ use std::fs::File;
 
 use directories_next::ProjectDirs;
 use futures::TryStreamExt;
-use gtk::builders::*;
 use gio::prelude::*;
 use glib::clone;
 use glib::Cast;
+use gtk::builders::*;
 
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
@@ -364,7 +364,7 @@ fn new_view(
                 if !web_view.is_muted()
                 {
                     current_page.set_indicator_icon(Some(&gio::BytesIcon::new(&glib::Bytes::from(b""))));
-                    current_page.set_indicator_activatable(false);    
+                    current_page.set_indicator_activatable(false);
                 }
             }
         }
@@ -385,7 +385,7 @@ fn new_view(
                 if !web_view.is_playing_audio()
                 {
                     current_page.set_indicator_icon(Some(&gio::BytesIcon::new(&glib::Bytes::from(b""))));
-                    current_page.set_indicator_activatable(false);    
+                    current_page.set_indicator_activatable(false);
                 }
             }
         }
@@ -569,7 +569,13 @@ fn create_initial_tab(
 ///
 /// * `web_view` - The WebKit instance for the tab
 fn update_favicon(web_view: &webkit2gtk::WebView) {
-    let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
+    let tab_view: libadwaita::TabView = web_view
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .downcast()
+        .unwrap();
     let relevant_page = tab_view.page(web_view).unwrap();
     let web_favicon = &web_view.favicon();
     match &web_favicon {
@@ -595,7 +601,13 @@ fn update_favicon(web_view: &webkit2gtk::WebView) {
 ///
 /// * `web_view` - The WebKit instance for the tab
 fn update_title(web_view: &webkit2gtk::WebView) {
-    let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
+    let tab_view: libadwaita::TabView = web_view
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .downcast()
+        .unwrap();
     let relevant_page = tab_view.page(web_view).unwrap();
     let web_page_title = &web_view.title();
     match web_page_title {
@@ -1228,13 +1240,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     if tab_view.n_pages() == 0 {
-        create_initial_tab(
-            &tabs,
-            initial_url.to_owned(),
-            verbose,
-            is_private,
-            native,
-        )
+        create_initial_tab(&tabs, initial_url.to_owned(), verbose, is_private, native)
     }
     // End of Tabs
 
@@ -1329,7 +1335,6 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         clone!(@weak tabs, @weak nav_entry => move |_| {
             let web_view = get_view(&tabs);
             web_view.run_javascript("document.documentElement.webkitRequestFullscreen();", gio::Cancellable::NONE, move |_| {
-                
             })
         }),
     );
