@@ -20,23 +20,11 @@ jobs:
           toolchain: nightly
           profile: minimal
           components: clippy, rustfmt
-      - name: Install development dependencies
-        run: |
-          sudo apt-get update > /dev/null
-          sudo apt-get install -qq libgtk-4-0 libgtk-4-dev libglib2.0-dev > /dev/null
-          git clone https://gitlab.gnome.org/GNOME/glib.git && cd glib > /dev/null
-          meson _build && ninja -C _build
-          sudo ninja -C _build install
-          ./build-dependencies.sh
-      - name: Install 'cargo-fix'
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo-fix
       - name: Revise code files
         uses: actions-rs/cargo@v1
         with:
           command: fix
+          args: --edition --edition-idioms
       - name: Commit changes to code, if any
         run: |
           git config --global user.name 'Oku'
