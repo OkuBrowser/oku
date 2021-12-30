@@ -22,7 +22,6 @@
     html_favicon_url = "https://github.com/Dirout/oku/raw/master/branding/logo-filled.svg"
 )]
 
-
 use gtk::prelude::EditableExt;
 use gtk::prelude::StyleContextExt;
 use ipfs::Types;
