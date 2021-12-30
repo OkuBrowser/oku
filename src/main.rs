@@ -15,6 +15,14 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#![cfg_attr(feature = "dox", feature(doc_cfg))]
+#![allow(clippy::needless_doctest_main)]
+#![doc(
+    html_logo_url = "https://github.com/Dirout/oku/raw/master/branding/logo-filled.svg",
+    html_favicon_url = "https://github.com/Dirout/oku/raw/master/branding/logo-filled.svg"
+)]
+
+
 use gtk::prelude::EditableExt;
 use gtk::prelude::StyleContextExt;
 use ipfs::Types;
