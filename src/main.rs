@@ -328,6 +328,8 @@ fn new_view(
     web_view.set_height_request(640);
     web_view.load_uri("about:blank");
 
+    
+
     web_view.connect_title_notify(clone!(@weak web_view => move |_| {
         update_title(&web_view)
     }));
@@ -353,48 +355,32 @@ fn new_view(
         let current_page = tab_view.page(&web_view).unwrap();
         current_page.set_loading(web_view.is_loading())
     }));
-    web_view.connect_is_playing_audio_notify(clone!(@weak web_view => move |_| {
-        let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
-        let current_page = tab_view.page(&web_view).unwrap();
-        match web_view.is_playing_audio()
-        {
-            true => {
-                current_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-high")));
-                current_page.set_indicator_activatable(true);
-                tab_view.connect_indicator_activated(clone!(@weak web_view => move |_, _| {
-                    web_view.set_is_muted(!web_view.is_muted());
-                }));
-            },
-            false => {
-                if !web_view.is_muted()
-                {
-                    current_page.set_indicator_icon(gio::Icon::NONE);
-                    current_page.set_indicator_activatable(false);
-                }
-            }
-        }
-    }));
-    web_view.connect_is_muted_notify(clone!(@weak web_view => move |_| {
-        let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
-        let current_page = tab_view.page(&web_view).unwrap();
-        match web_view.is_muted()
-        {
-            true => {
-                current_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-muted")));
-                current_page.set_indicator_activatable(true);
-                // current_page.connect_indicator_activated_notify(clone!(@weak web_view => move |_| {
-                //     web_view.set_is_muted(false);
-                // }));
-            },
-            false => {
-                if !web_view.is_playing_audio()
-                {
-                    current_page.set_indicator_icon(Some(&gio::BytesIcon::new(&glib::Bytes::from(b""))));
-                    current_page.set_indicator_activatable(false);
-                }
-            }
-        }
-    }));
+    // web_view.connect_is_playing_audio_notify(clone!(@weak web_view => move |_| {
+    //     let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
+    //     let current_page = tab_view.page(&web_view).unwrap();
+    //     match web_view.is_playing_audio()
+    //     {
+    //         true => {
+    //             current_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-high")));
+    //             current_page.set_indicator_activatable(true);
+    //             tab_view.connect_indicator_activated(clone!(@weak web_view => move |_, _| {
+    //                 if !web_view.is_muted() {
+    //                     web_view.set_is_muted(true);
+    //                     current_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-muted")));    
+    //                 } else {
+    //                     web_view.set_is_muted(false);
+    //                     current_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-high")));
+    //                 }
+    //             }));
+    //         },
+    //         false => {
+    //             if !web_view.is_muted()
+    //             {
+                    
+    //             }
+    //         }
+    //     }
+    // }));
     web_view.connect_favicon_notify(clone!(@weak tabs, @weak web_view => move |_| {
         update_favicon(&web_view)
     }));
@@ -530,6 +516,22 @@ fn new_tab_page(
     new_page.set_title("New Tab");
     new_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
     tab_view.set_selected_page(&new_page);
+    tab_view.connect_indicator_activated(clone!(@weak new_view => move |_, _| {
+        if new_view.is_playing_audio() {
+            if !new_view.is_muted() {
+                new_view.set_is_muted(true);
+                new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-muted")));    
+                new_page.set_indicator_activatable(true);
+            } else {
+                new_view.set_is_muted(false);
+                new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-high")));
+                new_page.set_indicator_activatable(true);
+            }
+        } else {
+            new_page.set_indicator_icon(gio::Icon::NONE);
+            new_page.set_indicator_activatable(false);
+        }
+    }));
     new_view
 }
 
