@@ -362,13 +362,13 @@ fn new_view(
                 current_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-high")));
                 current_page.set_indicator_activatable(true);
                 current_page.connect_indicator_icon_notify(clone!(@weak web_view => move |_| {
-                    web_view.set_is_muted(!web_view.get_is_muted());
+                    web_view.set_is_muted(!web_view.is_muted());
                 }));
             },
             false => {
                 if !web_view.is_muted()
                 {
-                    current_page.set_indicator_icon(None);
+                    current_page.set_indicator_icon(gio::Icon::NONE);
                     current_page.set_indicator_activatable(false);
                 }
             }
