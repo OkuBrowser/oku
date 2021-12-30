@@ -328,8 +328,6 @@ fn new_view(
     web_view.set_height_request(640);
     web_view.load_uri("about:blank");
 
-    
-
     web_view.connect_title_notify(clone!(@weak web_view => move |_| {
         update_title(&web_view)
     }));
@@ -366,7 +364,7 @@ fn new_view(
     //             tab_view.connect_indicator_activated(clone!(@weak web_view => move |_, _| {
     //                 if !web_view.is_muted() {
     //                     web_view.set_is_muted(true);
-    //                     current_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-muted")));    
+    //                     current_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-muted")));
     //                 } else {
     //                     web_view.set_is_muted(false);
     //                     current_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-high")));
@@ -376,7 +374,7 @@ fn new_view(
     //         false => {
     //             if !web_view.is_muted()
     //             {
-                    
+
     //             }
     //         }
     //     }
