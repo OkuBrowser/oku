@@ -17,13 +17,14 @@ cargo-features = ["strip"]
 name = "oku"
 version = "0.1.0"
 authors = ["Emil Sayahi <limesayahi@gmail.com>"]
-edition = "2018"
+edition = "2021"
 exclude = ["/.github/**/*", "/.cargo/**/*", "/branding/**/*", "/rust-toolchain", "/.gitignore", "/.whitesource", "/renovate.json", "/CODE_OF_CONDUCT.md", "/CONTRIBUTING.md", "/LICENSE.md", "/SECURITY.md", "/COPYING", "/NOTICE"]
 license = "AGPL-3.0-or-later"
 description = "A hive browser written in Rust."
 repository = "https://github.com/Dirout/oku"
 homepage = "https://github.com/Dirout/oku"
 readme = "README.md"
+resolver = "1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
