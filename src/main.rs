@@ -514,21 +514,23 @@ fn new_tab_page(
     new_page.set_title("New Tab");
     new_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
     tab_view.set_selected_page(&new_page);
-    tab_view.connect_indicator_activated(clone!(@weak new_view => move |_, _| {
-        if new_view.is_playing_audio() {
-            if !new_view.is_muted() {
-                new_view.set_is_muted(true);
-                new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-muted")));    
-                new_page.set_indicator_activatable(true);
+    tab_view.connect_indicator_activated(clone!(@weak new_view, @weak new_page => move |_, _| {
+        new_view.connect_is_playing_audio_notify(clone!(@weak new_view, @weak new_page => move |_| {
+            if new_view.is_playing_audio() {
+                if !new_view.is_muted() {
+                    new_view.set_is_muted(true);
+                    new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-muted")));    
+                    new_page.set_indicator_activatable(true);
+                } else {
+                    new_view.set_is_muted(false);
+                    new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-high")));
+                    new_page.set_indicator_activatable(true);
+                }
             } else {
-                new_view.set_is_muted(false);
-                new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-high")));
-                new_page.set_indicator_activatable(true);
+                new_page.set_indicator_icon(gio::Icon::NONE);
+                new_page.set_indicator_activatable(false);
             }
-        } else {
-            new_page.set_indicator_icon(gio::Icon::NONE);
-            new_page.set_indicator_activatable(false);
-        }
+        }));
     }));
     new_view
 }
