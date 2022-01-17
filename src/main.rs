@@ -22,50 +22,40 @@
     html_favicon_url = "https://github.com/Dirout/oku/raw/master/branding/logo-filled.svg"
 )]
 
-use gtk::prelude::EditableExt;
-use gtk::prelude::StyleContextExt;
-use ipfs::Types;
-use ipfs_api::IpfsApi;
-
-use webkit2gtk::traits::SettingsExt;
-use webkit2gtk::URISchemeRequest;
-
-use ipfs::Keypair;
-use std::path::PathBuf;
-
-use ipfs::IpfsPath;
-use ipfs::UninitializedIpfs;
-use tokio_stream::StreamExt;
-
-use cid::Cid;
-use ipfs::Ipfs;
-use ipfs::IpfsOptions;
-use url::ParseError;
-use url::Url;
-
 use chrono::Utc;
-use directories_next::UserDirs;
-use std::fs::File;
-
+use cid::Cid;
 use directories_next::ProjectDirs;
+use directories_next::UserDirs;
 use futures::TryStreamExt;
 use gio::prelude::*;
 use glib::clone;
 use glib::Cast;
-
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
+use gtk::prelude::EditableExt;
 use gtk::prelude::EntryExt;
 use gtk::prelude::GtkWindowExt;
-
 use gtk::prelude::PopoverExt;
+use gtk::prelude::StyleContextExt;
 use gtk::prelude::WidgetExt;
+use ipfs::Ipfs;
+use ipfs::IpfsOptions;
+use ipfs::IpfsPath;
+use ipfs::Keypair;
+use ipfs::Types;
+use ipfs::UninitializedIpfs;
+use ipfs_api::IpfsApi;
 use ipfs_api::IpfsClient;
-
 use std::convert::TryFrom;
-
+use std::fs::File;
+use std::path::PathBuf;
+use tokio_stream::StreamExt;
+use url::ParseError;
+use url::Url;
 use urlencoding::decode;
+use webkit2gtk::traits::SettingsExt;
 use webkit2gtk::traits::{URISchemeRequestExt, WebContextExt, WebViewExt};
+use webkit2gtk::URISchemeRequest;
 
 #[macro_use]
 extern crate lazy_static;
@@ -263,7 +253,6 @@ fn new_webkit_settings() -> webkit2gtk::Settings {
 
     settings_builder
         .load_icons_ignoring_image_load_setting(true)
-        .enable_plugins(true)
         .javascript_can_open_windows_automatically(true)
         .enable_developer_extras(true)
         .enable_dns_prefetching(true)
@@ -272,7 +261,6 @@ fn new_webkit_settings() -> webkit2gtk::Settings {
         .javascript_can_access_clipboard(true)
         .media_playback_requires_user_gesture(true)
         .enable_smooth_scrolling(true)
-        .enable_accelerated_2d_canvas(true)
         .enable_media_stream(true)
         .enable_spatial_navigation(true)
         .enable_encrypted_media(true)
@@ -343,14 +331,14 @@ fn new_view(
             let headerbar: gtk::HeaderBar = window.titlebar().unwrap().downcast().unwrap();
             let nav_entry: gtk::Entry = headerbar.title_widget().unwrap().downcast().unwrap();
             let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
-            let current_page = tab_view.page(&web_view).unwrap();
+            let current_page = tab_view.page(&web_view);
             current_page.set_loading(true);
             update_load_progress(&nav_entry, &web_view)
         }),
     );
     web_view.connect_is_loading_notify(clone!(@weak tabs, @weak web_view => move |_| {
         let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
-        let current_page = tab_view.page(&web_view).unwrap();
+        let current_page = tab_view.page(&web_view);
         current_page.set_loading(web_view.is_loading())
     }));
     // web_view.connect_is_playing_audio_notify(clone!(@weak web_view => move |_| {
@@ -510,7 +498,7 @@ fn new_tab_page(
 ) -> webkit2gtk::WebView {
     let tab_view = tabs.view().unwrap();
     let new_view = new_view(verbose, is_private, native, tabs);
-    let new_page = tab_view.append(&new_view).unwrap();
+    let new_page = tab_view.append(&new_view);
     new_page.set_title("New Tab");
     new_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
     tab_view.set_selected_page(&new_page);
@@ -544,8 +532,8 @@ fn get_view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
     let tab_view = tabs.view().unwrap();
     let current_page = tab_view.selected_page().unwrap();
     let current_page_number = tab_view.page_position(&current_page);
-    let specific_page = tab_view.nth_page(current_page_number).unwrap();
-    specific_page.child().unwrap().downcast().unwrap()
+    let specific_page = tab_view.nth_page(current_page_number);
+    specific_page.child().downcast().unwrap()
 }
 
 /// Create an initial tab, for when the TabBar is empty
@@ -583,7 +571,7 @@ fn update_favicon(web_view: &webkit2gtk::WebView) {
         .unwrap()
         .downcast()
         .unwrap();
-    let relevant_page = tab_view.page(web_view).unwrap();
+    let relevant_page = tab_view.page(web_view);
     let web_favicon = &web_view.favicon();
     match &web_favicon {
         Some(_) => {
@@ -615,7 +603,7 @@ fn update_title(web_view: &webkit2gtk::WebView) {
         .unwrap()
         .downcast()
         .unwrap();
-    let relevant_page = tab_view.page(web_view).unwrap();
+    let relevant_page = tab_view.page(web_view);
     let web_page_title = &web_view.title();
     match web_page_title {
         Some(page_title) => {
