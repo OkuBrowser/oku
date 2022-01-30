@@ -249,7 +249,7 @@ fn handle_ipfs_request_natively(request: &URISchemeRequest) {
 
 /// Provide the default configuration for Oku's WebView
 fn new_webkit_settings() -> webkit2gtk::Settings {
-    let settings_builder = webkit2gtk::SettingsBuilder::new();
+    let settings_builder = webkit2gtk::builders::SettingsBuilder::new();
 
     settings_builder
         .load_icons_ignoring_image_load_setting(true)
@@ -287,7 +287,7 @@ fn new_view(
     native: bool,
     tabs: &libadwaita::TabBar,
 ) -> webkit2gtk::WebView {
-    let web_kit = webkit2gtk::WebViewBuilder::new()
+    let web_kit = webkit2gtk::builders::WebViewBuilder::new()
         .vexpand(true)
         .is_ephemeral(is_private);
     let web_settings: webkit2gtk::Settings = new_webkit_settings();

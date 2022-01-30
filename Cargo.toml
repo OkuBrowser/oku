@@ -52,7 +52,7 @@ urlencoding = "2.1.0"
 reqwest = { version = "0.11.9", features = ["blocking"] }
 tokio = { version = "1.16.1", features = ["full"] }
 tokio-stream = "0.1.8"
-webkit2gtk = { git = "https://gitlab.gnome.org/JanGernert/webkit2gtk5-rs.git", branch = "newsflash3", package = "webkit2gtk5", features = ["v2_34"] }
+webkit2gtk = { git = "https://gitlab.gnome.org/emmyoh/webkit2gtk5-rs.git", rev = "50dae9cc", package = "webkit2gtk5", features = ["v2_34"] }
 
 [profile.release]
 codegen-units = 1
