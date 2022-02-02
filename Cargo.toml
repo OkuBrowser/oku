@@ -33,7 +33,7 @@ actix-rt = "2.6.0"
 bincode = "1.3.3"
 cairo-rs = { git = "https://github.com/gtk-rs/gtk-rs-core", features = ["png"] }
 chrono = { version = "0.4.19", features = ["unstable-locales"] }
-cid = "0.7.0"
+cid = "0.8.0"
 directories-next = "2.0.0"
 futures = "0.3.19"
 gdk = { git = "https://github.com/gtk-rs/gtk4-rs", package = "gdk4" }
