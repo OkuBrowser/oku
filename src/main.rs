@@ -21,7 +21,6 @@
     html_logo_url = "https://github.com/Dirout/oku/raw/master/branding/logo-filled.svg",
     html_favicon_url = "https://github.com/Dirout/oku/raw/master/branding/logo-filled.svg"
 )]
-
 #![feature(async_closure)]
 
 use chrono::Utc;
@@ -54,7 +53,10 @@ use tokio_stream::StreamExt;
 use url::ParseError;
 use url::Url;
 use urlencoding::decode;
-use webkit2gtk::{traits::{SettingsExt, URISchemeRequestExt, WebContextExt, WebViewExt}, URISchemeRequest};
+use webkit2gtk::{
+    traits::{SettingsExt, URISchemeRequestExt, WebContextExt, WebViewExt},
+    URISchemeRequest,
+};
 
 #[macro_use]
 extern crate lazy_static;
