@@ -22,6 +22,8 @@
     html_favicon_url = "https://github.com/Dirout/oku/raw/master/branding/logo-filled.svg"
 )]
 
+#![feature(async_closure)]
+
 use chrono::Utc;
 use cid::Cid;
 use directories_next::ProjectDirs;
@@ -44,8 +46,7 @@ use ipfs::IpfsPath;
 use ipfs::Keypair;
 use ipfs::Types;
 use ipfs::UninitializedIpfs;
-use ipfs_api::IpfsApi;
-use ipfs_api::IpfsClient;
+use ipfs_api_backend_hyper::{IpfsApi, IpfsClient};
 use std::convert::TryFrom;
 use std::fs::File;
 use std::path::PathBuf;
@@ -53,9 +54,7 @@ use tokio_stream::StreamExt;
 use url::ParseError;
 use url::Url;
 use urlencoding::decode;
-use webkit2gtk::traits::SettingsExt;
-use webkit2gtk::traits::{URISchemeRequestExt, WebContextExt, WebViewExt};
-use webkit2gtk::URISchemeRequest;
+use webkit2gtk::{traits::{SettingsExt, URISchemeRequestExt, WebContextExt, WebViewExt}, URISchemeRequest};
 
 #[macro_use]
 extern crate lazy_static;
@@ -229,6 +228,7 @@ fn handle_ipfs_request_using_api(request: &URISchemeRequest) {
     let decoded_url = decode(&request_url).unwrap();
     let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
     let ipfs_bytes = from_hash_using_api(ipfs_path);
+    //let ipfs_bytes = download_ipfs_file_from_api(ipfs_path).await;
     let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
     request.finish(&stream, -1, None);
 }
@@ -243,13 +243,14 @@ fn handle_ipfs_request_natively(request: &URISchemeRequest) {
     let decoded_url = decode(&request_url).unwrap();
     let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
     let ipfs_bytes = from_hash_natively(ipfs_path);
+    //let ipfs_bytes = download_ipfs_file_natively(ipfs_path).await;
     let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
     request.finish(&stream, -1, None);
 }
 
 /// Provide the default configuration for Oku's WebView
 fn new_webkit_settings() -> webkit2gtk::Settings {
-    let settings_builder = webkit2gtk::builders::SettingsBuilder::new();
+    let settings_builder = webkit2gtk::SettingsBuilder::new();
 
     settings_builder
         .load_icons_ignoring_image_load_setting(true)
@@ -287,7 +288,7 @@ fn new_view(
     native: bool,
     tabs: &libadwaita::TabBar,
 ) -> webkit2gtk::WebView {
-    let web_kit = webkit2gtk::builders::WebViewBuilder::new()
+    let web_kit = webkit2gtk::WebViewBuilder::new()
         .vexpand(true)
         .is_ephemeral(is_private);
     let web_settings: webkit2gtk::Settings = new_webkit_settings();
@@ -298,11 +299,27 @@ fn new_view(
 
     match native {
         true => {
-            web_context.register_uri_scheme("ipfs", handle_ipfs_request_natively);
+            web_context.register_uri_scheme("ipfs", move |request| {
+                handle_ipfs_request_natively(request)
+                // let request_url = request.uri().unwrap().to_string();
+                // let decoded_url = decode(&request_url).unwrap();
+                // let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
+                // let ipfs_bytes = from_hash_natively(ipfs_path);
+                // //let ipfs_bytes = download_ipfs_file_natively(ipfs_path).await;
+                // let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
+                // request.finish(&stream, ipfs_bytes.len().try_into().unwrap(), None);
+            });
         }
         false => {
             web_context.register_uri_scheme("ipfs", move |request| {
                 handle_ipfs_request_using_api(request)
+                // let request_url = request.uri().unwrap().to_string();
+                // let decoded_url = decode(&request_url).unwrap();
+                // let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
+                // let ipfs_bytes = from_hash_using_api(ipfs_path);
+                // //let ipfs_bytes = download_ipfs_file_from_api(ipfs_path).await;
+                // let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
+                // request.finish(&stream, ipfs_bytes.len().try_into().unwrap(), None);
             });
         }
     };
@@ -399,8 +416,8 @@ async fn setup_native_ipfs() -> Ipfs<Types> {
 ///
 /// * `hash` - The IPFS identifier of the file
 fn from_hash_using_api(hash: String) -> Vec<u8> {
-    let sys = actix_rt::System::new();
-    sys.block_on(download_ipfs_file_from_api(hash))
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(download_ipfs_file_from_api(hash))
 }
 
 /// Get an IPFS file asynchronously using an in-memory IPFS node
@@ -409,8 +426,8 @@ fn from_hash_using_api(hash: String) -> Vec<u8> {
 ///
 /// * `hash` - The IPFS identifier of the file
 fn from_hash_natively(hash: String) -> Vec<u8> {
-    let sys = actix_rt::System::new();
-    sys.block_on(download_ipfs_file_natively(hash))
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(download_ipfs_file_natively(hash))
 }
 
 /// Download an IPFS file to the local machine using an existing IPFS node
@@ -419,7 +436,7 @@ fn from_hash_natively(hash: String) -> Vec<u8> {
 ///
 /// * `file_hash` - The CID of the file
 async fn download_ipfs_file_from_api(file_hash: String) -> Vec<u8> {
-    let client = IpfsClient::default();
+    let client: IpfsClient = IpfsClient::default();
 
     match client
         .cat(&file_hash)
@@ -428,13 +445,14 @@ async fn download_ipfs_file_from_api(file_hash: String) -> Vec<u8> {
         .await
     {
         Ok(res) => res,
-        Err(_) => {
-            let split_path: Vec<&str> = file_hash.split('/').collect();
-            let rest_of_path = file_hash.replacen(split_path[0], "", 1);
-            let public_url = format!("https://{}.ipfs.dweb.link{}", split_path[0], rest_of_path);
-            let request = reqwest::get(&public_url).await;
-            let request_body = request.unwrap().bytes().await;
-            request_body.unwrap().to_vec()
+        Err(e) => {
+            // let split_path: Vec<&str> = file_hash.split('/').collect();
+            // let rest_of_path = file_hash.replacen(split_path[0], "", 1);
+            // let public_url = format!("https://{}.ipfs.dweb.link{}", split_path[0], rest_of_path);
+            // let request = reqwest::get(&public_url).await;
+            // let request_body = request.unwrap().bytes().await;
+            // request_body.unwrap().to_vec()
+            e.to_string().as_bytes().to_vec()
         }
     }
 }
@@ -650,7 +668,7 @@ fn new_about_dialog(application: &gtk::Application) {
         .application(application)
         .icon_name("com.github.dirout.oku")
         .license_type(gtk::License::Agpl30)
-        .copyright("Copyright © 2020, 2021 Emil Sayahi")
+        .copyright("Copyright © 2020, 2021, 2022 Emil Sayahi")
         .destroy_with_parent(true)
         .modal(true)
         .build();
@@ -956,7 +974,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     // Options
     let verbose = true;
     let is_private = true;
-    let native = false;
+    let native = true;
     let initial_url = "about:blank";
 
     // Browser header

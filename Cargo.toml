@@ -29,30 +29,30 @@ resolver = "1"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-actix-rt = "2.6.0"
 bincode = "1.3.3"
-cairo-rs = { git = "https://github.com/gtk-rs/gtk-rs-core", features = ["png"] }
+cairo-rs = { version = "0.15.1", features = ["png"] }
 chrono = { version = "0.4.19", features = ["unstable-locales"] }
 cid = "0.8.1"
 directories-next = "2.0.0"
 futures = "0.3.19"
-gdk = { git = "https://github.com/gtk-rs/gtk4-rs", package = "gdk4" }
-gdk-pixbuf = { git = "https://github.com/gtk-rs/gtk-rs-core" }
-gio = { git = "https://github.com/gtk-rs/gtk-rs-core" }
-glib = { git = "https://github.com/gtk-rs/gtk-rs-core" }
-gtk = { git = "https://github.com/gtk-rs/gtk4-rs", package = "gtk4", features = ["v4_2"], default-features = false }
+gdk = { version = "0.4.6", package = "gdk4" }
+gdk-pixbuf = { version = "0.15.4" }
+gio = { version = "0.15.4" }
+glib = { version = "0.15.4" }
+gtk = { version = "0.4.6", package = "gtk4", features = ["v4_2"], default-features = false }
 ipfs = { git = "https://github.com/rs-ipfs/rust-ipfs.git", rev = "111f116" }
-ipfs-api = { version = "0.14.0", features = ["actix"], default-features = false }
+ipfs-api-backend-hyper = { version = "0.3.0", features = ["with-hyper-tls"] }
 lazy_static = "1.4.0"
-libadwaita = { git = "https://gitlab.gnome.org/World/Rust/libadwaita-rs.git" }
+libadwaita = { version = "0.1.0" }
 notify-rust = { version = "4.5.6", features = ["images", "z"], default-features = false }
-pango = { git = "https://github.com/gtk-rs/gtk-rs-core" }
+pango = { version = "0.15.2" }
 url = "2.2.2"
 urlencoding = "2.1.0"
 reqwest = { version = "0.11.9", features = ["blocking"] }
 tokio = { version = "1.16.1", features = ["full"] }
 tokio-stream = "0.1.8"
-webkit2gtk = { git = "https://gitlab.gnome.org/emmyoh/webkit2gtk5-rs.git", rev = "50dae9cc", package = "webkit2gtk5", features = ["v2_34"] }
+transmission_rs = "0.8.6"
+webkit2gtk = { git = "https://gitlab.gnome.org/JanGernert/webkit2gtk5-rs.git", branch = "newsflash4", package = "webkit2gtk5", features = ["v2_34"] }
 
 [profile.release]
 codegen-units = 1
