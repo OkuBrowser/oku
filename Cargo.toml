@@ -36,7 +36,7 @@ cid = "0.8.1"
 directories-next = "2.0.0"
 futures = "0.3.19"
 gdk = { version = "0.4.6", package = "gdk4" }
-gdk-pixbuf = { version = "0.15.4" }
+gdk-pixbuf = { version = "0.15.6" }
 gio = { version = "0.15.4" }
 glib = { version = "0.15.4" }
 gtk = { version = "0.4.6", package = "gtk4", features = ["v4_2"], default-features = false }
