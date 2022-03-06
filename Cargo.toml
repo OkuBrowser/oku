@@ -34,7 +34,7 @@ cairo-rs = { version = "0.15.6", features = ["png"] }
 chrono = { version = "0.4.19", features = ["unstable-locales"] }
 cid = "0.8.1"
 directories-next = "2.0.0"
-futures = "0.3.19"
+futures = "0.3.21"
 gdk = { version = "0.4.6", package = "gdk4" }
 gdk-pixbuf = { version = "0.15.6" }
 gio = { version = "0.15.4" }
