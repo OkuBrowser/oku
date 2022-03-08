@@ -45,7 +45,7 @@ ipfs-api-backend-hyper = { version = "0.3.0", features = ["with-hyper-tls"] }
 lazy_static = "1.4.0"
 libadwaita = { version = "0.1.0" }
 notify-rust = { version = "4.5.6", features = ["images", "z"], default-features = false }
-pango = { version = "0.15.6" }
+pango = { version = "0.15.7" }
 url = "2.2.2"
 urlencoding = "2.1.0"
 reqwest = { version = "0.11.9", features = ["blocking"] }
