@@ -1123,6 +1123,29 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .margin_bottom(4)
         .icon_name("edit-find")
         .build();
+    
+    // IPFS button
+    let ipfs_button = gtk::Button::builder()
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_start(4)
+        .margin_bottom(4)
+        .icon_name("emblem-shared")
+        .build();
+
+    // Onion routing button
+    let tor_button = gtk::Button::builder()
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .hexpand(false)
+        .vexpand(false)
+        .overflow(gtk::Overflow::Hidden)
+        .margin_start(4)
+        .margin_bottom(4)
+        .label("🧅")
+        .build();
 
     // Menu button
     //let menu_button_builder = gtk::ButtonBuilder::new();
@@ -1144,6 +1167,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
     right_header_buttons.append(&downloads_button);
     right_header_buttons.append(&find_button);
+    right_header_buttons.append(&ipfs_button);
+    //right_header_buttons.append(&tor_button);
     right_header_buttons.append(&menu_button);
 
     // HeaderBar
