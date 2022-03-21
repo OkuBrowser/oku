@@ -397,6 +397,7 @@ fn new_view(
     web_view.set_settings(&web_settings);
     web_context.set_web_extensions_directory(&extensions_path);
     web_context.set_favicon_database_directory(Some(&favicon_database_path));
+    web_context.use_system_appearance_for_scrollbars(true);
     web_view.set_visible(true);
     web_view.set_width_request(1024);
     web_view.set_height_request(640);
