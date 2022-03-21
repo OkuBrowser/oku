@@ -39,6 +39,7 @@ use gtk::prelude::GtkWindowExt;
 use gtk::prelude::PopoverExt;
 use gtk::prelude::StyleContextExt;
 use gtk::prelude::WidgetExt;
+use gtk::prelude::ToggleButtonExt;
 use ipfs::Ipfs;
 use ipfs::IpfsOptions;
 use ipfs::IpfsPath;
@@ -224,8 +225,24 @@ fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 ///
 /// # Arguments
 ///
+/// * `ipfs_button` - The button indicating whether or not to use a daemon or native resolution
 /// * `request` - The request from the browser for the IPFS resource
-fn handle_ipfs_request_using_api(request: &URISchemeRequest) {
+fn handle_ipfs_request<'a>(ipfs_button: &'a gtk::ToggleButton, request: &'a URISchemeRequest) -> &'a URISchemeRequest {
+    match (ipfs_button.is_active()) {
+        true => {
+            return handle_ipfs_request_natively(request);
+        } false => {
+            return handle_ipfs_request_using_api(request);
+        }
+    }
+}
+
+/// Comply with a request using the IPFS scheme with a daemon
+///
+/// # Arguments
+///
+/// * `request` - The request from the browser for the IPFS resource
+fn handle_ipfs_request_using_api(request: &URISchemeRequest) -> &URISchemeRequest {
     let request_url = request.uri().unwrap().to_string();
     let decoded_url = decode(&request_url).unwrap();
     let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
@@ -233,6 +250,7 @@ fn handle_ipfs_request_using_api(request: &URISchemeRequest) {
     //let ipfs_bytes = download_ipfs_file_from_api(ipfs_path).await;
     let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
     request.finish(&stream, -1, None);
+    return request;
 }
 
 /// Comply with a request using the IPFS scheme natively
@@ -240,7 +258,7 @@ fn handle_ipfs_request_using_api(request: &URISchemeRequest) {
 /// # Arguments
 ///
 /// * `request` - The request from the browser for the IPFS resource
-fn handle_ipfs_request_natively(request: &URISchemeRequest) {
+fn handle_ipfs_request_natively(request: &URISchemeRequest) -> &URISchemeRequest {
     let request_url = request.uri().unwrap().to_string();
     let decoded_url = decode(&request_url).unwrap();
     let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
@@ -248,6 +266,7 @@ fn handle_ipfs_request_natively(request: &URISchemeRequest) {
     //let ipfs_bytes = download_ipfs_file_natively(ipfs_path).await;
     let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
     request.finish(&stream, -1, None);
+    return request
 }
 
 /// Provide the default configuration for Oku's WebView
@@ -328,11 +347,11 @@ fn new_webkit_settings() -> webkit2gtk::Settings {
 ///
 /// * `is_private` - Whether the window represents a private session
 ///
-/// * `native` - Whether the browser is using a built-in (native) IPFS handler, or an external one
+/// * `ipfs_button` - Button indicating whether the browser is using a built-in (native) IPFS handler, or an external one
 fn new_view(
     verbose: bool,
     is_private: bool,
-    native: bool,
+    ipfs_button: &gtk::ToggleButton,
     tabs: &libadwaita::TabBar,
 ) -> webkit2gtk::WebView {
     let web_kit = webkit2gtk::WebViewBuilder::new()
@@ -344,32 +363,35 @@ fn new_view(
     let extensions_path = format!("{}/web-extensions/", *DATA_DIR);
     let favicon_database_path = format!("{}/favicon-database/", *CACHE_DIR);
 
-    match native {
-        true => {
-            web_context.register_uri_scheme("ipfs", move |request| {
-                handle_ipfs_request_natively(request)
-                // let request_url = request.uri().unwrap().to_string();
-                // let decoded_url = decode(&request_url).unwrap();
-                // let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
-                // let ipfs_bytes = from_hash_natively(ipfs_path);
-                // //let ipfs_bytes = download_ipfs_file_natively(ipfs_path).await;
-                // let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
-                // request.finish(&stream, ipfs_bytes.len().try_into().unwrap(), None);
-            });
-        }
-        false => {
-            web_context.register_uri_scheme("ipfs", move |request| {
-                handle_ipfs_request_using_api(request)
-                // let request_url = request.uri().unwrap().to_string();
-                // let decoded_url = decode(&request_url).unwrap();
-                // let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
-                // let ipfs_bytes = from_hash_using_api(ipfs_path);
-                // //let ipfs_bytes = download_ipfs_file_from_api(ipfs_path).await;
-                // let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
-                // request.finish(&stream, ipfs_bytes.len().try_into().unwrap(), None);
-            });
-        }
-    };
+    // match native {
+    //     true => {
+    //         web_context.register_uri_scheme("ipfs", move |request| {
+    //             handle_ipfs_request_natively(request)
+    //             // let request_url = request.uri().unwrap().to_string();
+    //             // let decoded_url = decode(&request_url).unwrap();
+    //             // let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
+    //             // let ipfs_bytes = from_hash_natively(ipfs_path);
+    //             // //let ipfs_bytes = download_ipfs_file_natively(ipfs_path).await;
+    //             // let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
+    //             // request.finish(&stream, ipfs_bytes.len().try_into().unwrap(), None);
+    //         });
+    //     }
+    //     false => {
+    //         web_context.register_uri_scheme("ipfs", move |request| {
+    //             handle_ipfs_request_using_api(request)
+    //             // let request_url = request.uri().unwrap().to_string();
+    //             // let decoded_url = decode(&request_url).unwrap();
+    //             // let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
+    //             // let ipfs_bytes = from_hash_using_api(ipfs_path);
+    //             // //let ipfs_bytes = download_ipfs_file_from_api(ipfs_path).await;
+    //             // let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
+    //             // request.finish(&stream, ipfs_bytes.len().try_into().unwrap(), None);
+    //         });
+    //     }
+    // };
+    web_context.register_uri_scheme("ipfs", clone!(@weak ipfs_button => move |request| {
+        handle_ipfs_request(&ipfs_button, request);
+    }));
     web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
     web_settings.set_enable_write_console_messages_to_stdout(verbose);
     web_view.set_settings(&web_settings);
@@ -554,15 +576,15 @@ fn ipfs_options() -> ipfs::IpfsOptions {
 ///
 /// * `is_private` - Whether the window represents a private session
 ///
-/// * `native` - Whether the browser is using a built-in (native) IPFS handler, or an external one
+/// * `ipfs_button` - Button indicating whether the browser is using a built-in (native) IPFS handler, or an external one
 fn new_tab_page(
     tabs: &libadwaita::TabBar,
     verbose: bool,
     is_private: bool,
-    native: bool,
+    ipfs_button: &gtk::ToggleButton,
 ) -> webkit2gtk::WebView {
     let tab_view = tabs.view().unwrap();
-    let new_view = new_view(verbose, is_private, native, tabs);
+    let new_view = new_view(verbose, is_private, ipfs_button, tabs);
     let new_page = tab_view.append(&new_view);
     new_page.set_title("New Tab");
     new_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
@@ -611,15 +633,15 @@ fn get_view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
 ///
 /// * `is_private` - Whether the window represents a private session
 ///
-/// * `native` - Whether the browser is using a built-in (native) IPFS handler, or an external one
+/// * `ipfs_button` - Button indicating whether the browser is using a built-in (native) IPFS handler, or an external one
 fn create_initial_tab(
     tabs: &libadwaita::TabBar,
     initial_url: String,
     verbose: bool,
     is_private: bool,
-    native: bool,
+    ipfs_button: &gtk::ToggleButton,
 ) {
-    let web_view = new_tab_page(tabs, verbose, is_private, native);
+    let web_view = new_tab_page(tabs, verbose, is_private, ipfs_button);
     initial_connect(initial_url, &web_view)
 }
 
@@ -1021,7 +1043,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     // Options
     let verbose = true;
     let is_private = true;
-    let native = true;
+    // let mut native = true;
     let initial_url = "about:blank";
 
     // Browser header
@@ -1124,8 +1146,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .icon_name("edit-find")
         .build();
     
-    // IPFS button
-    let ipfs_button = gtk::Button::builder()
+    // IPFS menu button
+    let ipfs_button = gtk::ToggleButton::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -1135,7 +1157,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     // Onion routing button
-    let tor_button = gtk::Button::builder()
+    let tor_button = gtk::ToggleButton::builder()
         .can_focus(true)
         .receives_default(true)
         .halign(gtk::Align::Start)
@@ -1144,7 +1166,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .overflow(gtk::Overflow::Hidden)
         .margin_start(4)
         .margin_bottom(4)
-        .label("🧅")
+        .icon_name("security-medium")
         .build();
 
     // Menu button
@@ -1168,7 +1190,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     right_header_buttons.append(&downloads_button);
     right_header_buttons.append(&find_button);
     right_header_buttons.append(&ipfs_button);
-    //right_header_buttons.append(&tor_button);
+    right_header_buttons.append(&tor_button);
     right_header_buttons.append(&menu_button);
 
     // HeaderBar
@@ -1325,7 +1347,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     if tab_view.n_pages() == 0 {
-        create_initial_tab(&tabs, initial_url.to_owned(), verbose, is_private, native)
+        create_initial_tab(&tabs, initial_url.to_owned(), verbose, is_private, &ipfs_button)
     }
     // End of Tabs
 
@@ -1351,8 +1373,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
 
     // Signals
     // Add Tab button clicked
-    add_tab.connect_clicked(clone!(@weak tabs => move |_| {
-        new_tab_page(&tabs, verbose, is_private, native);
+    add_tab.connect_clicked(clone!(@weak tabs, @weak ipfs_button => move |_| {
+        new_tab_page(&tabs, verbose, is_private, &ipfs_button);
     }));
 
     // Back button clicked
@@ -1394,6 +1416,30 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     menu_button.connect_clicked(clone!(@weak menu => move |_| {
         menu.popup();
     }));
+
+    // // IPFS button clicked
+    // ipfs_button.connect_toggled(clone!(@weak ipfs_button, @weak tabs => move |_| {
+    //     let web_view = get_view(&tabs);
+    //     let web_context = web_view.context().unwrap();
+    //     let mut native;
+    //     if (ipfs_button.is_active()) {
+    //         native = false;
+    //     } else {
+    //         native = true;
+    //     }
+    //     match native {
+    //         true => {
+    //             web_context.register_uri_scheme("ipfs", move |request| {
+    //                 handle_ipfs_request_natively(request)
+    //             });
+    //         }
+    //         false => {
+    //             web_context.register_uri_scheme("ipfs", move |request| {
+    //                 handle_ipfs_request_using_api(request)
+    //             });
+    //         }
+    //     };
+    // }));
 
     // Zoom-in button clicked
     zoomin_button.connect_clicked(clone!(@weak tabs, @weak nav_entry => move |_| {
