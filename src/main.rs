@@ -29,8 +29,8 @@ use directories_next::ProjectDirs;
 use directories_next::UserDirs;
 use futures::TryStreamExt;
 use gio::prelude::*;
-use glib::clone;
 use glib::Cast;
+use glib_macros::clone;
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
 use gtk::prelude::EditableExt;
@@ -38,8 +38,8 @@ use gtk::prelude::EntryExt;
 use gtk::prelude::GtkWindowExt;
 use gtk::prelude::PopoverExt;
 use gtk::prelude::StyleContextExt;
-use gtk::prelude::WidgetExt;
 use gtk::prelude::ToggleButtonExt;
+use gtk::prelude::WidgetExt;
 use ipfs::Ipfs;
 use ipfs::IpfsOptions;
 use ipfs::IpfsPath;
@@ -54,6 +54,8 @@ use tokio_stream::StreamExt;
 use url::ParseError;
 use url::Url;
 use urlencoding::decode;
+use webkit2gtk::builders::SettingsBuilder;
+use webkit2gtk::builders::WebViewBuilder;
 use webkit2gtk::{
     traits::{SettingsExt, URISchemeRequestExt, WebContextExt, WebViewExt},
     URISchemeRequest,
@@ -227,11 +229,15 @@ fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 ///
 /// * `ipfs_button` - The button indicating whether or not to use a daemon or native resolution
 /// * `request` - The request from the browser for the IPFS resource
-fn handle_ipfs_request<'a>(ipfs_button: &'a gtk::ToggleButton, request: &'a URISchemeRequest) -> &'a URISchemeRequest {
-    match (ipfs_button.is_active()) {
+fn handle_ipfs_request<'a>(
+    ipfs_button: &'a gtk::ToggleButton,
+    request: &'a URISchemeRequest,
+) -> &'a URISchemeRequest {
+    match ipfs_button.is_active() {
         true => {
             return handle_ipfs_request_natively(request);
-        } false => {
+        }
+        false => {
             return handle_ipfs_request_using_api(request);
         }
     }
@@ -266,12 +272,12 @@ fn handle_ipfs_request_natively(request: &URISchemeRequest) -> &URISchemeRequest
     //let ipfs_bytes = download_ipfs_file_natively(ipfs_path).await;
     let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
     request.finish(&stream, -1, None);
-    return request
+    return request;
 }
 
 /// Provide the default configuration for Oku's WebView
 fn new_webkit_settings() -> webkit2gtk::Settings {
-    let settings_builder = webkit2gtk::SettingsBuilder::new();
+    let settings_builder = SettingsBuilder::new();
 
     settings_builder
         .load_icons_ignoring_image_load_setting(true)
@@ -354,9 +360,7 @@ fn new_view(
     ipfs_button: &gtk::ToggleButton,
     tabs: &libadwaita::TabBar,
 ) -> webkit2gtk::WebView {
-    let web_kit = webkit2gtk::WebViewBuilder::new()
-        .vexpand(true)
-        .is_ephemeral(is_private);
+    let web_kit = WebViewBuilder::new().vexpand(true).is_ephemeral(is_private);
     let web_settings: webkit2gtk::Settings = new_webkit_settings();
     let web_view = web_kit.build();
     let web_context = web_view.context().unwrap();
@@ -389,9 +393,12 @@ fn new_view(
     //         });
     //     }
     // };
-    web_context.register_uri_scheme("ipfs", clone!(@weak ipfs_button => move |request| {
-        handle_ipfs_request(&ipfs_button, request);
-    }));
+    web_context.register_uri_scheme(
+        "ipfs",
+        clone!(@weak ipfs_button => move |request| {
+            handle_ipfs_request(&ipfs_button, request);
+        }),
+    );
     web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
     web_settings.set_enable_write_console_messages_to_stdout(verbose);
     web_view.set_settings(&web_settings);
@@ -1146,7 +1153,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .margin_bottom(4)
         .icon_name("edit-find")
         .build();
-    
+
     // IPFS menu button
     let ipfs_button = gtk::ToggleButton::builder()
         .can_focus(true)
@@ -1348,7 +1355,13 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .build();
 
     if tab_view.n_pages() == 0 {
-        create_initial_tab(&tabs, initial_url.to_owned(), verbose, is_private, &ipfs_button)
+        create_initial_tab(
+            &tabs,
+            initial_url.to_owned(),
+            verbose,
+            is_private,
+            &ipfs_button,
+        )
     }
     // End of Tabs
 

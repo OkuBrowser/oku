@@ -29,18 +29,19 @@ resolver = "1"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-arti-client = { version = "0.2.0", features = ["static"] }
+arti-client = { version = "0.4.1", features = ["static"] }
 bincode = "1.3.3"
-cairo-rs = { version = "0.15.10", features = ["png"] }
+cairo-rs = { version = "0.15.12", features = ["png"] }
 chrono = { version = "0.4.19", features = ["unstable-locales"] }
-cid = "0.8.4"
+cid = "0.8.5"
 directories-next = "2.0.0"
 futures = "0.3.21"
-gdk = { version = "0.4.7", package = "gdk4" }
-gdk-pixbuf = "0.15.10"
-gio = "0.15.10"
-glib = "0.15.10"
-gtk = { version = "0.4.7", package = "gtk4", features = ["v4_2"], default-features = false }
+gdk = { version = "0.4.8", package = "gdk4" }
+gdk-pixbuf = "0.15.11"
+gio = "0.15.12"
+glib = "0.15.12"
+glib-macros = "0.15.11"
+gtk = { version = "0.4.8", package = "gtk4", features = ["v4_2"], default-features = false }
 ipfs = { git = "https://github.com/rs-ipfs/rust-ipfs.git", rev = "275b761" }
 ipfs-api-backend-hyper = { version = "0.4.0", features = ["with-hyper-tls"] }
 lazy_static = "1.4.0"
@@ -49,11 +50,11 @@ notify-rust = { version = "4.5.8", features = ["images", "z"], default-features 
 pango = "0.15.10"
 url = "2.2.2"
 urlencoding = "2.1.0"
-reqwest = { version = "0.11.10", features = ["blocking"] }
-tokio = { version = "1.17.0", features = ["full"] }
-tokio-stream = "0.1.8"
+reqwest = { version = "0.11.11", features = ["blocking"] }
+tokio = { version = "1.19.2", features = ["full"] }
+tokio-stream = "0.1.9"
 transmission_rs = "0.8.6"
-webkit2gtk = { git = "https://gitlab.gnome.org/JanGernert/webkit2gtk5-rs.git", branch = "newsflash4", package = "webkit2gtk5", features = ["v2_34"] }
+webkit2gtk = { version = "0.1.5", package = "webkit2gtk5", features = ["v2_34"] }
 
 [profile.release]
 codegen-units = 1
