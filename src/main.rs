@@ -280,17 +280,16 @@ fn new_webkit_settings() -> webkit2gtk::Settings {
     let settings_builder = SettingsBuilder::new();
 
     settings_builder
-        .load_icons_ignoring_image_load_setting(true)
         .javascript_can_open_windows_automatically(true)
         .allow_file_access_from_file_urls(true)
         .allow_modal_dialogs(true)
         .allow_top_navigation_to_data_urls(true)
         .allow_universal_access_from_file_urls(true)
         .auto_load_images(true)
-        .draw_compositing_indicators(true)
+        // .draw_compositing_indicators(true)
         // .enable_accelerated_2d_canvas(false)
         .enable_back_forward_navigation_gestures(true)
-        .enable_caret_browsing(true)
+        .enable_caret_browsing(false)
         .enable_developer_extras(true)
         .enable_dns_prefetching(true)
         .enable_encrypted_media(true)
@@ -322,7 +321,7 @@ fn new_webkit_settings() -> webkit2gtk::Settings {
         .enable_xss_auditor(true)
         .hardware_acceleration_policy(webkit2gtk::HardwareAccelerationPolicy::Never)
         .javascript_can_access_clipboard(true)
-        .load_icons_ignoring_image_load_setting(false)
+        .load_icons_ignoring_image_load_setting(true)
         .media_playback_allows_inline(true)
         .media_playback_requires_user_gesture(false)
         .print_backgrounds(true)
@@ -466,6 +465,7 @@ fn new_view(
     web_view.connect_load_changed(clone!(@weak tabs, @weak web_view => move |_, _| {
         let window: gtk::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
         window.set_title(Some(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
+        update_favicon(&web_view);
     }));
 
     web_view
@@ -1493,10 +1493,21 @@ fn new_window_four(application: &libadwaita::Application) -> libadwaita::TabView
 
     // Enter Fullscreen button clicked
     fullscreen_button.connect_clicked(
-        clone!(@weak tabs, @weak nav_entry => move |_| {
+        clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
             let web_view = get_view(&tabs);
-            web_view.run_javascript("document.documentElement.webkitRequestFullscreen();", gio::Cancellable::NONE, move |_| {
-            })
+            if !window.is_fullscreened() {
+                window.set_fullscreened(true);
+                tabs.hide();
+                tabs.set_opacity(0.0);
+                web_view.run_javascript("document.documentElement.webkitEnterFullscreen();", gio::Cancellable::NONE, move |_| {
+                })
+            } else {
+                window.set_fullscreened(false);
+                tabs.show();
+                tabs.set_opacity(100.0);
+                web_view.run_javascript("document.documentElement.webkitExitFullscreen();", gio::Cancellable::NONE, move |_| {
+                })
+            }
         }),
     );
 
