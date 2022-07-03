@@ -47,6 +47,7 @@ use ipfs::Keypair;
 use ipfs::Types;
 use ipfs::UninitializedIpfs;
 use ipfs_api_backend_hyper::{IpfsApi, IpfsClient};
+use libadwaita::traits::AdwApplicationExt;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::path::PathBuf;
@@ -147,7 +148,6 @@ fn initial_connect(mut initial_url: String, web_view: &webkit2gtk::WebView) {
 /// * `web_view` - The WebKit instance for the current tab
 fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
     let mut nav_text = nav_entry.text().to_string();
-
     let mut parsed_url = Url::parse(&nav_text);
     match parsed_url {
         // When URL is completely OK
@@ -288,7 +288,7 @@ fn new_webkit_settings() -> webkit2gtk::Settings {
         .allow_universal_access_from_file_urls(true)
         .auto_load_images(true)
         .draw_compositing_indicators(true)
-        .enable_accelerated_2d_canvas(false)
+        // .enable_accelerated_2d_canvas(false)
         .enable_back_forward_navigation_gestures(true)
         .enable_caret_browsing(true)
         .enable_developer_extras(true)
@@ -309,8 +309,8 @@ fn new_webkit_settings() -> webkit2gtk::Settings {
         .enable_mock_capture_devices(true)
         .enable_offline_web_application_cache(true)
         .enable_page_cache(true)
-        .enable_plugins(true)
-        .enable_private_browsing(true)
+        // .enable_plugins(true)
+        // .enable_private_browsing(true)
         .enable_resizable_text_areas(true)
         .enable_site_specific_quirks(true)
         .enable_smooth_scrolling(true)
@@ -354,11 +354,14 @@ fn new_webkit_settings() -> webkit2gtk::Settings {
 /// * `is_private` - Whether the window represents a private session
 ///
 /// * `ipfs_button` - Button indicating whether the browser is using a built-in (native) IPFS handler, or an external one
+///
+/// * `headerbar` - The browser's headerbar
 fn new_view(
     verbose: bool,
     is_private: bool,
     ipfs_button: &gtk::ToggleButton,
     tabs: &libadwaita::TabBar,
+    headerbar: &libadwaita::HeaderBar,
 ) -> webkit2gtk::WebView {
     let web_kit = WebViewBuilder::new().vexpand(true).is_ephemeral(is_private);
     let web_settings: webkit2gtk::Settings = new_webkit_settings();
@@ -413,16 +416,12 @@ fn new_view(
     web_view.connect_title_notify(clone!(@weak web_view => move |_| {
         update_title(&web_view)
     }));
-    web_view.connect_uri_notify(clone!(@weak web_view => move |_| {
-        let window: gtk::ApplicationWindow = web_view.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
-        let headerbar: gtk::HeaderBar = window.titlebar().unwrap().downcast().unwrap();
+    web_view.connect_uri_notify(clone!(@weak web_view, @weak headerbar => move |_| {
         let nav_entry: gtk::Entry = headerbar.title_widget().unwrap().downcast().unwrap();
         update_nav_bar(&nav_entry, &web_view)
     }));
     web_view.connect_estimated_load_progress_notify(
-        clone!(@weak tabs, @weak web_view => move |_| {
-            let window: gtk::ApplicationWindow = web_view.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
-            let headerbar: gtk::HeaderBar = window.titlebar().unwrap().downcast().unwrap();
+        clone!(@weak tabs, @weak web_view, @weak headerbar => move |_| {
             let nav_entry: gtk::Entry = headerbar.title_widget().unwrap().downcast().unwrap();
             let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
             let current_page = tab_view.page(&web_view);
@@ -465,7 +464,7 @@ fn new_view(
         update_favicon(&web_view)
     }));
     web_view.connect_load_changed(clone!(@weak tabs, @weak web_view => move |_, _| {
-        let window: gtk::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().downcast().unwrap();
+        let window: gtk::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
         window.set_title(Some(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
     }));
 
@@ -585,14 +584,17 @@ fn ipfs_options() -> ipfs::IpfsOptions {
 /// * `is_private` - Whether the window represents a private session
 ///
 /// * `ipfs_button` - Button indicating whether the browser is using a built-in (native) IPFS handler, or an external one
+///
+/// * `headerbar` - The browser's headerbar
 fn new_tab_page(
     tabs: &libadwaita::TabBar,
     verbose: bool,
     is_private: bool,
     ipfs_button: &gtk::ToggleButton,
+    headerbar: &libadwaita::HeaderBar,
 ) -> webkit2gtk::WebView {
     let tab_view = tabs.view().unwrap();
-    let new_view = new_view(verbose, is_private, ipfs_button, tabs);
+    let new_view = new_view(verbose, is_private, ipfs_button, tabs, headerbar);
     let new_page = tab_view.append(&new_view);
     new_page.set_title("New Tab");
     new_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
@@ -642,14 +644,17 @@ fn get_view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
 /// * `is_private` - Whether the window represents a private session
 ///
 /// * `ipfs_button` - Button indicating whether the browser is using a built-in (native) IPFS handler, or an external one
+///
+/// * `headerbar` - The browser's headerbar
 fn create_initial_tab(
     tabs: &libadwaita::TabBar,
     initial_url: String,
     verbose: bool,
     is_private: bool,
     ipfs_button: &gtk::ToggleButton,
+    headerbar: &libadwaita::HeaderBar,
 ) {
-    let web_view = new_tab_page(tabs, verbose, is_private, ipfs_button);
+    let web_view = new_tab_page(tabs, verbose, is_private, ipfs_button, headerbar);
     initial_connect(initial_url, &web_view)
 }
 
@@ -754,7 +759,11 @@ fn new_about_dialog(application: &gtk::Application) {
 
 /// The main function of Oku
 fn main() {
-    let application = gtk::Application::new(Some("com.github.dirout.oku"), Default::default());
+    let application = libadwaita::Application::builder()
+        .application_id("com.github.dirout.oku")
+        .build();
+    let style_manager = application.style_manager();
+    style_manager.set_color_scheme(libadwaita::ColorScheme::ForceDark);
 
     // application.add_main_option("url", glib::Char('u' as i8), OptionFlags::NONE, OptionArg::String, "An optional URL to open", Some("Open a URL in the browser"));
     // application.add_main_option("verbose", glib::Char('v' as i8), OptionFlags::NONE, OptionArg::None, "Output browser messages to standard output", None);
@@ -1047,7 +1056,7 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
 /// # Arguments
 ///
 /// * `application` - The application data representing Oku
-fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
+fn new_window_four(application: &libadwaita::Application) -> libadwaita::TabView {
     // Options
     let verbose = true;
     let is_private = true;
@@ -1203,9 +1212,9 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
 
     // HeaderBar
     //let headerbar_builder = gtk::HeaderBarBuilder::new();
-    let headerbar = gtk::HeaderBar::builder()
+    let headerbar = libadwaita::HeaderBar::builder()
         .can_focus(true)
-        .show_title_buttons(true)
+        //.show_title_buttons(true)
         .title_widget(&nav_entry)
         .build();
     headerbar.pack_start(&left_header_buttons);
@@ -1346,6 +1355,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     // Tabs
     //let tab_view_builder = libadwaita::TabViewBuilder::new();
     let tab_view = libadwaita::TabView::builder().vexpand(true).build();
+    tab_view.set_visible(true);
 
     //let tabs_builder = libadwaita::TabBarBuilder::new();
     let tabs = libadwaita::TabBar::builder()
@@ -1361,6 +1371,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
             verbose,
             is_private,
             &ipfs_button,
+            &headerbar,
         )
     }
     // End of Tabs
@@ -1371,25 +1382,30 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
         .orientation(gtk::Orientation::Vertical)
         .vexpand(true)
         .build();
+    main_box.append(&headerbar);
     main_box.append(&tabs);
     main_box.append(&tab_view);
 
     //let window_builder = gtk::ApplicationWindowBuilder::new();
-    let window = gtk::ApplicationWindow::builder()
+    let window = libadwaita::ApplicationWindow::builder()
         .application(application)
         .can_focus(true)
         .title("Oku")
         .icon_name("com.github.dirout.oku")
+        //.titlebar(&headerbar)
+        .content(&main_box)
         .build();
-    window.set_titlebar(Some(&headerbar));
-    window.set_child(Some(&main_box));
+    //window.set_titlebar(Some(&headerbar));
+    //window.set_child(Some(&main_box));
     // End of Window
 
     // Signals
     // Add Tab button clicked
-    add_tab.connect_clicked(clone!(@weak tabs, @weak ipfs_button => move |_| {
-        new_tab_page(&tabs, verbose, is_private, &ipfs_button);
-    }));
+    add_tab.connect_clicked(
+        clone!(@weak tabs, @weak ipfs_button, @weak headerbar => move |_| {
+            new_tab_page(&tabs, verbose, is_private, &ipfs_button, &headerbar);
+        }),
+    );
 
     // Back button clicked
     back_button.connect_clicked(clone!(@weak tabs, @weak nav_entry => move |_| {
@@ -1499,7 +1515,7 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     // New Window button clicked
     new_window_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
-            new_window_four(&window.application().unwrap());
+            new_window_four(&window.application().unwrap().downcast().unwrap());
         }),
     );
 
@@ -1514,6 +1530,8 @@ fn new_window_four(application: &gtk::Application) -> libadwaita::TabView {
     tab_view.connect_create_window(create_window_from_drag);
     // End of signals
 
+    // let settings = window.settings();
+    // settings.set_gtk_application_prefer_dark_theme(true);
     window.show();
     tab_view
 }
@@ -1531,9 +1549,11 @@ fn create_window_from_drag(
         .unwrap()
         .parent()
         .unwrap()
+        .parent()
+        .unwrap()
         .downcast()
         .unwrap();
-    let application = window.application().unwrap();
+    let application = window.application().unwrap().downcast().unwrap();
     let new_window = new_window_four(&application);
     Some(new_window)
 }

@@ -45,7 +45,7 @@ gtk = { version = "0.4.8", package = "gtk4", features = ["v4_2"], default-featur
 ipfs = { git = "https://github.com/rs-ipfs/rust-ipfs.git", rev = "275b761" }
 ipfs-api-backend-hyper = { version = "0.4.0", features = ["with-hyper-tls"] }
 lazy_static = "1.4.0"
-libadwaita = "0.1.1"
+libadwaita = { version = "0.1.1", features = ["gtk_v4_6"] }
 notify-rust = { version = "4.5.8", features = ["images", "z"], default-features = false }
 pango = "0.15.10"
 url = "2.2.2"
