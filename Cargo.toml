@@ -48,7 +48,7 @@ lazy_static = "1.4.0"
 libadwaita = { version = "0.1.1", features = ["gtk_v4_6"] }
 notify-rust = { version = "4.5.8", features = ["images", "z"], default-features = false }
 pango = "0.15.10"
-url = "2.2.2"
+url = "2.3.1"
 urlencoding = "2.1.0"
 reqwest = { version = "0.11.11", features = ["blocking"] }
 tokio = { version = "1.19.2", features = ["full"] }
