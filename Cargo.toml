@@ -50,7 +50,7 @@ notify-rust = { version = "4.5.8", features = ["images", "z"], default-features 
 pango = "0.15.10"
 url = "2.2.2"
 urlencoding = "2.1.0"
-reqwest = { version = "0.11.11", features = ["blocking"] }
+reqwest = { version = "0.11.13", features = ["blocking"] }
 tokio = { version = "1.19.2", features = ["full"] }
 tokio-stream = "0.1.9"
 transmission_rs = "0.8.6"
