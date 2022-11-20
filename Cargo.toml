@@ -52,7 +52,7 @@ url = "2.2.2"
 urlencoding = "2.1.0"
 reqwest = { version = "0.11.11", features = ["blocking"] }
 tokio = { version = "1.19.2", features = ["full"] }
-tokio-stream = "0.1.9"
+tokio-stream = "0.1.11"
 transmission_rs = "0.8.6"
 webkit2gtk = { version = "0.1.5", package = "webkit2gtk5", features = ["v2_34"] }
 
