@@ -37,7 +37,7 @@ cid = "0.8.5"
 directories-next = "2.0.0"
 futures = "0.3.21"
 gdk = { version = "0.4.8", package = "gdk4" }
-gdk-pixbuf = "0.15.11"
+gdk-pixbuf = "0.16.4"
 gio = "0.15.12"
 glib = "0.15.12"
 glib-macros = "0.15.11"
