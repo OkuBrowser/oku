@@ -39,7 +39,7 @@ futures = "0.3.21"
 gdk = { version = "0.4.8", package = "gdk4" }
 gdk-pixbuf = "0.15.11"
 gio = "0.15.12"
-glib = "0.15.12"
+glib = "0.16.6"
 glib-macros = "0.15.11"
 gtk = { version = "0.4.8", package = "gtk4", features = ["v4_2"], default-features = false }
 ipfs = { git = "https://github.com/rs-ipfs/rust-ipfs.git", rev = "275b761" }
