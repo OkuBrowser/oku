@@ -31,7 +31,7 @@ resolver = "1"
 [dependencies]
 arti-client = { version = "0.4.1", features = ["static"] }
 bincode = "1.3.3"
-cairo-rs = { version = "0.15.12", features = ["png"] }
+cairo-rs = { version = "0.16.7", features = ["png"] }
 chrono = { version = "0.4.19", features = ["unstable-locales"] }
 cid = "0.8.5"
 directories-next = "2.0.0"
