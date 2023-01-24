@@ -599,24 +599,74 @@ fn new_tab_page(
     new_page.set_title("New Tab");
     new_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
     tab_view.set_selected_page(&new_page);
-    tab_view.connect_indicator_activated(clone!(@weak new_view, @weak new_page => move |_, _| {
-        new_view.connect_is_playing_audio_notify(clone!(@weak new_view, @weak new_page => move |_| {
-            if new_view.is_playing_audio() {
-                if !new_view.is_muted() {
-                    new_view.set_is_muted(true);
-                    new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-muted")));    
-                    new_page.set_indicator_activatable(true);
-                } else {
-                    new_view.set_is_muted(false);
-                    new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("notification-audio-volume-high")));
+    new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("view-pin-symbolic")));
+    new_page.set_indicator_activatable(true);
+    // Indicator appearance
+    new_view.connect_is_muted_notify(
+        clone!(@weak new_view, @weak new_page, @weak tab_view => move |the_view| {
+            // Has been muted
+            if the_view.is_muted() {
+                new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("audio-volume-muted")));
+                new_page.set_indicator_activatable(true);
+            } else {
+                // Has been unmuted, audio is playing
+                if the_view.is_playing_audio() {
+                    new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("audio-volume-high")));
                     new_page.set_indicator_activatable(true);
                 }
-            } else {
-                new_page.set_indicator_icon(gio::Icon::NONE);
-                new_page.set_indicator_activatable(false);
+                // Has been unmuted, audio is not playing
+                else {
+                    new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("view-pin-symbolic")));
+                    new_page.set_indicator_activatable(true);
+                }
             }
-        }));
     }));
+    new_view.connect_is_playing_audio_notify(
+        clone!(@weak new_view, @weak new_page, @weak tab_view => move |the_view| {
+            // Audio has started playing and not muted
+            if the_view.is_playing_audio() && !the_view.is_muted() {
+                new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("audio-volume-high")));
+                new_page.set_indicator_activatable(true);
+            }
+        }),
+    );
+    // Indicator logic
+    tab_view.connect_indicator_activated(clone!(@weak new_view, @weak new_page, @weak tab_view => move |_, this_page| {
+        let this_view = get_view_from_page(this_page);
+        println!("Activated: {}, Muted: {}, Audio Playing: {}, Pinned: {}", this_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string(), this_view.is_muted(), this_view.is_playing_audio(), this_page.is_pinned());
+        if !this_view.is_playing_audio() && !this_view.is_muted() {
+            tab_view.set_page_pinned(&this_page, !this_page.is_pinned());
+        } else {
+            this_view.set_is_muted(!this_view.is_muted());
+        }
+    }));
+    // new_view.connect_is_muted_notify(clone!(@weak new_view, @weak new_page, @weak tab_view => move |_| {
+    //     if !new_view.is_muted() {
+    //         new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("audio-volume-high")));
+    //         new_page.set_indicator_activatable(true);
+    //         tab_view.connect_indicator_activated(clone!(@weak new_view, @weak new_page => move |_, _| {
+    //             new_view.set_is_muted(true);
+    //             new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("audio-volume-muted")));
+    //             new_page.set_indicator_activatable(true);
+    //         }));
+    //     } else {
+    //         if new_view.is_playing_audio() {
+    //             new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("audio-volume-muted")));
+    //             new_page.set_indicator_activatable(true);
+    //             tab_view.connect_indicator_activated(clone!(@weak new_view, @weak new_page => move |_, _| {
+    //                 new_view.set_is_muted(false);
+    //                 new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("audio-volume-high")));
+    //                 new_page.set_indicator_activatable(true);
+    //             }));
+    //         } else {
+    //             new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("view-pin-symbolic")));
+    //             new_page.set_indicator_activatable(true);
+    //             tab_view.connect_indicator_activated(clone!(@weak new_view, @weak new_page, @weak tab_view => move |_, _| {
+    //                 tab_view.set_page_pinned(&new_page, !new_page.is_pinned());
+    //             }));
+    //         }
+    //     }
+    // }));
     new_view
 }
 
@@ -631,6 +681,15 @@ fn get_view(tabs: &libadwaita::TabBar) -> webkit2gtk::WebView {
     let current_page_number = tab_view.page_position(&current_page);
     let specific_page = tab_view.nth_page(current_page_number);
     specific_page.child().downcast().unwrap()
+}
+
+/// Get the WebKit instance for the current tab
+///
+/// # Arguments
+///
+/// * `page` - The TabPage containing the the WebKit instance
+fn get_view_from_page(page: &libadwaita::TabPage) -> webkit2gtk::WebView {
+    page.child().downcast().unwrap()
 }
 
 /// Create an initial tab, for when the TabBar is empty
