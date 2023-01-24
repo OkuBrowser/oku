@@ -58,7 +58,7 @@ use urlencoding::decode;
 use webkit2gtk::builders::SettingsBuilder;
 use webkit2gtk::builders::WebViewBuilder;
 use webkit2gtk::{
-    traits::{SettingsExt, URISchemeRequestExt, WebContextExt, WebViewExt},
+    traits::{URISchemeRequestExt, WebContextExt, WebViewExt, WebkitSettingsExt},
     URISchemeRequest,
 };
 
