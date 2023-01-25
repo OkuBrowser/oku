@@ -40,6 +40,7 @@ use gtk::prelude::PopoverExt;
 use gtk::prelude::StyleContextExt;
 use gtk::prelude::ToggleButtonExt;
 use gtk::prelude::WidgetExt;
+use gtk::subclass::print_operation;
 use ipfs::Ipfs;
 use ipfs::IpfsOptions;
 use ipfs::IpfsPath;
@@ -58,8 +59,10 @@ use urlencoding::decode;
 use webkit2gtk::builders::SettingsBuilder;
 use webkit2gtk::builders::WebViewBuilder;
 use webkit2gtk::{
-    traits::{URISchemeRequestExt, WebContextExt, WebViewExt, WebkitSettingsExt},
-    URISchemeRequest,
+    traits::{
+        PrintOperationExt, URISchemeRequestExt, WebContextExt, WebViewExt, WebkitSettingsExt,
+    },
+    PrintOperation, URISchemeRequest,
 };
 
 #[macro_use]
@@ -598,6 +601,7 @@ fn new_tab_page(
     let new_page = tab_view.append(&new_view);
     new_page.set_title("New Tab");
     new_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
+    new_page.set_live_thumbnail(true);
     tab_view.set_selected_page(&new_page);
     new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("view-pin-symbolic")));
     new_page.set_indicator_activatable(true);
@@ -627,19 +631,19 @@ fn new_tab_page(
             if the_view.is_playing_audio() && !the_view.is_muted() {
                 new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("audio-volume-high")));
                 new_page.set_indicator_activatable(true);
+            } else if !the_view.is_playing_audio() {
+                // Audio has stopped playing, muted
+                if the_view.is_muted() {
+                    new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("audio-volume-muted")));
+                    new_page.set_indicator_activatable(true);
+                } else {
+                    // Audio has stopped playing, not muted
+                    new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("view-pin-symbolic")));
+                    new_page.set_indicator_activatable(true);
+                }
             }
         }),
     );
-    // Indicator logic
-    tab_view.connect_indicator_activated(clone!(@weak new_view, @weak new_page, @weak tab_view => move |_, this_page| {
-        let this_view = get_view_from_page(this_page);
-        println!("Activated: {}, Muted: {}, Audio Playing: {}, Pinned: {}", this_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string(), this_view.is_muted(), this_view.is_playing_audio(), this_page.is_pinned());
-        if !this_view.is_playing_audio() && !this_view.is_muted() {
-            tab_view.set_page_pinned(&this_page, !this_page.is_pinned());
-        } else {
-            this_view.set_is_muted(!this_view.is_muted());
-        }
-    }));
     // new_view.connect_is_muted_notify(clone!(@weak new_view, @weak new_page, @weak tab_view => move |_| {
     //     if !new_view.is_muted() {
     //         new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("audio-volume-high")));
@@ -1200,6 +1204,33 @@ fn new_window_four(application: &libadwaita::Application) -> libadwaita::TabView
     left_header_buttons.append(&add_tab);
     left_header_buttons.append(&refresh_button);
 
+    // Overview button
+    //let overview_button_builder = gtk::ButtonBuilder::new();
+    let overview_button = gtk::Button::builder()
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_start(4)
+        .margin_bottom(4)
+        .icon_name("view-grid-symbolic")
+        .build();
+
+    let overview = libadwaita::TabOverviewBuilder::new()
+        .enable_new_tab(true)
+        .enable_search(true)
+        .view(&tab_view)
+        .build();
+
+    overview.connect_create_tab(
+        clone!(@weak tabs, @weak ipfs_button, @weak headerbar => move |_| {
+            new_tab_page(&tabs, verbose, is_private, &ipfs_button, &headerbar);
+        }),
+    );
+
+    overview_button.connect_clicked(clone!(@weak overview => move |_| {
+        overview.set_open(!overview.is_open());
+    }));
+
     // Downloads button
     //let downloads_button_builder = gtk::ButtonBuilder::new();
     let downloads_button = gtk::Button::builder()
@@ -1208,7 +1239,7 @@ fn new_window_four(application: &libadwaita::Application) -> libadwaita::TabView
         .halign(gtk::Align::Start)
         .margin_start(4)
         .margin_bottom(4)
-        .icon_name("emblem-downloads")
+        .icon_name("folder-download-symbolic")
         .build();
 
     // Find button
@@ -1263,6 +1294,7 @@ fn new_window_four(application: &libadwaita::Application) -> libadwaita::TabView
         .spacing(2)
         .homogeneous(true)
         .build();
+    right_header_buttons.append(&overview_button);
     right_header_buttons.append(&downloads_button);
     right_header_buttons.append(&find_button);
     right_header_buttons.append(&ipfs_button);
@@ -1415,6 +1447,16 @@ fn new_window_four(application: &libadwaita::Application) -> libadwaita::TabView
     //let tab_view_builder = libadwaita::TabViewBuilder::new();
     let tab_view = libadwaita::TabView::builder().vexpand(true).build();
     tab_view.set_visible(true);
+    // Indicator logic
+    tab_view.connect_indicator_activated(clone!(@weak tab_view => move |_, current_page| {
+        let current_view = get_view_from_page(current_page);
+        println!("Activated: {}, Muted: {}, Audio Playing: {}, Pinned: {}", current_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string(), current_view.is_muted(), current_view.is_playing_audio(), current_page.is_pinned());
+        if !current_view.is_playing_audio() && !current_view.is_muted() {
+            tab_view.set_page_pinned(&current_page, !current_page.is_pinned());
+        } else {
+            current_view.set_is_muted(!current_view.is_muted());
+        }
+    }));
 
     //let tabs_builder = libadwaita::TabBarBuilder::new();
     let tabs = libadwaita::TabBar::builder()
