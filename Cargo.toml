@@ -35,7 +35,7 @@ cairo-rs = { git = "https://github.com/gtk-rs/gtk-rs-core", features = ["png"] }
 chrono = { version = "0.4.23", features = ["unstable-locales"] }
 cid = "0.10.1"
 directories-next = "2.0.0"
-futures = "0.3.25"
+futures = "0.3.26"
 gdk = { git = "https://github.com/gtk-rs/gtk4-rs", package = "gdk4" }
 gdk-pixbuf = "0.16.7"
 gio = { git = "https://github.com/gtk-rs/gtk-rs-core" }
