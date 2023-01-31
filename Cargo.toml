@@ -53,7 +53,7 @@ urlencoding = "2.1.2"
 reqwest = { version = "0.11.14", features = ["blocking"] }
 tokio = { version = "1.24.2", features = ["full"] }
 tokio-stream = "0.1.11"
-transmission_rs = "0.8.10"
+transmission_rs = "0.8.11"
 webkit2gtk = { git = "https://gitlab.gnome.org/World/Rust/webkit2gtk5-rs.git", rev = "52625d8cb9f93d46977d746937df55ad26f900b7", package = "webkit2gtk5", features = ["v2_34"] }
 
 [profile.release]
