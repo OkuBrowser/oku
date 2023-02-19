@@ -46,7 +46,7 @@ ipfs = { git = "https://github.com/rs-ipfs/rust-ipfs.git", rev = "965f86b" }
 ipfs-api-backend-hyper = { version = "0.6.0", features = ["with-hyper-tls"] }
 lazy_static = "1.4.0"
 libadwaita = { git = "https://gitlab.gnome.org/World/Rust/libadwaita-rs.git", rev = "4be42706", features = ["gtk_v4_6", "v1_3"] }
-notify-rust = { version = "4.7.0", features = ["images", "z"], default-features = false }
+notify-rust = { version = "4.8.0", features = ["images", "z"], default-features = false }
 pango = { git = "https://github.com/gtk-rs/gtk-rs-core" }
 url = "2.3.1"
 urlencoding = "2.1.2"
