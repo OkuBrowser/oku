@@ -48,6 +48,7 @@ use ipfs::Keypair;
 use ipfs::Types;
 use ipfs::UninitializedIpfs;
 use ipfs_api_backend_hyper::{IpfsApi, IpfsClient};
+use libadwaita::prelude::AdwApplicationWindowExt;
 use libadwaita::traits::AdwApplicationExt;
 use std::convert::TryFrom;
 use std::fs::File;
@@ -58,6 +59,15 @@ use url::Url;
 use urlencoding::decode;
 use webkit2gtk::builders::SettingsBuilder;
 use webkit2gtk::builders::WebViewBuilder;
+use webkit2gtk::traits::DownloadExt;
+use webkit2gtk::traits::NavigationPolicyDecisionExt;
+use webkit2gtk::traits::PolicyDecisionExt;
+use webkit2gtk::traits::URIRequestExt;
+use webkit2gtk::NavigationPolicyDecision;
+use webkit2gtk::PolicyDecision;
+use webkit2gtk::PolicyDecisionType;
+use webkit2gtk::Settings;
+use webkit2gtk::WebView;
 use webkit2gtk::{
     traits::{
         PrintOperationExt, URISchemeRequestExt, WebContextExt, WebViewExt, WebkitSettingsExt,
@@ -280,7 +290,7 @@ fn handle_ipfs_request_natively(request: &URISchemeRequest) -> &URISchemeRequest
 
 /// Provide the default configuration for Oku's WebView
 fn new_webkit_settings() -> webkit2gtk::Settings {
-    let settings_builder = SettingsBuilder::new();
+    let settings_builder = Settings::builder();
 
     settings_builder
         .javascript_can_open_windows_automatically(true)
@@ -365,7 +375,7 @@ fn new_view(
     tabs: &libadwaita::TabBar,
     headerbar: &libadwaita::HeaderBar,
 ) -> webkit2gtk::WebView {
-    let web_kit = WebViewBuilder::new().vexpand(true).is_ephemeral(is_private);
+    let web_kit = WebView::builder().vexpand(true).is_ephemeral(is_private);
     let web_settings: webkit2gtk::Settings = new_webkit_settings();
     let web_view = web_kit.build();
     let web_context = web_view.context().unwrap();
@@ -415,27 +425,41 @@ fn new_view(
     web_view.set_height_request(640);
     web_view.load_uri("about:blank");
 
-    web_view.connect_title_notify(clone!(@weak web_view => move |_| {
-        update_title(&web_view)
+    web_context.connect_download_started(clone!(@weak tabs => move |w, download| {
+        libadwaita::MessageDialog::new(
+            gtk::Window::NONE,
+            Some("Download file?"),
+            Some(&format!(
+                "Would you like to download '{}'?",
+                download.request().unwrap()
+            )),
+        );
     }));
-    web_view.connect_uri_notify(clone!(@weak web_view, @weak headerbar => move |_| {
-        let nav_entry: gtk::Entry = headerbar.title_widget().unwrap().downcast().unwrap();
-        update_nav_bar(&nav_entry, &web_view)
-    }));
-    web_view.connect_estimated_load_progress_notify(
-        clone!(@weak tabs, @weak web_view, @weak headerbar => move |_| {
-            let nav_entry: gtk::Entry = headerbar.title_widget().unwrap().downcast().unwrap();
-            let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
-            let current_page = tab_view.page(&web_view);
-            current_page.set_loading(true);
-            update_load_progress(&nav_entry, &web_view)
-        }),
-    );
-    web_view.connect_is_loading_notify(clone!(@weak tabs, @weak web_view => move |_| {
-        let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
-        let current_page = tab_view.page(&web_view);
-        current_page.set_loading(web_view.is_loading())
-    }));
+
+    web_view.connect_title_notify(clone!(@weak tabs => move |w| { update_title(&w) }));
+    // web_view.connect_uri_notify(clone!(@weak tabs => move |w| {
+    //     let window: libadwaita::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+    //     let headerbar: libadwaita::HeaderBar = window.content().unwrap().first_child().unwrap().downcast().unwrap();
+    //     let nav_entry: gtk::Entry = headerbar.title_widget().unwrap().downcast().unwrap();
+    //     update_nav_bar(&nav_entry, &w)
+    // }));
+    // web_view.connect_estimated_load_progress_notify(
+    //     clone!(@weak tabs => move |w| {
+    //         //let window: libadwaita::ApplicationWindow = web_view.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+    //         let window: libadwaita::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+    //         let headerbar: libadwaita::HeaderBar = window.content().unwrap().first_child().unwrap().downcast().unwrap();
+    //         let nav_entry: gtk::Entry = headerbar.title_widget().unwrap().downcast().unwrap();
+    //         let tab_view: libadwaita::TabView = tabs.view().unwrap();
+    //         let current_page = tab_view.page(w);
+    //         current_page.set_loading(true);
+    //         update_load_progress(&nav_entry, &w)
+    //     }),
+    // );
+    // web_view.connect_is_loading_notify(clone!(@weak tabs => move |w| {
+    //     let tab_view: libadwaita::TabView = tabs.view().unwrap();
+    //     let current_page = tab_view.page(w);
+    //     current_page.set_loading(w.is_loading())
+    // }));
     // web_view.connect_is_playing_audio_notify(clone!(@weak web_view => move |_| {
     //     let tab_view: libadwaita::TabView = web_view.parent().unwrap().parent().unwrap().downcast().unwrap();
     //     let current_page = tab_view.page(&web_view).unwrap();
@@ -462,14 +486,63 @@ fn new_view(
     //         }
     //     }
     // }));
-    web_view.connect_favicon_notify(clone!(@weak tabs, @weak web_view => move |_| {
-        update_favicon(&web_view)
+    web_view.connect_favicon_notify(clone!(@weak tabs => move |w| {
+        update_favicon(&w)
     }));
-    web_view.connect_load_changed(clone!(@weak tabs, @weak web_view => move |_, _| {
+    web_view.connect_load_changed(clone!(@weak tabs => move |w, _| {
         let window: gtk::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
-        window.set_title(Some(&web_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
-        update_favicon(&web_view);
+        window.set_title(Some(&w.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
+        update_favicon(&w);
     }));
+    web_view.connect_enter_fullscreen(
+        clone!(@weak tabs => @default-return false, move |w| {
+            let window: libadwaita::ApplicationWindow = w.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+            let headerbar: libadwaita::HeaderBar = window.content().unwrap().first_child().unwrap().downcast().unwrap();
+            headerbar.set_visible(false);
+            tabs.set_visible(false);
+            window.set_fullscreened(true);
+            tabs.hide();
+            tabs.set_opacity(0.0);
+            true
+        }),
+    );
+    web_view.connect_leave_fullscreen(
+        clone!(@weak tabs, @weak web_view => @default-return false, move |w| {
+            let window: libadwaita::ApplicationWindow = w.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+            let headerbar: libadwaita::HeaderBar = window.content().unwrap().first_child().unwrap().downcast().unwrap();
+            headerbar.set_visible(true);
+            tabs.set_visible(true);
+            window.set_fullscreened(false);
+            tabs.show();
+            tabs.set_opacity(100.0);
+            true
+        }),
+    );
+    web_view.connect_decide_policy(
+        clone!(@weak tabs => @default-return false, move |w, policy_decision, decision_type| {
+            match decision_type {
+                PolicyDecisionType::NewWindowAction => {
+                    let window: gtk::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+                    let navigation_policy_decision: NavigationPolicyDecision = policy_decision.clone().downcast().unwrap();
+                    new_window_four(&window.application().unwrap().downcast().unwrap(), Some(&navigation_policy_decision.request().unwrap().uri().unwrap()));
+                    policy_decision.use_();
+                    return true;
+                }
+                PolicyDecisionType::NavigationAction => {
+                    policy_decision.use_();
+                    return true;
+                }
+                PolicyDecisionType::Response => {
+                    policy_decision.use_();
+                    return true;
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+            true
+        }),
+    );
 
     web_view
 }
@@ -601,7 +674,7 @@ fn new_tab_page(
     let new_page = tab_view.append(&new_view);
     new_page.set_title("New Tab");
     new_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
-    new_page.set_live_thumbnail(true);
+    // new_page.set_live_thumbnail(true);
     tab_view.set_selected_page(&new_page);
     new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("view-pin-symbolic")));
     new_page.set_indicator_activatable(true);
@@ -644,6 +717,29 @@ fn new_tab_page(
             }
         }),
     );
+    new_view.connect_uri_notify(clone!(@weak tabs, @weak new_view => move |w| {
+        let window: libadwaita::ApplicationWindow = new_view.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+        let headerbar: libadwaita::HeaderBar = window.content().unwrap().first_child().unwrap().downcast().unwrap();
+        let nav_entry: gtk::Entry = headerbar.title_widget().unwrap().downcast().unwrap();
+        update_nav_bar(&nav_entry, &w)
+    }));
+    new_view.connect_estimated_load_progress_notify(
+        clone!(@weak tabs, @weak new_view => move |w| {
+            let window: libadwaita::ApplicationWindow = new_view.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+            // let window: libadwaita::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+            let headerbar: libadwaita::HeaderBar = window.content().unwrap().first_child().unwrap().downcast().unwrap();
+            let nav_entry: gtk::Entry = headerbar.title_widget().unwrap().downcast().unwrap();
+            let tab_view: libadwaita::TabView = tabs.view().unwrap();
+            let current_page = tab_view.page(w);
+            current_page.set_loading(true);
+            update_load_progress(&nav_entry, &w)
+        }),
+    );
+    new_view.connect_is_loading_notify(clone!(@weak tabs => move |w| {
+        let tab_view: libadwaita::TabView = tabs.view().unwrap();
+        let current_page = tab_view.page(w);
+        current_page.set_loading(w.is_loading())
+    }));
     // new_view.connect_is_muted_notify(clone!(@weak new_view, @weak new_page, @weak tab_view => move |_| {
     //     if !new_view.is_muted() {
     //         new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("audio-volume-high")));
@@ -837,7 +933,7 @@ fn main() {
     //     new_window(app, matches);
     // });
     application.connect_activate(clone!(@weak application => move |_| {
-        new_window_four(&application);
+        new_window_four(&application, None);
     }));
 
     // application.connect_handle_local_options(|app, options| {
@@ -1119,12 +1215,15 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
 /// # Arguments
 ///
 /// * `application` - The application data representing Oku
-fn new_window_four(application: &libadwaita::Application) -> libadwaita::TabView {
+fn new_window_four(
+    application: &libadwaita::Application,
+    initial_url_option: Option<&str>,
+) -> libadwaita::TabView {
     // Options
     let verbose = true;
     let is_private = true;
     // let mut native = true;
-    let initial_url = "about:blank";
+    let initial_url = initial_url_option.unwrap_or("about:blank");
 
     // Browser header
     // Navigation bar
@@ -1205,31 +1304,30 @@ fn new_window_four(application: &libadwaita::Application) -> libadwaita::TabView
     left_header_buttons.append(&refresh_button);
 
     // Overview button
-    //let overview_button_builder = gtk::ButtonBuilder::new();
-    let overview_button = gtk::Button::builder()
-        .can_focus(true)
-        .receives_default(true)
-        .halign(gtk::Align::Start)
-        .margin_start(4)
-        .margin_bottom(4)
-        .icon_name("view-grid-symbolic")
-        .build();
+    // let overview_button = gtk::Button::builder()
+    //     .can_focus(true)
+    //     .receives_default(true)
+    //     .halign(gtk::Align::Start)
+    //     .margin_start(4)
+    //     .margin_bottom(4)
+    //     .icon_name("view-grid-symbolic")
+    //     .build();
 
-    let overview = libadwaita::TabOverviewBuilder::new()
-        .enable_new_tab(true)
-        .enable_search(true)
-        .view(&tab_view)
-        .build();
+    // let overview = libadwaita::TabOverviewBuilder::new()
+    //     .enable_new_tab(true)
+    //     .enable_search(true)
+    //     .view(&tab_view)
+    //     .build();
 
-    overview.connect_create_tab(
-        clone!(@weak tabs, @weak ipfs_button, @weak headerbar => move |_| {
-            new_tab_page(&tabs, verbose, is_private, &ipfs_button, &headerbar);
-        }),
-    );
+    // overview.connect_create_tab(
+    //     clone!(@weak tabs, @weak ipfs_button, @weak headerbar => move |_| {
+    //         new_tab_page(&tabs, verbose, is_private, &ipfs_button, &headerbar);
+    //     }),
+    // );
 
-    overview_button.connect_clicked(clone!(@weak overview => move |_| {
-        overview.set_open(!overview.is_open());
-    }));
+    // overview_button.connect_clicked(clone!(@weak overview => move |_| {
+    //     overview.set_open(!overview.is_open());
+    // }));
 
     // Downloads button
     //let downloads_button_builder = gtk::ButtonBuilder::new();
@@ -1294,7 +1392,7 @@ fn new_window_four(application: &libadwaita::Application) -> libadwaita::TabView
         .spacing(2)
         .homogeneous(true)
         .build();
-    right_header_buttons.append(&overview_button);
+    // right_header_buttons.append(&overview_button);
     right_header_buttons.append(&downloads_button);
     right_header_buttons.append(&find_button);
     right_header_buttons.append(&ipfs_button);
@@ -1443,6 +1541,19 @@ fn new_window_four(application: &libadwaita::Application) -> libadwaita::TabView
     menu.set_parent(&menu_button);
     // End of menu popover
 
+    // Downloads popover
+    let downloads_box = gtk::Box::builder()
+        .margin_start(4)
+        .margin_end(4)
+        .margin_top(4)
+        .margin_bottom(4)
+        .spacing(8)
+        .build();
+
+    let downloads = gtk::Popover::builder().child(&downloads_box).build();
+    downloads.set_parent(&downloads_button);
+    // End of downloads popover
+
     // Tabs
     //let tab_view_builder = libadwaita::TabViewBuilder::new();
     let tab_view = libadwaita::TabView::builder().vexpand(true).build();
@@ -1450,7 +1561,6 @@ fn new_window_four(application: &libadwaita::Application) -> libadwaita::TabView
     // Indicator logic
     tab_view.connect_indicator_activated(clone!(@weak tab_view => move |_, current_page| {
         let current_view = get_view_from_page(current_page);
-        println!("Activated: {}, Muted: {}, Audio Playing: {}, Pinned: {}", current_view.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string(), current_view.is_muted(), current_view.is_playing_audio(), current_page.is_pinned());
         if !current_view.is_playing_audio() && !current_view.is_muted() {
             tab_view.set_page_pinned(&current_page, !current_page.is_pinned());
         } else {
@@ -1540,12 +1650,18 @@ fn new_window_four(application: &libadwaita::Application) -> libadwaita::TabView
         clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
             let web_view = get_view(&tabs);
             connect(&nav_entry, &web_view);
+
         }),
     );
 
     // Menu button clicked
     menu_button.connect_clicked(clone!(@weak menu => move |_| {
         menu.popup();
+    }));
+
+    // Downloads button clicked
+    downloads_button.connect_clicked(clone!(@weak downloads => move |_| {
+        downloads.popup();
     }));
 
     // // IPFS button clicked
@@ -1627,7 +1743,7 @@ fn new_window_four(application: &libadwaita::Application) -> libadwaita::TabView
     // New Window button clicked
     new_window_button.connect_clicked(
         clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
-            new_window_four(&window.application().unwrap().downcast().unwrap());
+            new_window_four(&window.application().unwrap().downcast().unwrap(), None);
         }),
     );
 
@@ -1666,6 +1782,6 @@ fn create_window_from_drag(
         .downcast()
         .unwrap();
     let application = window.application().unwrap().downcast().unwrap();
-    let new_window = new_window_four(&application);
+    let new_window = new_window_four(&application, None);
     Some(new_window)
 }

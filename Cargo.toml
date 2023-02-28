@@ -29,15 +29,15 @@ resolver = "1"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-arti-client = { version = "0.8.0", features = ["static"] }
+arti-client = { version = "0.8.1", features = ["static"] }
 bincode = "1.3.3"
 cairo-rs = { git = "https://github.com/gtk-rs/gtk-rs-core", features = ["png"] }
 chrono = { version = "0.4.23", features = ["unstable-locales"] }
 cid = "0.10.1"
 directories-next = "2.0.0"
-futures = "0.3.25"
+futures = "0.3.26"
 gdk = { git = "https://github.com/gtk-rs/gtk4-rs", package = "gdk4" }
-gdk-pixbuf = "0.16.7"
+gdk-pixbuf = "0.17.0"
 gio = { git = "https://github.com/gtk-rs/gtk-rs-core" }
 glib = { git = "https://github.com/gtk-rs/gtk-rs-core" }
 glib-macros = { git = "https://github.com/gtk-rs/gtk-rs-core" }
@@ -45,16 +45,16 @@ gtk = { git = "https://github.com/gtk-rs/gtk4-rs", package = "gtk4", features = 
 ipfs = { git = "https://github.com/rs-ipfs/rust-ipfs.git", rev = "965f86b" }
 ipfs-api-backend-hyper = { version = "0.6.0", features = ["with-hyper-tls"] }
 lazy_static = "1.4.0"
-libadwaita = { git = "https://gitlab.gnome.org/World/Rust/libadwaita-rs.git", rev = "4be42706", features = ["gtk_v4_6", "v1_3"] }
-notify-rust = { version = "4.7.0", features = ["images", "z"], default-features = false }
+libadwaita = { git = "https://gitlab.gnome.org/World/Rust/libadwaita-rs.git", rev = "445f32e47096e80e8015bc1cc16d532a5b4b90f3", features = ["gtk_v4_6", "v1_2"] }
+notify-rust = { version = "4.8.0", features = ["images", "z"], default-features = false }
 pango = { git = "https://github.com/gtk-rs/gtk-rs-core" }
 url = "2.3.1"
 urlencoding = "2.1.2"
 reqwest = { version = "0.11.14", features = ["blocking"] }
-tokio = { version = "1.24.2", features = ["full"] }
-tokio-stream = "0.1.11"
-transmission_rs = "0.8.10"
-webkit2gtk = { git = "https://gitlab.gnome.org/World/Rust/webkit2gtk5-rs.git", rev = "52625d8cb9f93d46977d746937df55ad26f900b7", package = "webkit2gtk5", features = ["v2_34"] }
+tokio = { version = "1.25.0", features = ["full"] }
+tokio-stream = "0.1.12"
+transmission_rs = "0.8.11"
+webkit2gtk = { git = "https://gitlab.gnome.org/World/Rust/webkit2gtk5-rs.git", rev = "511d86246a6c28be82f794d770689aa7b21d9762", package = "webkit2gtk5", features = ["v2_34"] }
 
 [profile.release]
 codegen-units = 1
