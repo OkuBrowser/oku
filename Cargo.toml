@@ -51,7 +51,7 @@ pango = { git = "https://github.com/gtk-rs/gtk-rs-core" }
 url = "2.3.1"
 urlencoding = "2.1.2"
 reqwest = { version = "0.11.14", features = ["blocking"] }
-tokio = { version = "1.25.0", features = ["full"] }
+tokio = { version = "1.27.0", features = ["full"] }
 tokio-stream = "0.1.12"
 transmission_rs = "0.8.11"
 webkit2gtk = { git = "https://gitlab.gnome.org/World/Rust/webkit2gtk5-rs.git", rev = "511d86246a6c28be82f794d770689aa7b21d9762", package = "webkit2gtk5", features = ["v2_34"] }
