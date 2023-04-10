@@ -674,7 +674,7 @@ fn new_tab_page(
     let new_page = tab_view.append(&new_view);
     new_page.set_title("New Tab");
     new_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
-    // new_page.set_live_thumbnail(true);
+    new_page.set_live_thumbnail(true);
     tab_view.set_selected_page(&new_page);
     new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("view-pin-symbolic")));
     new_page.set_indicator_activatable(true);
@@ -1304,30 +1304,30 @@ fn new_window_four(
     left_header_buttons.append(&refresh_button);
 
     // Overview button
-    // let overview_button = gtk::Button::builder()
-    //     .can_focus(true)
-    //     .receives_default(true)
-    //     .halign(gtk::Align::Start)
-    //     .margin_start(4)
-    //     .margin_bottom(4)
-    //     .icon_name("view-grid-symbolic")
-    //     .build();
+    let overview_button = gtk::Button::builder()
+        .can_focus(true)
+        .receives_default(true)
+        .halign(gtk::Align::Start)
+        .margin_start(4)
+        .margin_bottom(4)
+        .icon_name("view-grid-symbolic")
+        .build();
 
-    // let overview = libadwaita::TabOverviewBuilder::new()
-    //     .enable_new_tab(true)
-    //     .enable_search(true)
-    //     .view(&tab_view)
-    //     .build();
+    let overview = libadwaita::TabOverviewBuilder::new()
+        .enable_new_tab(true)
+        .enable_search(true)
+        .view(&tab_view)
+        .build();
 
-    // overview.connect_create_tab(
-    //     clone!(@weak tabs, @weak ipfs_button, @weak headerbar => move |_| {
-    //         new_tab_page(&tabs, verbose, is_private, &ipfs_button, &headerbar);
-    //     }),
-    // );
+    overview.connect_create_tab(
+        clone!(@weak tabs, @weak ipfs_button, @weak headerbar => move |_| {
+            new_tab_page(&tabs, verbose, is_private, &ipfs_button, &headerbar);
+        }),
+    );
 
-    // overview_button.connect_clicked(clone!(@weak overview => move |_| {
-    //     overview.set_open(!overview.is_open());
-    // }));
+    overview_button.connect_clicked(clone!(@weak overview => move |_| {
+        overview.set_open(!overview.is_open());
+    }));
 
     // Downloads button
     //let downloads_button_builder = gtk::ButtonBuilder::new();
@@ -1392,7 +1392,7 @@ fn new_window_four(
         .spacing(2)
         .homogeneous(true)
         .build();
-    // right_header_buttons.append(&overview_button);
+    right_header_buttons.append(&overview_button);
     right_header_buttons.append(&downloads_button);
     right_header_buttons.append(&find_button);
     right_header_buttons.append(&ipfs_button);
