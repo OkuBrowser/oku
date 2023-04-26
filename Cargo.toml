@@ -52,7 +52,7 @@ url = "2.3.1"
 urlencoding = "2.1.2"
 reqwest = { version = "0.11.16", features = ["blocking"] }
 tokio = { version = "1.27.0", features = ["full"] }
-tokio-stream = "0.1.12"
+tokio-stream = "0.1.14"
 transmission_rs = "0.8.11"
 webkit2gtk = { git = "https://gitlab.gnome.org/World/Rust/webkit6-rs.git", rev = "e4e399072574bb10449af3189f82c32216935e10", package = "webkit6" }
 
