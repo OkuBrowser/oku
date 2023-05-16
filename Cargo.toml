@@ -50,7 +50,7 @@ notify-rust = { version = "4.8.0", features = ["images", "z"], default-features 
 pango = { git = "https://github.com/gtk-rs/gtk-rs-core" }
 url = "2.3.1"
 urlencoding = "2.1.2"
-reqwest = { version = "0.11.16", features = ["blocking"] }
+reqwest = { version = "0.11.18", features = ["blocking"] }
 tokio = { version = "1.27.0", features = ["full"] }
 tokio-stream = "0.1.12"
 transmission_rs = "0.8.11"
