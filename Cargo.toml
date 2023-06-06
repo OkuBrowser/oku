@@ -37,7 +37,7 @@ cid = "0.10.1"
 directories-next = "2.0.0"
 futures = "0.3.28"
 gdk = { git = "https://github.com/gtk-rs/gtk4-rs", package = "gdk4" }
-gdk-pixbuf = "0.17.0"
+gdk-pixbuf = "0.17.10"
 gio = { git = "https://github.com/gtk-rs/gtk-rs-core" }
 glib = { git = "https://github.com/gtk-rs/gtk-rs-core" }
 glib-macros = { git = "https://github.com/gtk-rs/gtk-rs-core" }
