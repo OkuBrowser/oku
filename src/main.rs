@@ -28,6 +28,7 @@ use cid::Cid;
 use directories_next::ProjectDirs;
 use directories_next::UserDirs;
 use futures::TryStreamExt;
+use gdk::traits::TextureExt;
 use gio::prelude::*;
 use glib::Cast;
 use glib_macros::clone;
@@ -37,10 +38,8 @@ use gtk::prelude::EditableExt;
 use gtk::prelude::EntryExt;
 use gtk::prelude::GtkWindowExt;
 use gtk::prelude::PopoverExt;
-use gtk::prelude::StyleContextExt;
 use gtk::prelude::ToggleButtonExt;
 use gtk::prelude::WidgetExt;
-use gtk::subclass::print_operation;
 use ipfs::Ipfs;
 use ipfs::IpfsOptions;
 use ipfs::IpfsPath;
@@ -50,30 +49,22 @@ use ipfs::UninitializedIpfs;
 use ipfs_api_backend_hyper::{IpfsApi, IpfsClient};
 use libadwaita::prelude::AdwApplicationWindowExt;
 use libadwaita::traits::AdwApplicationExt;
+use libadwaita::TabOverview;
 use std::convert::TryFrom;
-use std::fs::File;
 use std::path::PathBuf;
 use tokio_stream::StreamExt;
 use url::ParseError;
 use url::Url;
 use urlencoding::decode;
-use webkit2gtk::builders::SettingsBuilder;
-use webkit2gtk::builders::WebViewBuilder;
-use webkit2gtk::traits::DownloadExt;
-use webkit2gtk::traits::NavigationPolicyDecisionExt;
 use webkit2gtk::traits::PolicyDecisionExt;
-use webkit2gtk::traits::URIRequestExt;
+use webkit2gtk::traits::WebViewExt;
 use webkit2gtk::NavigationPolicyDecision;
-use webkit2gtk::PolicyDecision;
-use webkit2gtk::PolicyDecisionType;
 use webkit2gtk::Settings;
 use webkit2gtk::WebView;
-use webkit2gtk::{
-    traits::{
-        PrintOperationExt, URISchemeRequestExt, WebContextExt, WebViewExt, WebkitSettingsExt,
-    },
-    PrintOperation, URISchemeRequest,
-};
+
+use webkit2gtk::PolicyDecisionType;
+
+use webkit2gtk::URISchemeRequest;
 
 #[macro_use]
 extern crate lazy_static;
@@ -290,71 +281,70 @@ fn handle_ipfs_request_natively(request: &URISchemeRequest) -> &URISchemeRequest
 
 /// Provide the default configuration for Oku's WebView
 fn new_webkit_settings() -> webkit2gtk::Settings {
-    let settings_builder = Settings::builder();
+    let settings = Settings::new();
 
-    settings_builder
-        .javascript_can_open_windows_automatically(true)
-        .allow_file_access_from_file_urls(true)
-        .allow_modal_dialogs(true)
-        .allow_top_navigation_to_data_urls(true)
-        .allow_universal_access_from_file_urls(true)
-        .auto_load_images(true)
-        // .draw_compositing_indicators(true)
-        // .enable_accelerated_2d_canvas(false)
-        .enable_back_forward_navigation_gestures(true)
-        .enable_caret_browsing(false)
-        .enable_developer_extras(true)
-        .enable_dns_prefetching(true)
-        .enable_encrypted_media(true)
-        .enable_frame_flattening(true)
-        .enable_fullscreen(true)
-        .enable_html5_database(true)
-        .enable_html5_local_storage(true)
-        .enable_hyperlink_auditing(true)
-        .enable_java(true)
-        .enable_javascript(true)
-        .enable_javascript_markup(true)
-        .enable_media(true)
-        .enable_media_capabilities(true)
-        .enable_media_stream(true)
-        .enable_mediasource(true)
-        .enable_mock_capture_devices(true)
-        .enable_offline_web_application_cache(true)
-        .enable_page_cache(true)
-        // .enable_plugins(true)
-        // .enable_private_browsing(true)
-        .enable_resizable_text_areas(true)
-        .enable_site_specific_quirks(true)
-        .enable_smooth_scrolling(true)
-        .enable_spatial_navigation(true)
-        .enable_tabs_to_links(true)
-        .enable_webaudio(true)
-        .enable_webgl(true)
-        .enable_write_console_messages_to_stdout(true)
-        .enable_xss_auditor(true)
-        .hardware_acceleration_policy(webkit2gtk::HardwareAccelerationPolicy::Never)
-        .javascript_can_access_clipboard(true)
-        .load_icons_ignoring_image_load_setting(true)
-        .media_playback_allows_inline(true)
-        .media_playback_requires_user_gesture(false)
-        .print_backgrounds(true)
-        .zoom_text_only(false)
-        // .enable_developer_extras(true)
-        // .enable_dns_prefetching(true)
-        // .enable_caret_browsing(true)
-        // .allow_modal_dialogs(true)
-        // .javascript_can_access_clipboard(true)
-        // .media_playback_requires_user_gesture(true)
-        // .enable_smooth_scrolling(true)
-        // .enable_media_stream(true)
-        // .enable_spatial_navigation(true)
-        // .enable_encrypted_media(true)
-        // .enable_media_capabilities(true)
-        // .allow_file_access_from_file_urls(true)
-        // .allow_universal_access_from_file_urls(true)
-        // .allow_top_navigation_to_data_urls(true)
-        // .enable_back_forward_navigation_gestures(true)
-        .build()
+    settings.set_javascript_can_open_windows_automatically(true);
+    settings.set_allow_modal_dialogs(true);
+    settings.set_allow_file_access_from_file_urls(true);
+    settings.set_allow_top_navigation_to_data_urls(true);
+    settings.set_allow_universal_access_from_file_urls(true);
+    settings.set_auto_load_images(true);
+    // .draw_compositing_indicators(true)
+    // .enable_accelerated_2d_canvas(false)
+    settings.set_enable_back_forward_navigation_gestures(true);
+    settings.set_enable_caret_browsing(false);
+    settings.set_enable_developer_extras(true);
+    settings.set_enable_dns_prefetching(true);
+    settings.set_enable_encrypted_media(true);
+    // settings.set_enable_frame_flattening(true);
+    settings.set_enable_fullscreen(true);
+    settings.set_enable_html5_database(true);
+    settings.set_enable_html5_local_storage(true);
+    settings.set_enable_hyperlink_auditing(true);
+    // settings.set_enable_java(true);
+    settings.set_enable_javascript(true);
+    settings.set_enable_javascript_markup(true);
+    settings.set_enable_media(true);
+    settings.set_enable_media_capabilities(true);
+    settings.set_enable_media_stream(true);
+    settings.set_enable_mediasource(true);
+    settings.set_enable_mock_capture_devices(true);
+    settings.set_enable_offline_web_application_cache(true);
+    settings.set_enable_page_cache(true);
+    // .enable_plugins(true)
+    // .enable_private_browsing(true)
+    settings.set_enable_resizable_text_areas(true);
+    settings.set_enable_site_specific_quirks(true);
+    settings.set_enable_smooth_scrolling(true);
+    settings.set_enable_spatial_navigation(true);
+    settings.set_enable_tabs_to_links(true);
+    settings.set_enable_webaudio(true);
+    settings.set_enable_webgl(true);
+    settings.set_enable_write_console_messages_to_stdout(true);
+    // settings.set_enable_xss_auditor(true);
+    settings.set_hardware_acceleration_policy(webkit2gtk::HardwareAccelerationPolicy::Never);
+    settings.set_javascript_can_access_clipboard(true);
+    settings.set_load_icons_ignoring_image_load_setting(true);
+    settings.set_media_playback_allows_inline(true);
+    settings.set_media_playback_requires_user_gesture(false);
+    settings.set_print_backgrounds(true);
+    settings.set_zoom_text_only(false);
+    settings
+    // .enable_developer_extras(true)
+    // .enable_dns_prefetching(true)
+    // .enable_caret_browsing(true)
+    // .allow_modal_dialogs(true)
+    // .javascript_can_access_clipboard(true)
+    // .media_playback_requires_user_gesture(true)
+    // .enable_smooth_scrolling(true)
+    // .enable_media_stream(true)
+    // .enable_spatial_navigation(true)
+    // .enable_encrypted_media(true)
+    // .enable_media_capabilities(true)
+    // .allow_file_access_from_file_urls(true)
+    // .allow_universal_access_from_file_urls(true)
+    // .allow_top_navigation_to_data_urls(true)
+    // .enable_back_forward_navigation_gestures(true)
 }
 
 /// Create a new WebKit instance for the current tab
@@ -370,17 +360,17 @@ fn new_webkit_settings() -> webkit2gtk::Settings {
 /// * `headerbar` - The browser's headerbar
 fn new_view(
     verbose: bool,
-    is_private: bool,
+    _is_private: bool,
     ipfs_button: &gtk::ToggleButton,
     tabs: &libadwaita::TabBar,
-    headerbar: &libadwaita::HeaderBar,
+    _headerbar: &libadwaita::HeaderBar,
 ) -> webkit2gtk::WebView {
-    let web_kit = WebView::builder().vexpand(true).is_ephemeral(is_private);
     let web_settings: webkit2gtk::Settings = new_webkit_settings();
-    let web_view = web_kit.build();
+    let web_view = WebView::new();
+    web_view.set_vexpand(true);
+    let network_session = web_view.network_session().unwrap();
     let web_context = web_view.context().unwrap();
     let extensions_path = format!("{}/web-extensions/", *DATA_DIR);
-    let favicon_database_path = format!("{}/favicon-database/", *CACHE_DIR);
 
     // match native {
     //     true => {
@@ -417,15 +407,15 @@ fn new_view(
     web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
     web_settings.set_enable_write_console_messages_to_stdout(verbose);
     web_view.set_settings(&web_settings);
-    web_context.set_web_extensions_directory(&extensions_path);
-    web_context.set_favicon_database_directory(Some(&favicon_database_path));
+    web_context.set_web_process_extensions_directory(&extensions_path);
+    // web_context.set_favicon_database_directory(Some(&favicon_database_path));
     //web_context.use_system_appearance_for_scrollbars(true);
     web_view.set_visible(true);
     web_view.set_width_request(1024);
     web_view.set_height_request(640);
     web_view.load_uri("about:blank");
 
-    web_context.connect_download_started(clone!(@weak tabs => move |w, download| {
+    network_session.connect_download_started(clone!(@weak tabs => move |_w, download| {
         libadwaita::MessageDialog::new(
             gtk::Window::NONE,
             Some("Download file?"),
@@ -436,7 +426,7 @@ fn new_view(
         );
     }));
 
-    web_view.connect_title_notify(clone!(@weak tabs => move |w| { update_title(&w) }));
+    web_view.connect_title_notify(clone!(@weak tabs => move |w| update_title(&w)));
     // web_view.connect_uri_notify(clone!(@weak tabs => move |w| {
     //     let window: libadwaita::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
     //     let headerbar: libadwaita::HeaderBar = window.content().unwrap().first_child().unwrap().downcast().unwrap();
@@ -490,14 +480,14 @@ fn new_view(
         update_favicon(&w)
     }));
     web_view.connect_load_changed(clone!(@weak tabs => move |w, _| {
-        let window: gtk::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+        let window: gtk::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
         window.set_title(Some(&w.title().unwrap_or_else(|| glib::GString::from("Oku")).to_string()));
         update_favicon(&w);
     }));
     web_view.connect_enter_fullscreen(
         clone!(@weak tabs => @default-return false, move |w| {
-            let window: libadwaita::ApplicationWindow = w.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
-            let headerbar: libadwaita::HeaderBar = window.content().unwrap().first_child().unwrap().downcast().unwrap();
+            let window: libadwaita::ApplicationWindow = w.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+            let headerbar: libadwaita::HeaderBar = window.content().unwrap().first_child().unwrap().first_child().unwrap().first_child().unwrap().downcast().unwrap();
             headerbar.set_visible(false);
             tabs.set_visible(false);
             window.set_fullscreened(true);
@@ -508,8 +498,8 @@ fn new_view(
     );
     web_view.connect_leave_fullscreen(
         clone!(@weak tabs, @weak web_view => @default-return false, move |w| {
-            let window: libadwaita::ApplicationWindow = w.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
-            let headerbar: libadwaita::HeaderBar = window.content().unwrap().first_child().unwrap().downcast().unwrap();
+            let window: libadwaita::ApplicationWindow = w.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+            let headerbar: libadwaita::HeaderBar = window.content().unwrap().first_child().unwrap().first_child().unwrap().first_child().unwrap().downcast().unwrap();
             headerbar.set_visible(true);
             tabs.set_visible(true);
             window.set_fullscreened(false);
@@ -519,12 +509,12 @@ fn new_view(
         }),
     );
     web_view.connect_decide_policy(
-        clone!(@weak tabs => @default-return false, move |w, policy_decision, decision_type| {
+        clone!(@weak tabs => @default-return false, move |_w, policy_decision, decision_type| {
             match decision_type {
                 PolicyDecisionType::NewWindowAction => {
-                    let window: gtk::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+                    let window: libadwaita::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
                     let navigation_policy_decision: NavigationPolicyDecision = policy_decision.clone().downcast().unwrap();
-                    new_window_four(&window.application().unwrap().downcast().unwrap(), Some(&navigation_policy_decision.request().unwrap().uri().unwrap()));
+                    let new_window = new_window_four(&window.application().unwrap().downcast().unwrap(), Some(&navigation_policy_decision.navigation_action().unwrap().request().unwrap().uri().unwrap()));
                     policy_decision.use_();
                     return true;
                 }
@@ -668,12 +658,12 @@ fn new_tab_page(
     is_private: bool,
     ipfs_button: &gtk::ToggleButton,
     headerbar: &libadwaita::HeaderBar,
-) -> webkit2gtk::WebView {
+) -> (webkit2gtk::WebView, libadwaita::TabPage) {
     let tab_view = tabs.view().unwrap();
     let new_view = new_view(verbose, is_private, ipfs_button, tabs, headerbar);
     let new_page = tab_view.append(&new_view);
     new_page.set_title("New Tab");
-    new_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
+    new_page.set_icon(Some(&gio::ThemedIcon::new("content-loading-symbolic")));
     new_page.set_live_thumbnail(true);
     tab_view.set_selected_page(&new_page);
     new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("view-pin-symbolic")));
@@ -718,16 +708,16 @@ fn new_tab_page(
         }),
     );
     new_view.connect_uri_notify(clone!(@weak tabs, @weak new_view => move |w| {
-        let window: libadwaita::ApplicationWindow = new_view.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
-        let headerbar: libadwaita::HeaderBar = window.content().unwrap().first_child().unwrap().downcast().unwrap();
+        let window: libadwaita::ApplicationWindow = new_view.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+        let headerbar: libadwaita::HeaderBar = window.content().unwrap().first_child().unwrap().first_child().unwrap().first_child().unwrap().downcast().unwrap();
         let nav_entry: gtk::Entry = headerbar.title_widget().unwrap().downcast().unwrap();
         update_nav_bar(&nav_entry, &w)
     }));
     new_view.connect_estimated_load_progress_notify(
         clone!(@weak tabs, @weak new_view => move |w| {
-            let window: libadwaita::ApplicationWindow = new_view.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
+            let window: libadwaita::ApplicationWindow = new_view.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
             // let window: libadwaita::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
-            let headerbar: libadwaita::HeaderBar = window.content().unwrap().first_child().unwrap().downcast().unwrap();
+            let headerbar: libadwaita::HeaderBar = window.content().unwrap().first_child().unwrap().first_child().unwrap().first_child().unwrap().downcast().unwrap();
             let nav_entry: gtk::Entry = headerbar.title_widget().unwrap().downcast().unwrap();
             let tab_view: libadwaita::TabView = tabs.view().unwrap();
             let current_page = tab_view.page(w);
@@ -767,7 +757,7 @@ fn new_tab_page(
     //         }
     //     }
     // }));
-    new_view
+    (new_view, new_page)
 }
 
 /// Get the WebKit instance for the current tab
@@ -813,7 +803,7 @@ fn create_initial_tab(
     ipfs_button: &gtk::ToggleButton,
     headerbar: &libadwaita::HeaderBar,
 ) {
-    let web_view = new_tab_page(tabs, verbose, is_private, ipfs_button, headerbar);
+    let web_view = new_tab_page(tabs, verbose, is_private, ipfs_button, headerbar).0;
     initial_connect(initial_url, &web_view)
 }
 
@@ -833,18 +823,18 @@ fn update_favicon(web_view: &webkit2gtk::WebView) {
     let relevant_page = tab_view.page(web_view);
     let web_favicon = &web_view.favicon();
     match &web_favicon {
-        Some(_) => {
-            let favicon_surface =
-                cairo::ImageSurface::try_from(web_favicon.to_owned().unwrap()).unwrap();
-            let mut favicon_png_bytes: Vec<u8> = Vec::new();
-            favicon_surface
-                .write_to_png(&mut favicon_png_bytes)
-                .unwrap();
-            let icon = gio::BytesIcon::new(&glib::Bytes::from(&favicon_png_bytes));
-            relevant_page.set_icon(Some(&icon));
+        Some(favicon_texture) => {
+            // let favicon_surface =
+            //     cairo::ImageSurface::try_from().unwrap();
+            // let mut favicon_png_bytes: Vec<u8> = Vec::new();
+            // favicon_surface
+            //     .write_to_png(&mut favicon_png_bytes)
+            //     .unwrap();
+            // let icon = gio::BytesIcon::new(&favicon_texture.save_to_png_bytes());
+            relevant_page.set_icon(Some(favicon_texture));
         }
         None => {
-            relevant_page.set_icon(Some(&gio::ThemedIcon::new("applications-internet")));
+            relevant_page.set_icon(Some(&gio::ThemedIcon::new("content-loading-symbolic")));
         }
     }
 }
@@ -909,7 +899,7 @@ fn new_about_dialog(application: &gtk::Application) {
         .application(application)
         .icon_name("com.github.dirout.oku")
         .license_type(gtk::License::Agpl30)
-        .copyright("Copyright © 2020, 2021, 2022 Emil Sayahi")
+        .copyright("Copyright © 2020-2023 Emil Sayahi")
         .destroy_with_parent(true)
         .modal(true)
         .build();
@@ -1239,6 +1229,7 @@ fn new_window_four(
         .truncate_multiline(true)
         .placeholder_text("Enter an address … ")
         .input_purpose(gtk::InputPurpose::Url)
+        .width_request(8)
         .build();
 
     // Back button
@@ -1251,7 +1242,7 @@ fn new_window_four(
         .margin_bottom(4)
         .icon_name("go-previous")
         .build();
-    back_button.style_context().add_class("linked");
+    back_button.add_css_class("linked");
 
     // Forward button
     //let forward_button_builder = gtk::ButtonBuilder::new();
@@ -1263,14 +1254,14 @@ fn new_window_four(
         .margin_bottom(4)
         .icon_name("go-next")
         .build();
-    forward_button.style_context().add_class("linked");
+    forward_button.add_css_class("linked");
 
     // All navigation buttons
     //let navigation_buttons_builder = gtk::BoxBuilder::new();
     let navigation_buttons = gtk::Box::builder().homogeneous(true).build();
     navigation_buttons.append(&back_button);
     navigation_buttons.append(&forward_button);
-    navigation_buttons.style_context().add_class("linked");
+    navigation_buttons.add_css_class("linked");
 
     // Add Tab button
     //let add_tab_builder = gtk::ButtonBuilder::new();
@@ -1312,22 +1303,6 @@ fn new_window_four(
         .margin_bottom(4)
         .icon_name("view-grid-symbolic")
         .build();
-
-    let overview = libadwaita::TabOverviewBuilder::new()
-        .enable_new_tab(true)
-        .enable_search(true)
-        .view(&tab_view)
-        .build();
-
-    overview.connect_create_tab(
-        clone!(@weak tabs, @weak ipfs_button, @weak headerbar => move |_| {
-            new_tab_page(&tabs, verbose, is_private, &ipfs_button, &headerbar);
-        }),
-    );
-
-    overview_button.connect_clicked(clone!(@weak overview => move |_| {
-        overview.set_open(!overview.is_open());
-    }));
 
     // Downloads button
     //let downloads_button_builder = gtk::ButtonBuilder::new();
@@ -1420,7 +1395,7 @@ fn new_window_four(
         .margin_bottom(4)
         .icon_name("zoom-out")
         .build();
-    zoomout_button.style_context().add_class("linked");
+    zoomout_button.add_css_class("linked");
 
     // Zoom in button
     //let zoomin_button_builder = gtk::ButtonBuilder::new();
@@ -1432,14 +1407,14 @@ fn new_window_four(
         .margin_bottom(4)
         .icon_name("zoom-in")
         .build();
-    zoomin_button.style_context().add_class("linked");
+    zoomin_button.add_css_class("linked");
 
     // Both zoom buttons
     //let zoom_buttons_builder = gtk::BoxBuilder::new();
     let zoom_buttons = gtk::Box::builder().homogeneous(true).build();
     zoom_buttons.append(&zoomout_button);
     zoom_buttons.append(&zoomin_button);
-    zoom_buttons.style_context().add_class("linked");
+    zoom_buttons.add_css_class("linked");
 
     // Zoom reset button
     //let zoomreset_button_builder = gtk::ButtonBuilder::new();
@@ -1460,7 +1435,7 @@ fn new_window_four(
         .halign(gtk::Align::Start)
         .margin_top(4)
         .margin_bottom(4)
-        .icon_name("video-display")
+        .icon_name("video-display-symbolic")
         .build();
 
     // Screenshot button
@@ -1526,6 +1501,7 @@ fn new_window_four(
         .margin_top(4)
         .margin_bottom(4)
         .spacing(8)
+        .hexpand(true)
         .build();
     menu_box.append(&zoom_buttons);
     menu_box.append(&zoomreset_button);
@@ -1535,6 +1511,7 @@ fn new_window_four(
     menu_box.append(&history_button);
     menu_box.append(&settings_button);
     menu_box.append(&about_button);
+    menu_box.add_css_class("toolbar");
 
     //let menu_builder = gtk::PopoverBuilder::new();
     let menu = gtk::Popover::builder().child(&menu_box).build();
@@ -1597,6 +1574,23 @@ fn new_window_four(
     main_box.append(&tabs);
     main_box.append(&tab_view);
 
+    let overview = TabOverview::builder()
+        .enable_new_tab(true)
+        .enable_search(true)
+        .view(&tab_view)
+        .child(&main_box)
+        .build();
+
+    overview.connect_create_tab(
+        clone!(@weak tabs, @weak ipfs_button, @weak headerbar => @default-panic, move |_| {
+            new_tab_page(&tabs, verbose, is_private, &ipfs_button, &headerbar).1
+        }),
+    );
+
+    overview_button.connect_clicked(clone!(@weak overview => move |_| {
+        overview.set_open(!overview.is_open());
+    }));
+
     //let window_builder = gtk::ApplicationWindowBuilder::new();
     let window = libadwaita::ApplicationWindow::builder()
         .application(application)
@@ -1604,7 +1598,7 @@ fn new_window_four(
         .title("Oku")
         .icon_name("com.github.dirout.oku")
         //.titlebar(&headerbar)
-        .content(&main_box)
+        .content(&overview)
         .build();
     //window.set_titlebar(Some(&headerbar));
     //window.set_child(Some(&main_box));
@@ -1716,13 +1710,13 @@ fn new_window_four(
                 window.set_fullscreened(true);
                 tabs.hide();
                 tabs.set_opacity(0.0);
-                web_view.run_javascript("document.documentElement.webkitEnterFullscreen();", gio::Cancellable::NONE, move |_| {
+                web_view.evaluate_javascript("document.documentElement.requestFullscreen();", None, None, gio::Cancellable::NONE, move |_| {
                 })
             } else {
                 window.set_fullscreened(false);
                 tabs.show();
                 tabs.set_opacity(100.0);
-                web_view.run_javascript("document.documentElement.webkitExitFullscreen();", gio::Cancellable::NONE, move |_| {
+                web_view.evaluate_javascript("document.exitFullscreen();", None, None, gio::Cancellable::NONE, move |_| {
                 })
             }
         }),
@@ -1733,9 +1727,7 @@ fn new_window_four(
         clone!(@weak tabs, @weak nav_entry => move |_| {
             let web_view = get_view(&tabs);
             web_view.snapshot(webkit2gtk::SnapshotRegion::FullDocument, webkit2gtk::SnapshotOptions::all(), gio::Cancellable::NONE, move |snapshot| {
-                let snapshot_surface = cairo::ImageSurface::try_from(snapshot.unwrap()).unwrap();
-                let mut writer = File::create(format!("{}/{}.png", PICTURES_DIR.to_owned(), Utc::now())).unwrap();
-                snapshot_surface.write_to_png(&mut writer).unwrap();
+                snapshot.unwrap().save_to_png(format!("{}/{}.png", PICTURES_DIR.to_owned(), Utc::now())).unwrap();
             });
         }),
     );
