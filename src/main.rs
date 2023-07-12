@@ -911,8 +911,8 @@ fn main() {
     let application = libadwaita::Application::builder()
         .application_id("com.github.dirout.oku")
         .build();
-    let style_manager = application.style_manager();
-    style_manager.set_color_scheme(libadwaita::ColorScheme::ForceDark);
+    // let style_manager = application.style_manager();
+    // style_manager.set_color_scheme(libadwaita::ColorScheme::ForceDark);
 
     // application.add_main_option("url", glib::Char('u' as i8), OptionFlags::NONE, OptionArg::String, "An optional URL to open", Some("Open a URL in the browser"));
     // application.add_main_option("verbose", glib::Char('v' as i8), OptionFlags::NONE, OptionArg::None, "Output browser messages to standard output", None);
