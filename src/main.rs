@@ -44,8 +44,7 @@ use ipfs::Ipfs;
 use ipfs::IpfsOptions;
 use ipfs::IpfsPath;
 use ipfs::Keypair;
-use ipfs::Types;
-use ipfs::UninitializedIpfs;
+use ipfs::UninitializedIpfsNoop as UninitializedIpfs;
 use ipfs_api_backend_hyper::{IpfsApi, IpfsClient};
 use libadwaita::prelude::AdwApplicationWindowExt;
 use libadwaita::traits::AdwApplicationExt;
@@ -59,12 +58,10 @@ use urlencoding::decode;
 use webkit2gtk::traits::PolicyDecisionExt;
 use webkit2gtk::traits::WebViewExt;
 use webkit2gtk::NavigationPolicyDecision;
-use webkit2gtk::Settings;
-use webkit2gtk::WebView;
-
 use webkit2gtk::PolicyDecisionType;
-
+use webkit2gtk::Settings;
 use webkit2gtk::URISchemeRequest;
+use webkit2gtk::WebView;
 
 #[macro_use]
 extern crate lazy_static;
@@ -538,16 +535,16 @@ fn new_view(
 }
 
 /// Setup an IPFS node
-async fn setup_native_ipfs() -> Ipfs<Types> {
+async fn setup_native_ipfs() -> Ipfs {
     // Initialize an in-memory repo and start a daemon.
-    let opts = ipfs_options();
-    let (ipfs, fut): (Ipfs<Types>, _) = UninitializedIpfs::new(opts).start().await.unwrap();
+    //let opts = ipfs_options();
+    let ipfs: Ipfs = UninitializedIpfs::new().start().await.unwrap();
 
     // Spawn the background task
-    tokio::task::spawn(fut);
+    //tokio::task::spawn(fut);
 
     // Restore the default bootstrappers to enable content discovery
-    ipfs.restore_bootstrappers().await.unwrap();
+    ipfs.default_bootstrap().await.unwrap();
 
     ipfs
 }
@@ -606,38 +603,39 @@ async fn download_ipfs_file_from_api(file_hash: String) -> Vec<u8> {
 /// * `file_hash` - The CID of the file
 async fn download_ipfs_file_natively(file_hash: String) -> Vec<u8> {
     let ipfs = setup_native_ipfs().await;
-
+    println!("{}", &file_hash);
     // Get the IPFS file
     let path = file_hash.parse::<IpfsPath>().unwrap();
-    let stream = ipfs.cat_unixfs(path, None).await.unwrap();
+    let mut stream = ipfs.cat_unixfs(path, None).await.unwrap();
     tokio::pin!(stream);
     let mut file_vec: Vec<u8> = vec![];
-    loop {
-        match stream.next().await {
-            Some(Ok(bytes)) => {
+    while let Some(result) = stream.next().await {
+        match result {
+            Ok(bytes) => {
                 file_vec.extend(bytes);
             }
-            Some(Err(e)) => {
+            Err(e) => {
                 eprintln!("Error: {}", e);
+                break;
             }
-            None => break,
         }
     }
+    println!("{}", &file_vec.len());
     file_vec
 }
 
 /// Get the default IPFS options for Oku's native IPFS instance
-fn ipfs_options() -> ipfs::IpfsOptions {
-    IpfsOptions {
-        ipfs_path: PathBuf::from(CACHE_DIR.to_owned()),
-        keypair: Keypair::generate_ed25519(),
-        mdns: true,
-        bootstrap: Default::default(),
-        kad_protocol: None,
-        listening_addrs: vec!["/ip4/127.0.0.1/tcp/0".parse().unwrap()],
-        span: None,
-    }
-}
+// fn ipfs_options() -> ipfs::IpfsOptions {
+//     IpfsOptions {
+//         ipfs_path: PathBuf::from(CACHE_DIR.to_owned()),
+//         keypair: Keypair::generate_ed25519(),
+//         mdns: true,
+//         bootstrap: Default::default(),
+//         kad_protocol: None,
+//         listening_addrs: vec!["/ip4/127.0.0.1/tcp/0".parse().unwrap()],
+//         span: None,
+//     }
+// }
 
 /// Create a new entry in the TabBar
 ///
