@@ -5,7 +5,7 @@ name: 'Package: Debian GNU + Linux (x86_64)'
 jobs:
   deb_x86-64:
     name: Debian GNU + Linux (x86_64)
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout codebase
         uses: actions/checkout@v3

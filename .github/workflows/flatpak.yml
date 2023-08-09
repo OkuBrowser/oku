@@ -6,7 +6,7 @@ name: 'Package: Flatpak for GNU + Linux (x86_64)'
 jobs:
   flatpak-builder:
     name: GNU + Linux (x86_64)
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     container:
       image: bilelmoussaoui/flatpak-github-actions:gnome-nightly
       options: --privileged

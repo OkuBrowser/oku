@@ -3,7 +3,7 @@ name: Annotate code
 jobs:
   clippy_check:
     name: Annotate code
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Install development dependencies

@@ -5,7 +5,7 @@ name: 'Build: GNU + Linux (x86_64)'
 jobs:
   linux_x86-64:
     name: GNU + Linux (x86_64)
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout codebase
         uses: actions/checkout@v3
