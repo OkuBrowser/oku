@@ -17,11 +17,11 @@ jobs:
         default: true
         profile: default
     - name: Checkout codebase
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
           path: ./oku
     - name: Checkout GitHub Pages environment
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
           ref: gh-pages
           path: ./gh-pages
