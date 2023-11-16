@@ -46,7 +46,7 @@ ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", rev = "12cc7a5", pa
 ipfs-api-backend-hyper = { version = "0.6.0", features = ["with-hyper-tls"] }
 lazy_static = "1.4.0"
 libadwaita = { version = "*", features = ["v1_3"] }
-notify-rust = { version = "4.8.0", features = ["images", "z"], default-features = false }
+notify-rust = { version = "4.10.0", features = ["images", "z"], default-features = false }
 pango = { version = "*" }
 url = "2.4.0"
 urlencoding = "2.1.2"
