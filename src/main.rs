@@ -315,6 +315,7 @@ fn new_view(
     let web_view = WebView::new();
     web_view.set_vexpand(true);
     let network_session = web_view.network_session().unwrap();
+    let data_manager = network_session.website_data_manager().unwrap();
     let web_context = web_view.context().unwrap();
     let extensions_path = format!("{}/web-extensions/", *DATA_DIR);
 
@@ -350,6 +351,7 @@ fn new_view(
     //         handle_ipfs_request(&ipfs_button, request);
     //     }),
     // );
+    data_manager.set_favicons_enabled(true);
     web_context.register_uri_scheme("ipfs", |request| {
         let request_url = request.uri().unwrap().to_string();
         let decoded_url = decode(&request_url).unwrap();
@@ -768,7 +770,7 @@ fn new_about_dialog(application: &gtk::Application) {
         .application(application)
         .icon_name("com.github.dirout.oku")
         .license_type(gtk::License::Agpl30)
-        .copyright("Copyright © 2020-2023 Emil Sayahi")
+        .copyright("Copyright © Emil Sayahi")
         .destroy_with_parent(true)
         .modal(true)
         .build();
