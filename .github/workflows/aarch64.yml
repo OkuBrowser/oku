@@ -37,7 +37,7 @@ jobs:
           tar -cvf aarch64-oku.gnu+linux.tar \
           oku
       - name: Upload Oku build artifacts to GitHub
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: aarch64-oku.gnu+linux
           path: ./target/aarch64-unknown-linux-gnu/release/aarch64-oku.gnu+linux.tar

@@ -46,7 +46,7 @@ jobs:
           command: rpm
           args: build -v
       - name: Upload Oku build artifact to GitHub
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: x86_64-oku.rpm.gnu+linux
           path: ./target/release/rpmbuild/RPMS/x86_64/oku-*.x86_64.rpm

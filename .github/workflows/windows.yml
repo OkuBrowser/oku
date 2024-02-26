@@ -51,7 +51,7 @@ jobs:
           tar -czvf x86_64-oku.win32.zip `
           oku.exe
       - name: Upload Oku build artifacts to GitHub
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: x86_64-oku.win32
           path: ./target/x86_64-pc-windows-gnu/release/x86_64-oku.win32.zip
