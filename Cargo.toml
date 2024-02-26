@@ -12,7 +12,6 @@
 #
 #    You should have received a copy of the GNU Affero General Public License
 #    along with Oku.  If not, see <https://www.gnu.org/licenses/>.
-cargo-features = ["strip"]
 [package]
 name = "oku"
 version = "0.1.0"
@@ -29,32 +28,37 @@ resolver = "1"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-arti-client = { version = "0.9.2", features = ["static"] }
+#arti-client = { version = "0.10.2", features = ["static"] }
 bincode = "1.3.3"
 cairo-rs = { version = "*", features = ["png"] }
-chrono = { version = "0.4.26", features = ["unstable-locales"] }
-cid = "0.10.1"
+chrono = { version = "0.4.34", features = ["unstable-locales"] }
+cid = "0.11.0"
 directories-next = "2.0.0"
-futures = "0.3.28"
+futures = "0.3.30"
 gdk = { version = "*", package = "gdk4" }
 gdk-pixbuf = { version = "*" }
 gio = { version = "*" }
 glib = { version = "*" }
 glib-macros = { version = "*" }
 gtk = { version = "*", package = "gtk4", features = ["gnome_44"], default-features = false }
-ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", rev = "12cc7a5", package = "rust-ipfs"}
-ipfs-api-backend-hyper = { version = "0.6.0", features = ["with-hyper-tls"] }
+#ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", rev = "300f4ef", package = "rust-ipfs"}
+iroh = { version = "0.12.0", default-features = false }
+#ipfs-api-backend-hyper = { version = "0.6.0", features = ["with-hyper-tls"] }
 lazy_static = "1.4.0"
 libadwaita = { version = "*", features = ["v1_3"] }
-notify-rust = { version = "4.8.0", features = ["images", "z"], default-features = false }
+notify-rust = { version = "4.10.0", features = ["images", "z"], default-features = false }
 pango = { version = "*" }
-url = "2.4.0"
-urlencoding = "2.1.2"
-reqwest = { version = "0.11.18", features = ["blocking"] }
-tokio = { version = "1.29.1", features = ["full"] }
+url = "2.5.0"
+urlencoding = "2.1.3"
+reqwest = { version = "0.11.24", features = ["blocking"] }
+tokio = { version = "1.36.0", features = ["full"] }
 tokio-stream = "0.1.14"
 transmission_rs = "0.8.11"
 webkit2gtk = { version = "*", package = "webkit6" }
+iroh-net = "0.12.0"
+iroh-bytes = "0.12.0"
+iroh-sync = "0.12.0"
+iroh-base = "0.12.0"
 
 [profile.release]
 codegen-units = 1

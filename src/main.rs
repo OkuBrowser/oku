@@ -16,6 +16,7 @@
 */
 
 #![cfg_attr(feature = "dox", feature(doc_cfg))]
+// #![cfg(feature = "mem-db")]
 #![allow(clippy::needless_doctest_main)]
 #![doc(
     html_logo_url = "https://github.com/Dirout/oku/raw/master/branding/logo-filled.svg",
@@ -30,6 +31,7 @@ use directories_next::UserDirs;
 use futures::TryStreamExt;
 use gdk::traits::TextureExt;
 use gio::prelude::*;
+use gio::MemoryInputStream;
 use glib::Cast;
 use glib_macros::clone;
 use gtk::prelude::BoxExt;
@@ -40,12 +42,10 @@ use gtk::prelude::GtkWindowExt;
 use gtk::prelude::PopoverExt;
 use gtk::prelude::ToggleButtonExt;
 use gtk::prelude::WidgetExt;
-use ipfs::Ipfs;
-use ipfs::IpfsOptions;
-use ipfs::IpfsPath;
-use ipfs::Keypair;
-use ipfs::UninitializedIpfsNoop as UninitializedIpfs;
-use ipfs_api_backend_hyper::{IpfsApi, IpfsClient};
+use iroh::client::mem::Iroh;
+use iroh::{client::Entry, node::Node};
+use iroh_base::base32;
+use iroh_sync::store::Query;
 use libadwaita::prelude::AdwApplicationWindowExt;
 use libadwaita::traits::AdwApplicationExt;
 use libadwaita::TabOverview;
@@ -224,58 +224,6 @@ fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
     nav_entry.set_text(&url);
 }
 
-/// Comply with a request using the IPFS scheme
-///
-/// # Arguments
-///
-/// * `ipfs_button` - The button indicating whether or not to use a daemon or native resolution
-/// * `request` - The request from the browser for the IPFS resource
-fn handle_ipfs_request<'a>(
-    ipfs_button: &'a gtk::ToggleButton,
-    request: &'a URISchemeRequest,
-) -> &'a URISchemeRequest {
-    match ipfs_button.is_active() {
-        true => {
-            return handle_ipfs_request_natively(request);
-        }
-        false => {
-            return handle_ipfs_request_using_api(request);
-        }
-    }
-}
-
-/// Comply with a request using the IPFS scheme with a daemon
-///
-/// # Arguments
-///
-/// * `request` - The request from the browser for the IPFS resource
-fn handle_ipfs_request_using_api(request: &URISchemeRequest) -> &URISchemeRequest {
-    let request_url = request.uri().unwrap().to_string();
-    let decoded_url = decode(&request_url).unwrap();
-    let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
-    let ipfs_bytes = from_hash_using_api(ipfs_path);
-    //let ipfs_bytes = download_ipfs_file_from_api(ipfs_path).await;
-    let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
-    request.finish(&stream, -1, None);
-    return request;
-}
-
-/// Comply with a request using the IPFS scheme natively
-///
-/// # Arguments
-///
-/// * `request` - The request from the browser for the IPFS resource
-fn handle_ipfs_request_natively(request: &URISchemeRequest) -> &URISchemeRequest {
-    let request_url = request.uri().unwrap().to_string();
-    let decoded_url = decode(&request_url).unwrap();
-    let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
-    let ipfs_bytes = from_hash_natively(ipfs_path);
-    //let ipfs_bytes = download_ipfs_file_natively(ipfs_path).await;
-    let stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from(&ipfs_bytes));
-    request.finish(&stream, -1, None);
-    return request;
-}
-
 /// Provide the default configuration for Oku's WebView
 fn new_webkit_settings() -> webkit2gtk::Settings {
     let settings = Settings::new();
@@ -361,6 +309,7 @@ fn new_view(
     ipfs_button: &gtk::ToggleButton,
     tabs: &libadwaita::TabBar,
     _headerbar: &libadwaita::HeaderBar,
+    iroh_client: &Iroh,
 ) -> webkit2gtk::WebView {
     let web_settings: webkit2gtk::Settings = new_webkit_settings();
     let web_view = WebView::new();
@@ -395,12 +344,20 @@ fn new_view(
     //         });
     //     }
     // };
-    web_context.register_uri_scheme(
-        "ipfs",
-        clone!(@weak ipfs_button => move |request| {
-            handle_ipfs_request(&ipfs_button, request);
-        }),
-    );
+    // web_context.register_uri_scheme(
+    //     "ipfs",
+    //     clone!(@weak ipfs_button => move |request| {
+    //         handle_ipfs_request(&ipfs_button, request);
+    //     }),
+    // );
+    web_context.register_uri_scheme("ipfs", |request| {
+        let request_url = request.uri().unwrap().to_string();
+        let decoded_url = decode(&request_url).unwrap();
+        let ipfs_path = decoded_url.replacen("ipfs://", "", 1);
+        let mut stream = gio::MemoryInputStream::new();
+        request.finish(&stream, -1, None);
+        //from_hash_natively(ipfs_path, &mut stream);
+    });
     web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
     web_settings.set_enable_write_console_messages_to_stdout(verbose);
     web_view.set_settings(&web_settings);
@@ -506,12 +463,12 @@ fn new_view(
         }),
     );
     web_view.connect_decide_policy(
-        clone!(@weak tabs => @default-return false, move |_w, policy_decision, decision_type| {
+        clone!(@weak tabs, @strong iroh_client => @default-return false, move |_w, policy_decision, decision_type| {
             match decision_type {
                 PolicyDecisionType::NewWindowAction => {
                     let window: libadwaita::ApplicationWindow = tabs.parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().parent().unwrap().downcast().unwrap();
                     let navigation_policy_decision: NavigationPolicyDecision = policy_decision.clone().downcast().unwrap();
-                    let new_window = new_window_four(&window.application().unwrap().downcast().unwrap(), Some(&navigation_policy_decision.navigation_action().unwrap().request().unwrap().uri().unwrap()));
+                    let new_window = new_window_four(&window.application().unwrap().downcast().unwrap(), Some(&navigation_policy_decision.navigation_action().unwrap().request().unwrap().uri().unwrap()), &iroh_client);
                     policy_decision.use_();
                     return true;
                 }
@@ -534,109 +491,6 @@ fn new_view(
     web_view
 }
 
-/// Setup an IPFS node
-async fn setup_native_ipfs() -> Ipfs {
-    // Initialize an in-memory repo and start a daemon.
-    //let opts = ipfs_options();
-    let ipfs: Ipfs = UninitializedIpfs::new().start().await.unwrap();
-
-    // Spawn the background task
-    //tokio::task::spawn(fut);
-
-    // Restore the default bootstrappers to enable content discovery
-    ipfs.default_bootstrap().await.unwrap();
-
-    ipfs
-}
-
-/// Get an IPFS file asynchronously using an existing IPFS node
-///
-/// # Arguments
-///
-/// * `hash` - The IPFS identifier of the file
-fn from_hash_using_api(hash: String) -> Vec<u8> {
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(download_ipfs_file_from_api(hash))
-}
-
-/// Get an IPFS file asynchronously using an in-memory IPFS node
-///
-/// # Arguments
-///
-/// * `hash` - The IPFS identifier of the file
-fn from_hash_natively(hash: String) -> Vec<u8> {
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(download_ipfs_file_natively(hash))
-}
-
-/// Download an IPFS file to the local machine using an existing IPFS node
-///
-/// # Arguments
-///
-/// * `file_hash` - The CID of the file
-async fn download_ipfs_file_from_api(file_hash: String) -> Vec<u8> {
-    let client: IpfsClient = IpfsClient::default();
-
-    match client
-        .cat(&file_hash)
-        .map_ok(|chunk| chunk.to_vec())
-        .try_concat()
-        .await
-    {
-        Ok(res) => res,
-        Err(e) => {
-            // let split_path: Vec<&str> = file_hash.split('/').collect();
-            // let rest_of_path = file_hash.replacen(split_path[0], "", 1);
-            // let public_url = format!("https://{}.ipfs.dweb.link{}", split_path[0], rest_of_path);
-            // let request = reqwest::get(&public_url).await;
-            // let request_body = request.unwrap().bytes().await;
-            // request_body.unwrap().to_vec()
-            e.to_string().as_bytes().to_vec()
-        }
-    }
-}
-
-/// Download an IPFS file to the local machine using an in-memory IPFS node
-///
-/// # Arguments
-///
-/// * `file_hash` - The CID of the file
-async fn download_ipfs_file_natively(file_hash: String) -> Vec<u8> {
-    let ipfs = setup_native_ipfs().await;
-    println!("{}", &file_hash);
-    // Get the IPFS file
-    let path = file_hash.parse::<IpfsPath>().unwrap();
-    let mut stream = ipfs.cat_unixfs(path, None).await.unwrap();
-    tokio::pin!(stream);
-    let mut file_vec: Vec<u8> = vec![];
-    while let Some(result) = stream.next().await {
-        match result {
-            Ok(bytes) => {
-                file_vec.extend(bytes);
-            }
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                break;
-            }
-        }
-    }
-    println!("{}", &file_vec.len());
-    file_vec
-}
-
-/// Get the default IPFS options for Oku's native IPFS instance
-// fn ipfs_options() -> ipfs::IpfsOptions {
-//     IpfsOptions {
-//         ipfs_path: PathBuf::from(CACHE_DIR.to_owned()),
-//         keypair: Keypair::generate_ed25519(),
-//         mdns: true,
-//         bootstrap: Default::default(),
-//         kad_protocol: None,
-//         listening_addrs: vec!["/ip4/127.0.0.1/tcp/0".parse().unwrap()],
-//         span: None,
-//     }
-// }
-
 /// Create a new entry in the TabBar
 ///
 /// # Arguments
@@ -656,9 +510,17 @@ fn new_tab_page(
     is_private: bool,
     ipfs_button: &gtk::ToggleButton,
     headerbar: &libadwaita::HeaderBar,
+    iroh_client: &Iroh,
 ) -> (webkit2gtk::WebView, libadwaita::TabPage) {
     let tab_view = tabs.view().unwrap();
-    let new_view = new_view(verbose, is_private, ipfs_button, tabs, headerbar);
+    let new_view = new_view(
+        verbose,
+        is_private,
+        ipfs_button,
+        tabs,
+        headerbar,
+        &iroh_client,
+    );
     let new_page = tab_view.append(&new_view);
     new_page.set_title("New Tab");
     new_page.set_icon(Some(&gio::ThemedIcon::new("content-loading-symbolic")));
@@ -800,8 +662,17 @@ fn create_initial_tab(
     is_private: bool,
     ipfs_button: &gtk::ToggleButton,
     headerbar: &libadwaita::HeaderBar,
+    iroh_client: &Iroh,
 ) {
-    let web_view = new_tab_page(tabs, verbose, is_private, ipfs_button, headerbar).0;
+    let web_view = new_tab_page(
+        tabs,
+        verbose,
+        is_private,
+        ipfs_button,
+        headerbar,
+        iroh_client,
+    )
+    .0;
     initial_connect(initial_url, &web_view)
 }
 
@@ -905,33 +776,21 @@ fn new_about_dialog(application: &gtk::Application) {
 }
 
 /// The main function of Oku
-fn main() {
+#[tokio::main]
+async fn main() {
+    let db = iroh_bytes::store::mem::Store::new();
+    let store = iroh_sync::store::memory::Store::default();
+    let node = Node::builder(db.clone(), store).spawn().await.unwrap();
+    let client = node.client();
+
     let application = libadwaita::Application::builder()
         .application_id("com.github.dirout.oku")
         .build();
     // let style_manager = application.style_manager();
     // style_manager.set_color_scheme(libadwaita::ColorScheme::ForceDark);
-
-    // application.add_main_option("url", glib::Char('u' as i8), OptionFlags::NONE, OptionArg::String, "An optional URL to open", Some("Open a URL in the browser"));
-    // application.add_main_option("verbose", glib::Char('v' as i8), OptionFlags::NONE, OptionArg::None, "Output browser messages to standard output", None);
-    // application.add_main_option("private", glib::Char('p' as i8), OptionFlags::NONE, OptionArg::None, "Open a private session", None);
-
-    // application.connect_activate(move |app| {
-    //     let matches = VariantDict::new(None);
-    //     new_window(app, matches);
-    // });
-    application.connect_activate(clone!(@weak application => move |_| {
-        new_window_four(&application, None);
+    application.connect_activate(clone!(@weak application, @strong client => move |_| {
+        new_window_four(&application, None, &client);
     }));
-
-    // application.connect_handle_local_options(|app, options| {
-    //     let matches = options.to_owned();
-    //     app.run_with_args(&args().collect::<Vec<_>>());
-    //     new_window(app, matches);
-    //     0
-    // });
-
-    // application.run_with_args(&args().collect::<Vec<_>>());
     application.run();
 }
 
@@ -1206,6 +1065,7 @@ fn new_window(application: &gtk::Application, matches: VariantDict) {
 fn new_window_four(
     application: &libadwaita::Application,
     initial_url_option: Option<&str>,
+    iroh_client: &Iroh,
 ) -> libadwaita::TabView {
     // Options
     let verbose = true;
@@ -1558,6 +1418,7 @@ fn new_window_four(
             is_private,
             &ipfs_button,
             &headerbar,
+            iroh_client,
         )
     }
     // End of Tabs
@@ -1580,8 +1441,8 @@ fn new_window_four(
         .build();
 
     overview.connect_create_tab(
-        clone!(@weak tabs, @weak ipfs_button, @weak headerbar => @default-panic, move |_| {
-            new_tab_page(&tabs, verbose, is_private, &ipfs_button, &headerbar).1
+        clone!(@weak tabs, @weak ipfs_button, @weak headerbar, @strong iroh_client => @default-panic, move |_| {
+            new_tab_page(&tabs, verbose, is_private, &ipfs_button, &headerbar, &iroh_client).1
         }),
     );
 
@@ -1605,8 +1466,8 @@ fn new_window_four(
     // Signals
     // Add Tab button clicked
     add_tab.connect_clicked(
-        clone!(@weak tabs, @weak ipfs_button, @weak headerbar => move |_| {
-            new_tab_page(&tabs, verbose, is_private, &ipfs_button, &headerbar);
+        clone!(@weak tabs, @weak ipfs_button, @weak headerbar, @strong iroh_client => move |_| {
+            new_tab_page(&tabs, verbose, is_private, &ipfs_button, &headerbar, &iroh_client);
         }),
     );
 
@@ -1732,8 +1593,8 @@ fn new_window_four(
 
     // New Window button clicked
     new_window_button.connect_clicked(
-        clone!(@weak tabs, @weak nav_entry, @weak window => move |_| {
-            new_window_four(&window.application().unwrap().downcast().unwrap(), None);
+        clone!(@weak tabs, @weak nav_entry, @weak window, @strong iroh_client => move |_| {
+            new_window_four(&window.application().unwrap().downcast().unwrap(), None, &iroh_client);
         }),
     );
 
@@ -1745,7 +1606,9 @@ fn new_window_four(
     );
 
     // Tab dragged off to create new browser window
-    tab_view.connect_create_window(create_window_from_drag);
+    tab_view.connect_create_window(clone!(@strong iroh_client => move |tabs| {
+    create_window_from_drag(tabs, &iroh_client)
+    }));
     // End of signals
 
     // let settings = window.settings();
@@ -1761,8 +1624,13 @@ fn new_window_four(
 /// * `tab_view` - The AdwTabView object containing each tab's WebView
 fn create_window_from_drag(
     tab_view: &libadwaita::TabView,
+    iroh_client: &Iroh,
 ) -> std::option::Option<libadwaita::TabView> {
     let window: gtk::ApplicationWindow = tab_view
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
         .parent()
         .unwrap()
         .parent()
@@ -1772,6 +1640,6 @@ fn create_window_from_drag(
         .downcast()
         .unwrap();
     let application = window.application().unwrap().downcast().unwrap();
-    let new_window = new_window_four(&application, None);
+    let new_window = new_window_four(&application, None, &iroh_client);
     Some(new_window)
 }
