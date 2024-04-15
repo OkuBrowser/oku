@@ -33,7 +33,7 @@ appa = { git = "https://github.com/emmyoh/appa.git", branch = "matheus23/it-will
 #arti-client = { version = "0.10.2", features = ["static"] }
 bincode = "1.3.3"
 cairo-rs = { version = "*", features = ["png"] }
-chrono = { version = "0.4.34", features = ["unstable-locales"] }
+chrono = { version = "0.4.38", features = ["unstable-locales"] }
 cid = "0.11.0"
 directories-next = "2.0.0"
 futures = "0.3.30"
