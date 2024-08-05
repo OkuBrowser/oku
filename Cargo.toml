@@ -44,7 +44,7 @@ glib = { version = "*" }
 glib-macros = { version = "*" }
 gtk = { version = "*", package = "gtk4", features = ["gnome_44"], default-features = false }
 ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", rev = "518eec4", package = "rust-ipfs"}
-iroh = { version = "0.12.0", default-features = false }
+iroh = { version = "0.22.0", default-features = false }
 #ipfs-api-backend-hyper = { version = "0.6.0", features = ["with-hyper-tls"] }
 lazy_static = "1.4.0"
 libadwaita = { version = "*", features = ["v1_3"] }
