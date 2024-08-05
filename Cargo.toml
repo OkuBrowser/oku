@@ -60,7 +60,7 @@ webkit2gtk = { version = "*", package = "webkit6" }
 iroh-net = "0.12.0"
 iroh-bytes = "0.12.0"
 iroh-sync = "0.12.0"
-iroh-base = "0.12.0"
+iroh-base = "0.22.0"
 
 [patch.crates-io]
 wnfs-common = { git = "https://github.com/wnfs-wg/rs-wnfs.git", branch = "matheus23/root-tree" }
