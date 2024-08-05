@@ -57,7 +57,7 @@ tokio = { version = "1.36.0", features = ["full"] }
 tokio-stream = "0.1.14"
 transmission_rs = "0.8.11"
 webkit2gtk = { version = "*", package = "webkit6" }
-iroh-net = "0.12.0"
+iroh-net = "0.22.0"
 iroh-bytes = "0.12.0"
 iroh-sync = "0.12.0"
 iroh-base = "0.12.0"
