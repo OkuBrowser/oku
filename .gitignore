@@ -31,3 +31,7 @@ flatpak.sh
 
 # Generated when building WebKit
 gtk4-dependencies
+
+# Development
+tree.txt
+target-old

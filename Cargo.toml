@@ -28,42 +28,31 @@ resolver = "2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-appa = { git = "https://github.com/emmyoh/appa.git", branch = "matheus23/it-will-have-iroh-i-promise" }
-# appa = { path = "/home/emil/Documents/GitHub/appa" }
 #arti-client = { version = "0.10.2", features = ["static"] }
 bincode = "1.3.3"
-cairo-rs = { version = "*", features = ["png"] }
+cairo-rs = { version = "*", features = ["v1_18", "png"] }
 chrono = { version = "0.4.34", features = ["unstable-locales"] }
 cid = "0.11.0"
 directories-next = "2.0.0"
 futures = "0.3.30"
-gdk = { version = "*", package = "gdk4" }
-gdk-pixbuf = { version = "*" }
-gio = { version = "*" }
-glib = { version = "*" }
+gdk = { version = "*", package = "gdk4", features = ["v4_16"] }
+gdk-pixbuf = { version = "*", features = ["v2_42"] }
+gio = { version = "*", features = ["v2_82"] }
+glib = { version = "*", features = ["v2_82"] }
 glib-macros = { version = "*" }
-gtk = { version = "*", package = "gtk4", features = ["gnome_44"], default-features = false }
-ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", rev = "518eec4", package = "rust-ipfs"}
-iroh = { version = "0.12.0", default-features = false }
-#ipfs-api-backend-hyper = { version = "0.6.0", features = ["with-hyper-tls"] }
-lazy_static = "1.4.0"
-libadwaita = { version = "*", features = ["v1_3"] }
-notify-rust = { version = "4.10.0", features = ["images", "z"], default-features = false }
+gtk = { version = "*", package = "gtk4", features = ["gnome_47"], default-features = false }
+ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", branch = "libp2p-next", package = "rust-ipfs"}
+lazy_static = "1.5.0"
+libadwaita = { version = "*", features = ["v1_6"] }
+notify-rust = { version = "4.11.1", features = ["images", "z"], default-features = false }
 pango = { version = "*" }
-url = "2.5.0"
+url = "2.5.2"
 urlencoding = "2.1.3"
-reqwest = { version = "0.11.24", features = ["blocking"] }
-tokio = { version = "1.36.0", features = ["full"] }
-tokio-stream = "0.1.14"
-transmission_rs = "0.8.11"
-webkit2gtk = { version = "*", package = "webkit6" }
-iroh-net = "0.12.0"
-iroh-bytes = "0.12.0"
-iroh-sync = "0.12.0"
-iroh-base = "0.12.0"
-
-[patch.crates-io]
-wnfs-common = { git = "https://github.com/wnfs-wg/rs-wnfs.git", branch = "matheus23/root-tree" }
+reqwest = { version = "0.12.5", features = ["blocking"] }
+tokio = { version = "1.39.2", features = ["full"] }
+tokio-stream = "0.1.15"
+# transmission_rs = "0.8.12"
+webkit2gtk = { version = "*", package = "webkit6", features = ["v2_44"] }
 
 [profile.release]
 codegen-units = 1
