@@ -1,27 +1,25 @@
+use crate::window_util::{
+    connect, get_view, get_view_from_page, initial_connect, new_webkit_settings, update_favicon,
+    update_load_progress, update_nav_bar, update_title,
+};
+use crate::{DATA_DIR, PICTURES_DIR, VERSION};
+use chrono::Utc;
 use futures::pin_mut;
 use glib::{clone, Properties};
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use ipfs::Ipfs;
-use libadwaita::prelude::*;
 use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
+use libadwaita::{prelude::*, ResponseAppearance};
+use std::cell::RefCell;
+use std::path::Path;
 use tokio_stream::StreamExt;
 use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::{URISchemeRequest, WebView};
 
-use crate::window_util::{
-    initial_connect, new_webkit_settings, update_favicon, update_load_progress, update_nav_bar,
-    update_title,
-};
-use crate::{DATA_DIR, VERSION};
-
 pub mod imp {
-
-    use std::cell::{Cell, RefCell};
-
-    use glib::GString;
-
     use super::*;
+    use std::cell::{Cell, RefCell};
 
     #[derive(Debug, Default, Properties)]
     #[properties(wrapper_type = super::Window)]
@@ -38,7 +36,7 @@ pub mod imp {
         pub(crate) refresh_button: gtk::Button,
         pub(crate) left_header_buttons: gtk::Box,
         // Right header buttons
-        pub(crate) overview_button: gtk::Button,
+        pub(crate) overview_button: libadwaita::TabButton,
         pub(crate) downloads_button: gtk::Button,
         pub(crate) find_button: gtk::Button,
         pub(crate) ipfs_button: gtk::Button,
@@ -120,9 +118,13 @@ impl Window {
         this.setup_tabs();
         this.setup_main_content();
         this.setup_overview_button_clicked();
-        this.setup_menu_button_clicked();
         this.setup_downloads_button_clicked();
+        this.setup_tab_indicator();
+        this.setup_add_tab_button_clicked(&ipfs);
         this.setup_tab_signals(&ipfs);
+        this.setup_navigation_signals();
+        this.setup_menu_buttons_clicked(&ipfs);
+        this.setup_new_view_signals();
 
         let imp = this.imp();
 
@@ -134,7 +136,7 @@ impl Window {
             initial_connect(imp.initial_url.clone().into_inner(), &initial_web_view);
         }
         this.set_content(Some(&imp.tab_overview));
-        this.show();
+        this.set_visible(true);
 
         this
     }
@@ -219,7 +221,7 @@ impl Window {
         imp.overview_button.set_halign(gtk::Align::Start);
         imp.overview_button.set_margin_start(4);
         imp.overview_button.set_margin_bottom(4);
-        imp.overview_button.set_icon_name("view-grid-symbolic");
+        imp.overview_button.set_view(Some(&imp.tab_view));
 
         // Downloads button
         imp.downloads_button.set_can_focus(true);
@@ -446,18 +448,6 @@ impl Window {
         ));
     }
 
-    fn setup_menu_button_clicked(&self) {
-        let imp = self.imp();
-
-        imp.menu_button.connect_clicked(clone!(
-            #[weak(rename_to = menu_popover)]
-            imp.menu_popover,
-            move |_| {
-                menu_popover.popup();
-            }
-        ));
-    }
-
     fn setup_downloads_button_clicked(&self) {
         let imp = self.imp();
 
@@ -474,16 +464,8 @@ impl Window {
     ///
     /// # Arguments
     ///  
-    /// * `verbose` - Whether browser messages should be printed onto the standard output
-    ///
-    /// * `is_private` - Whether the window represents a private session
-    ///
-    /// * `ipfs_button` - Button indicating whether the browser is using a built-in (native) IPFS handler, or an external one
-    ///
-    /// * `headerbar` - The browser's headerbar
+    /// * `ipfs` - An IPFS client
     fn new_view(&self, ipfs: &Ipfs) -> webkit2gtk::WebView {
-        let imp = self.imp();
-
         let web_settings: webkit2gtk::Settings = new_webkit_settings();
         let web_view = WebView::new();
         web_view.set_vexpand(true);
@@ -498,8 +480,6 @@ impl Window {
         web_context.register_uri_scheme(
             "ipns",
             clone!(
-                #[weak]
-                imp,
                 #[strong]
                 ipfs,
                 move |request: &URISchemeRequest| {
@@ -513,8 +493,6 @@ impl Window {
                     ctx.spawn_local_with_priority(
                         glib::source::Priority::HIGH,
                         clone!(
-                            #[weak]
-                            imp,
                             #[weak]
                             request,
                             #[strong]
@@ -558,8 +536,6 @@ impl Window {
         web_context.register_uri_scheme(
             "ipfs",
             clone!(
-                #[weak]
-                imp,
                 #[strong]
                 ipfs,
                 move |request: &URISchemeRequest| {
@@ -621,86 +597,6 @@ impl Window {
         web_view.set_height_request(640);
         web_view.load_uri("about:blank");
 
-        network_session.connect_download_started(clone!(
-            #[weak(rename_to = tab_bar)]
-            imp.tab_bar,
-            #[weak]
-            imp,
-            move |_w, download| {
-                libadwaita::MessageDialog::new(
-                    gtk::Window::NONE,
-                    Some("Download file?"),
-                    Some(&format!(
-                        "Would you like to download '{}'?",
-                        download.request().unwrap().uri().unwrap()
-                    )),
-                );
-            }
-        ));
-
-        web_view.connect_title_notify(clone!(
-            #[weak(rename_to = tab_view)]
-            imp.tab_view,
-            #[weak]
-            imp,
-            move |w| update_title(tab_view, &w)
-        ));
-        web_view.connect_favicon_notify(clone!(
-            #[weak(rename_to = tab_view)]
-            imp.tab_view,
-            #[weak]
-            imp,
-            move |w| update_favicon(tab_view, &w)
-        ));
-        web_view.connect_load_changed(clone!(
-            #[weak(rename_to = tab_view)]
-            imp.tab_view,
-            #[weak]
-            imp,
-            move |w, _| {
-                imp.obj().set_title(Some(
-                    &w.title()
-                        .unwrap_or_else(|| glib::GString::from("Oku"))
-                        .to_string(),
-                ));
-                update_favicon(tab_view, &w);
-            }
-        ));
-        web_view.connect_enter_fullscreen(clone!(
-            #[weak(rename_to = tab_bar)]
-            imp.tab_bar,
-            #[weak]
-            imp,
-            #[upgrade_or]
-            false,
-            move |w| {
-                imp.headerbar.set_visible(false);
-                imp.tab_bar.set_visible(false);
-                imp.obj().set_fullscreened(true);
-                imp.tab_bar.hide();
-                imp.tab_bar.set_opacity(0.0);
-                true
-            }
-        ));
-        web_view.connect_leave_fullscreen(clone!(
-            #[weak(rename_to = tab_bar)]
-            imp.tab_bar,
-            #[weak]
-            imp,
-            #[weak]
-            web_view,
-            #[upgrade_or]
-            false,
-            move |w| {
-                imp.headerbar.set_visible(true);
-                imp.tab_bar.set_visible(true);
-                imp.obj().set_fullscreened(false);
-                imp.tab_bar.show();
-                imp.tab_bar.set_opacity(100.0);
-                true
-            }
-        ));
-
         web_view
     }
 
@@ -708,168 +604,600 @@ impl Window {
     ///
     /// # Arguments
     ///
-    /// * `tabs` - The TabBar containing the tabs of the current browser session
-    ///  
-    /// * `verbose` - Whether browser messages should be printed onto the standard output
-    ///
-    /// * `is_private` - Whether the window represents a private session
-    ///
-    /// * `ipfs_button` - Button indicating whether the browser is using a built-in (native) IPFS handler, or an external one
-    ///
-    /// * `headerbar` - The browser's headerbar
+    /// * `ipfs` - An IPFS client
     pub fn new_tab_page(&self, ipfs: &Ipfs) -> (webkit2gtk::WebView, libadwaita::TabPage) {
         let imp = self.imp();
 
-        let tab_view = imp.tab_bar.view().unwrap();
         let new_view = self.new_view(&ipfs);
-        let new_page = tab_view.append(&new_view);
+        let new_page = imp.tab_view.append(&new_view);
         new_page.set_title("New Tab");
         new_page.set_icon(Some(&gio::ThemedIcon::new("content-loading-symbolic")));
         new_page.set_live_thumbnail(true);
-        tab_view.set_selected_page(&new_page);
+        imp.tab_view.set_selected_page(&new_page);
         new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("view-pin-symbolic")));
         new_page.set_indicator_activatable(true);
-        // Indicator appearance
-        new_view.connect_is_muted_notify(clone!(
-            #[weak]
-            new_view,
-            #[weak]
-            new_page,
-            #[weak]
-            tab_view,
-            #[weak]
-            imp,
-            move |the_view| {
-                // Has been muted
-                if the_view.is_muted() {
-                    new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("audio-volume-muted")));
-                    new_page.set_indicator_activatable(true);
-                } else {
-                    // Has been unmuted, audio is playing
-                    if the_view.is_playing_audio() {
-                        new_page
-                            .set_indicator_icon(Some(&gio::ThemedIcon::new("audio-volume-high")));
-                        new_page.set_indicator_activatable(true);
-                    }
-                    // Has been unmuted, audio is not playing
-                    else {
-                        new_page
-                            .set_indicator_icon(Some(&gio::ThemedIcon::new("view-pin-symbolic")));
-                        new_page.set_indicator_activatable(true);
-                    }
-                }
-            }
-        ));
-        new_view.connect_is_playing_audio_notify(clone!(
-            #[weak]
-            new_view,
-            #[weak]
-            new_page,
-            #[weak]
-            tab_view,
-            #[weak]
-            imp,
-            move |the_view| {
-                // Audio has started playing and not muted
-                if the_view.is_playing_audio() && !the_view.is_muted() {
-                    new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("audio-volume-high")));
-                    new_page.set_indicator_activatable(true);
-                } else if !the_view.is_playing_audio() {
-                    // Audio has stopped playing, muted
-                    if the_view.is_muted() {
-                        new_page
-                            .set_indicator_icon(Some(&gio::ThemedIcon::new("audio-volume-muted")));
-                        new_page.set_indicator_activatable(true);
-                    } else {
-                        // Audio has stopped playing, not muted
-                        new_page
-                            .set_indicator_icon(Some(&gio::ThemedIcon::new("view-pin-symbolic")));
-                        new_page.set_indicator_activatable(true);
-                    }
-                }
-            }
-        ));
-        new_view.connect_uri_notify(clone!(
-            #[weak(rename_to = tab_bar)]
-            imp.tab_bar,
-            #[weak(rename_to = headerbar)]
-            imp.headerbar,
-            #[weak(rename_to = nav_entry)]
-            imp.nav_entry,
-            #[weak]
-            new_view,
-            #[weak]
-            imp,
-            move |w| { update_nav_bar(&nav_entry, &w) }
-        ));
-        new_view.connect_estimated_load_progress_notify(clone!(
-            #[weak(rename_to = tab_bar)]
-            imp.tab_bar,
-            #[weak(rename_to = headerbar)]
-            imp.headerbar,
-            #[weak(rename_to = nav_entry)]
-            imp.nav_entry,
-            #[weak]
-            new_view,
-            #[weak]
-            imp,
-            move |w| {
-                let tab_view: libadwaita::TabView = tab_bar.view().unwrap();
-                let current_page = tab_view.page(w);
-                current_page.set_loading(true);
-                update_load_progress(&nav_entry, &w)
-            }
-        ));
-        new_view.connect_is_loading_notify(clone!(
-            #[weak(rename_to = tab_bar)]
-            imp.tab_bar,
-            #[weak]
-            imp,
-            move |w| {
-                let tab_view: libadwaita::TabView = tab_bar.view().unwrap();
-                let current_page = tab_view.page(w);
-                current_page.set_loading(w.is_loading())
-            }
-        ));
+
         (new_view, new_page)
     }
 
-    pub fn setup_tab_signals(&self, ipfs: &Ipfs) {
+    fn setup_tab_indicator(&self) {
         let imp = self.imp();
 
-        imp.tab_overview.connect_create_tab(clone!(
-            #[weak(rename_to = tab_bar)]
-            imp.tab_bar,
-            #[weak(rename_to = ipfs_button)]
-            imp.ipfs_button,
-            #[weak(rename_to = headerbar)]
-            imp.headerbar,
-            #[weak]
-            imp,
-            #[weak(rename_to = this)]
-            self,
-            #[strong]
-            ipfs,
-            #[upgrade_or_panic]
-            move |_| { this.new_tab_page(&ipfs).1 }
+        // Indicator logic
+        imp.tab_view.connect_indicator_activated(clone!(
+            #[weak(rename_to = tab_view)]
+            imp.tab_view,
+            move |_, current_page| {
+                let current_view = get_view_from_page(current_page);
+                if !current_view.is_playing_audio() && !current_view.is_muted() {
+                    tab_view.set_page_pinned(&current_page, !current_page.is_pinned());
+                } else {
+                    current_view.set_is_muted(!current_view.is_muted());
+                }
+            }
         ));
+    }
+
+    fn setup_add_tab_button_clicked(&self, ipfs: &Ipfs) {
+        let imp = self.imp();
 
         // Add Tab button clicked
         imp.add_tab_button.connect_clicked(clone!(
-            #[weak(rename_to = tab_bar)]
-            imp.tab_bar,
-            #[weak(rename_to = ipfs_button)]
-            imp.ipfs_button,
-            #[weak(rename_to = headerbar)]
-            imp.headerbar,
-            #[weak]
-            imp,
             #[weak(rename_to = this)]
             self,
             #[strong]
             ipfs,
             move |_| {
                 this.new_tab_page(&ipfs);
+            }
+        ));
+    }
+
+    pub fn setup_tab_signals(&self, ipfs: &Ipfs) {
+        let imp = self.imp();
+
+        imp.tab_overview.connect_create_tab(clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[strong]
+            ipfs,
+            #[upgrade_or_panic]
+            move |_| this.new_tab_page(&ipfs).1
+        ));
+
+        // Selected tab changed
+        imp.tab_view.connect_selected_page_notify(clone!(
+            #[weak(rename_to = nav_entry)]
+            imp.nav_entry,
+            #[weak(rename_to = tab_view)]
+            imp.tab_view,
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                let web_view = get_view(&tab_view);
+                update_nav_bar(&nav_entry, &web_view);
+                this.set_title(Some(
+                    &web_view
+                        .title()
+                        .unwrap_or_else(|| glib::GString::from("Oku"))
+                        .to_string(),
+                ));
+            }
+        ));
+    }
+
+    fn setup_navigation_signals(&self) {
+        let imp = self.imp();
+
+        // Back button clicked
+        imp.back_button.connect_clicked(clone!(
+            #[weak(rename_to = tab_view)]
+            imp.tab_view,
+            move |_| {
+                let web_view = get_view(&tab_view);
+                web_view.go_back()
+            }
+        ));
+
+        // Forward button clicked
+        imp.forward_button.connect_clicked(clone!(
+            #[weak(rename_to = tab_view)]
+            imp.tab_view,
+            move |_| {
+                let web_view = get_view(&tab_view);
+                web_view.go_forward()
+            }
+        ));
+
+        // Refresh button clicked
+        imp.refresh_button.connect_clicked(clone!(
+            #[weak(rename_to = tab_view)]
+            imp.tab_view,
+            move |_| {
+                let web_view = get_view(&tab_view);
+                web_view.reload_bypass_cache()
+            }
+        ));
+
+        // User hit return key in navbar, prompting navigation
+        imp.nav_entry.connect_activate(clone!(
+            #[weak(rename_to = tab_view)]
+            imp.tab_view,
+            #[weak(rename_to = nav_entry)]
+            imp.nav_entry,
+            move |_| {
+                let web_view = get_view(&tab_view);
+                connect(&nav_entry, &web_view);
+            }
+        ));
+    }
+
+    pub fn setup_zoom_buttons_clicked(&self) {
+        let imp = self.imp();
+
+        // Zoom-in button clicked
+        imp.zoomin_button.connect_clicked(clone!(
+            #[weak(rename_to = tab_view)]
+            imp.tab_view,
+            move |_| {
+                let web_view = get_view(&tab_view);
+                let current_zoom_level = web_view.zoom_level();
+                web_view.set_zoom_level(current_zoom_level + 0.1);
+            }
+        ));
+
+        // Zoom-out button clicked
+        imp.zoomout_button.connect_clicked(clone!(
+            #[weak(rename_to = tab_view)]
+            imp.tab_view,
+            move |_| {
+                let web_view = get_view(&tab_view);
+                let current_zoom_level = web_view.zoom_level();
+                web_view.set_zoom_level(current_zoom_level - 0.1);
+            }
+        ));
+
+        // Reset Zoom button clicked
+        imp.zoomreset_button.connect_clicked(clone!(
+            #[weak(rename_to = tab_view)]
+            imp.tab_view,
+            move |_| {
+                let web_view = get_view(&tab_view);
+                web_view.set_zoom_level(1.0);
+            }
+        ));
+    }
+
+    /// Create new browser window when a tab is dragged off
+    ///
+    /// # Arguments
+    ///
+    /// * `ipfs` - An IPFS client
+    fn create_window_from_drag(&self, ipfs: &Ipfs) -> std::option::Option<libadwaita::TabView> {
+        let application = self.application().unwrap().downcast().unwrap();
+        let new_window = self::Window::new(&application, None, &ipfs);
+        Some(new_window.imp().tab_view.to_owned())
+    }
+
+    fn about_dialog(&self) {
+        let about_dialog = libadwaita::AboutDialog::builder()
+            .version(VERSION.unwrap())
+            .application_name("Oku")
+            .developer_name("Emil Sayahi")
+            .application_icon("com.github.dirout.oku")
+            .license_type(gtk::License::Agpl30)
+            .build();
+        about_dialog.present(Some(self));
+    }
+
+    pub fn setup_menu_buttons_clicked(&self, ipfs: &Ipfs) {
+        self.setup_zoom_buttons_clicked();
+        let imp = self.imp();
+
+        imp.menu_button.connect_clicked(clone!(
+            #[weak(rename_to = menu_popover)]
+            imp.menu_popover,
+            move |_| {
+                menu_popover.popup();
+            }
+        ));
+
+        // Enter Fullscreen button clicked
+        imp.fullscreen_button.connect_clicked(clone!(
+            #[weak(rename_to = tab_view)]
+            imp.tab_view,
+            #[weak(rename_to = tab_bar)]
+            imp.tab_bar,
+            #[weak(rename_to = headerbar)]
+            imp.headerbar,
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                let web_view = get_view(&tab_view);
+                if !this.is_fullscreen() {
+                    this.set_fullscreened(true);
+                    tab_bar.set_visible(false);
+                    tab_bar.set_opacity(0.0);
+                    headerbar.set_visible(false);
+                    headerbar.set_opacity(0.0);
+                    web_view.evaluate_javascript(
+                        "document.documentElement.requestFullscreen();",
+                        None,
+                        None,
+                        gio::Cancellable::NONE,
+                        move |_| {},
+                    )
+                } else {
+                    this.set_fullscreened(false);
+                    tab_bar.set_visible(true);
+                    tab_bar.set_opacity(100.0);
+                    headerbar.set_visible(true);
+                    headerbar.set_opacity(100.0);
+                    web_view.evaluate_javascript(
+                        "document.exitFullscreen();",
+                        None,
+                        None,
+                        gio::Cancellable::NONE,
+                        move |_| {},
+                    )
+                }
+            }
+        ));
+
+        // Screenshot button clicked
+        imp.screenshot_button.connect_clicked(clone!(
+            #[weak(rename_to = tab_view)]
+            imp.tab_view,
+            move |_| {
+                let web_view = get_view(&tab_view);
+                web_view.snapshot(
+                    webkit2gtk::SnapshotRegion::FullDocument,
+                    webkit2gtk::SnapshotOptions::all(),
+                    gio::Cancellable::NONE,
+                    move |snapshot| {
+                        snapshot
+                            .unwrap()
+                            .save_to_png(format!("{}/{}.png", PICTURES_DIR.to_owned(), Utc::now()))
+                            .unwrap();
+                    },
+                );
+            }
+        ));
+
+        // New Window button clicked
+        imp.new_window_button.connect_clicked(clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[strong]
+            ipfs,
+            move |_| {
+                self::Window::new(
+                    &this.application().unwrap().downcast().unwrap(),
+                    None,
+                    &ipfs,
+                );
+            }
+        ));
+
+        // About button clicked
+        imp.about_button.connect_clicked(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| this.about_dialog()
+        ));
+
+        // Tab dragged off to create new browser window
+        imp.tab_view.connect_create_window(clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[strong]
+            ipfs,
+            #[upgrade_or]
+            None,
+            move |_tab_view| this.create_window_from_drag(&ipfs)
+        ));
+    }
+
+    fn setup_new_view_signals(&self) {
+        let imp = self.imp();
+
+        imp.tab_view.connect_page_attached(clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[weak]
+            imp,
+            move |_, new_page, _page_position| {
+                let new_view = get_view_from_page(&new_page);
+                let network_session = new_view.network_session().unwrap();
+
+                let download_started =
+                    RefCell::new(Some(network_session.connect_download_started(clone!(
+                        #[weak]
+                        this,
+                        move |_w, download| {
+                            download.connect_decide_destination(clone!(
+                                #[weak]
+                                download,
+                                #[upgrade_or]
+                                false,
+                                move |_, suggested_filename| {
+                                    let file_uri = download.request().unwrap().uri().unwrap();
+                                    let file_name =
+                                        Path::new(url::Url::parse(&file_uri).unwrap().path())
+                                            .file_name()
+                                            .unwrap()
+                                            .to_string_lossy()
+                                            .to_string();
+                                    let dialog = libadwaita::AlertDialog::new(
+                                        Some("Download file?"),
+                                        Some(&format!(
+                                            "Would you like to download '{}'?",
+                                            file_uri
+                                        )),
+                                    );
+                                    dialog.add_responses(&[
+                                        ("cancel", "Cancel"),
+                                        ("download", "Download"),
+                                    ]);
+                                    dialog.set_response_appearance(
+                                        "cancel",
+                                        ResponseAppearance::Default,
+                                    );
+                                    dialog.set_response_appearance(
+                                        "download",
+                                        ResponseAppearance::Suggested,
+                                    );
+                                    dialog.set_default_response(Some("cancel"));
+                                    dialog.set_close_response("cancel");
+                                    dialog.connect_response(
+                                        Some("cancel"),
+                                        clone!(
+                                            #[weak]
+                                            download,
+                                            move |_, _| {
+                                                download.cancel();
+                                            }
+                                        ),
+                                    );
+                                    let suggested_filename = suggested_filename.to_string();
+                                    dialog.connect_response(
+                                        None,
+                                        clone!(
+                                            #[weak]
+                                            download,
+                                            #[weak]
+                                            this,
+                                            move |_, response| {
+                                                match response {
+                                                    "cancel" => download.cancel(),
+                                                    "download" => {
+                                                        download.set_allow_overwrite(true);
+                                                        let file_dialog =
+                                                            gtk::FileDialog::builder()
+                                                                .accept_label("Download")
+                                                                .initial_name(suggested_filename.clone())
+                                                                .initial_folder(&gio::File::for_path(glib::user_special_dir(glib::enums::UserDirectory::Downloads).unwrap()))
+                                                                .title(&format!(
+                                                                    "Select destination for '{}'",
+                                                                    file_name
+                                                                ))
+                                                                .build();
+                                                        file_dialog.save(
+                                                            Some(&this),
+                                                            gio::Cancellable::NONE,
+                                                            clone!(
+                                                                #[weak]
+                                                                download,
+                                                                move |destination| {
+                                                                        if let Ok(destination) = destination {
+                                                                            download.set_destination(destination.path()
+                                                                            .unwrap()
+                                                                            .to_str()
+                                                                            .unwrap())
+                                                                        } else {
+                                                                            download.cancel()
+                                                                        }
+                                                                }
+                                                            ),
+                                                        )
+                                                    }
+                                                    _ => {
+                                                        unreachable!()
+                                                    }
+                                                }
+                                            }
+                                        ),
+                                    );
+                                    dialog.present(Some(&this));
+                                    true
+                                }
+                            ));
+                        }
+                    ))));
+                let title_notify = RefCell::new(Some(new_view.connect_title_notify(clone!(
+                    #[weak(rename_to = tab_view)]
+                    imp.tab_view,
+                    move |w| update_title(tab_view, &w)
+                ))));
+                let favicon_notify = RefCell::new(Some(new_view.connect_favicon_notify(clone!(
+                    #[weak(rename_to = tab_view)]
+                    imp.tab_view,
+                    move |w| update_favicon(tab_view, &w)
+                ))));
+                let load_changed = RefCell::new(Some(new_view.connect_load_changed(clone!(
+                    #[weak(rename_to = tab_view)]
+                    imp.tab_view,
+                    #[weak]
+                    imp,
+                    move |w, _| {
+                        imp.obj().set_title(Some(
+                            &w.title()
+                                .unwrap_or_else(|| glib::GString::from("Oku"))
+                                .to_string(),
+                        ));
+                        update_favicon(tab_view, &w);
+                    }
+                ))));
+                let enter_fullscreen =
+                    RefCell::new(Some(new_view.connect_enter_fullscreen(clone!(
+                        #[weak]
+                        imp,
+                        #[upgrade_or]
+                        false,
+                        move |_w| {
+                            imp.headerbar.set_visible(false);
+                            imp.tab_bar.set_visible(false);
+                            imp.obj().set_fullscreened(true);
+                            imp.tab_bar.set_visible(false);
+                            imp.tab_bar.set_opacity(0.0);
+                            true
+                        }
+                    ))));
+                let leave_fullscreen =
+                    RefCell::new(Some(new_view.connect_leave_fullscreen(clone!(
+                        #[weak]
+                        imp,
+                        #[upgrade_or]
+                        false,
+                        move |_w| {
+                            imp.headerbar.set_visible(true);
+                            imp.tab_bar.set_visible(true);
+                            imp.obj().set_fullscreened(false);
+                            imp.tab_bar.set_visible(true);
+                            imp.tab_bar.set_opacity(100.0);
+                            true
+                        }
+                    ))));
+
+                // Indicator appearance
+                let is_muted_notify = RefCell::new(Some(new_view.connect_is_muted_notify(clone!(
+                    #[weak]
+                    new_page,
+                    move |the_view| {
+                        // Has been muted
+                        if the_view.is_muted() {
+                            new_page.set_indicator_icon(Some(&gio::ThemedIcon::new(
+                                "audio-volume-muted",
+                            )));
+                            new_page.set_indicator_activatable(true);
+                        } else {
+                            // Has been unmuted, audio is playing
+                            if the_view.is_playing_audio() {
+                                new_page.set_indicator_icon(Some(&gio::ThemedIcon::new(
+                                    "audio-volume-high",
+                                )));
+                                new_page.set_indicator_activatable(true);
+                            }
+                            // Has been unmuted, audio is not playing
+                            else {
+                                new_page.set_indicator_icon(Some(&gio::ThemedIcon::new(
+                                    "view-pin-symbolic",
+                                )));
+                                new_page.set_indicator_activatable(true);
+                            }
+                        }
+                    }
+                ))));
+                let is_playing_audio_notify =
+                    RefCell::new(Some(new_view.connect_is_playing_audio_notify(clone!(
+                        #[weak]
+                        new_page,
+                        move |the_view| {
+                            // Audio has started playing and not muted
+                            if the_view.is_playing_audio() && !the_view.is_muted() {
+                                new_page.set_indicator_icon(Some(&gio::ThemedIcon::new(
+                                    "audio-volume-high",
+                                )));
+                                new_page.set_indicator_activatable(true);
+                            } else if !the_view.is_playing_audio() {
+                                // Audio has stopped playing, muted
+                                if the_view.is_muted() {
+                                    new_page.set_indicator_icon(Some(&gio::ThemedIcon::new(
+                                        "audio-volume-muted",
+                                    )));
+                                    new_page.set_indicator_activatable(true);
+                                } else {
+                                    // Audio has stopped playing, not muted
+                                    new_page.set_indicator_icon(Some(&gio::ThemedIcon::new(
+                                        "view-pin-symbolic",
+                                    )));
+                                    new_page.set_indicator_activatable(true);
+                                }
+                            }
+                        }
+                    ))));
+                let connect_uri_notify = RefCell::new(Some(new_view.connect_uri_notify(clone!(
+                    #[weak(rename_to = tab_view)]
+                    imp.tab_view,
+                    #[weak(rename_to = nav_entry)]
+                    imp.nav_entry,
+                    move |w| {
+                        if get_view(&tab_view) == *w {
+                            update_nav_bar(&nav_entry, &w)
+                        }
+                    }
+                ))));
+                let estimated_load_progress_notify = RefCell::new(Some(
+                    new_view.connect_estimated_load_progress_notify(clone!(
+                        #[weak(rename_to = tab_view)]
+                        imp.tab_view,
+                        #[weak(rename_to = nav_entry)]
+                        imp.nav_entry,
+                        move |w| {
+                            let current_page = tab_view.page(w);
+                            current_page.set_loading(true);
+                            update_load_progress(&nav_entry, &w)
+                        }
+                    )),
+                ));
+                let is_loading_notify =
+                    RefCell::new(Some(new_view.connect_is_loading_notify(clone!(
+                        #[weak(rename_to = tab_view)]
+                        imp.tab_view,
+                        move |w| {
+                            let current_page = tab_view.page(w);
+                            current_page.set_loading(w.is_loading())
+                        }
+                    ))));
+                imp.tab_view.connect_page_detached(clone!(
+                    #[weak]
+                    new_view,
+                    move |_, _old_page, _page_position| {
+                        if let Some(id) = download_started.take() {
+                            new_view.disconnect(id);
+                        }
+                        if let Some(id) = title_notify.take() {
+                            new_view.disconnect(id);
+                        }
+                        if let Some(id) = favicon_notify.take() {
+                            new_view.disconnect(id);
+                        }
+                        if let Some(id) = load_changed.take() {
+                            new_view.disconnect(id);
+                        }
+                        if let Some(id) = enter_fullscreen.take() {
+                            new_view.disconnect(id);
+                        }
+                        if let Some(id) = leave_fullscreen.take() {
+                            new_view.disconnect(id);
+                        }
+                        if let Some(id) = is_muted_notify.take() {
+                            new_view.disconnect(id);
+                        }
+                        if let Some(id) = is_playing_audio_notify.take() {
+                            new_view.disconnect(id);
+                        }
+                        if let Some(id) = connect_uri_notify.take() {
+                            new_view.disconnect(id);
+                        }
+                        if let Some(id) = estimated_load_progress_notify.take() {
+                            new_view.disconnect(id);
+                        }
+                        if let Some(id) = is_loading_notify.take() {
+                            new_view.disconnect(id);
+                        }
+                    }
+                ));
             }
         ));
     }

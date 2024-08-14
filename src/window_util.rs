@@ -1,6 +1,6 @@
 use cid::Cid;
 use glib::object::Cast;
-use gtk::{prelude::EditableExt, prelude::EntryExt};
+use gtk::prelude::{EditableExt, EntryExt};
 use webkit2gtk::prelude::WebViewExt;
 
 /// Perform the initial connection at startup when passed a URL as a launch argument
@@ -169,7 +169,6 @@ pub fn new_webkit_settings() -> webkit2gtk::Settings {
     settings.set_enable_media_stream(true);
     settings.set_enable_mediasource(true);
     settings.set_enable_mock_capture_devices(true);
-    settings.set_enable_offline_web_application_cache(true);
     settings.set_enable_page_cache(true);
     settings.set_enable_resizable_text_areas(true);
     settings.set_enable_site_specific_quirks(true);
@@ -181,7 +180,6 @@ pub fn new_webkit_settings() -> webkit2gtk::Settings {
     settings.set_enable_write_console_messages_to_stdout(true);
     settings.set_hardware_acceleration_policy(webkit2gtk::HardwareAccelerationPolicy::Never);
     settings.set_javascript_can_access_clipboard(true);
-    settings.set_load_icons_ignoring_image_load_setting(true);
     settings.set_media_playback_allows_inline(true);
     settings.set_media_playback_requires_user_gesture(false);
     settings.set_print_backgrounds(true);
@@ -193,9 +191,8 @@ pub fn new_webkit_settings() -> webkit2gtk::Settings {
 ///
 /// # Arguments
 ///
-/// * `tabs` - The TabBar containing the tabs of the current browser session
-pub fn get_view(tab_bar: &libadwaita::TabBar) -> webkit2gtk::WebView {
-    let tab_view = tab_bar.view().unwrap();
+/// * `tab_view` - The tabs of the current browser window
+pub fn get_view(tab_view: &libadwaita::TabView) -> webkit2gtk::WebView {
     let current_page = tab_view.selected_page().unwrap();
     let current_page_number = tab_view.page_position(&current_page);
     let specific_page = tab_view.nth_page(current_page_number);
@@ -215,6 +212,8 @@ pub fn get_view_from_page(page: &libadwaita::TabPage) -> webkit2gtk::WebView {
 ///
 /// # Arguments
 ///
+/// * `tab_view` - The tabs of the current browser window
+///
 /// * `web_view` - The WebKit instance for the tab
 pub fn update_favicon(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebView) {
     let relevant_page = tab_view.page(web_view);
@@ -232,6 +231,8 @@ pub fn update_favicon(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebV
 /// Update a tab's title
 ///
 /// # Arguments
+///
+/// * `tab_view` - The tabs of the current browser window
 ///
 /// * `web_view` - The WebKit instance for the tab
 pub fn update_title(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebView) {
