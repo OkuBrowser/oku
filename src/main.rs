@@ -23,18 +23,17 @@
     html_favicon_url = "https://github.com/Dirout/oku/raw/master/branding/logo-filled.svg"
 )]
 // #![feature(async_closure)]
+pub mod widgets;
+pub mod window_util;
 
 use chrono::Utc;
 use cid::Cid;
 use directories_next::ProjectDirs;
 use directories_next::UserDirs;
 use futures::pin_mut;
-use futures::TryStreamExt;
 use gdk::prelude::TextureExt;
 use gio::prelude::*;
-use gio::MemoryInputStream;
 use glib::prelude::Cast;
-use glib::translate::ToGlibPtr;
 use glib_macros::clone;
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
@@ -42,19 +41,14 @@ use gtk::prelude::EditableExt;
 use gtk::prelude::EntryExt;
 use gtk::prelude::GtkWindowExt;
 use gtk::prelude::PopoverExt;
-use gtk::prelude::ToggleButtonExt;
 use gtk::prelude::WidgetExt;
 use ipfs::Ipfs;
 use ipfs::Keypair;
 use ipfs::UninitializedIpfsNoop as UninitializedIpfs;
-use libadwaita::prelude::AdwApplicationExt;
 use libadwaita::prelude::AdwApplicationWindowExt;
 use libadwaita::TabOverview;
 use std::convert::TryFrom;
-use std::path::PathBuf;
-use std::sync::Arc;
 use tokio::runtime::Handle;
-use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
 use url::ParseError;
 use url::Url;
@@ -399,13 +393,13 @@ fn new_view(
             let request_url = request.uri().unwrap().to_string();
             let decoded_url = decode(&request_url).unwrap();
             let ipns_path = format!("/ipns/{}", decoded_url.replacen("ipns://", "", 1)).parse::<ipfs::IpfsPath>().unwrap();
-            let mut mem_stream = gio::MemoryInputStream::new();
-            let mut mem_stream_ref = mem_stream.as_object_ref();
+            let mem_stream = gio::MemoryInputStream::new();
+            let mem_stream_ref = mem_stream.as_object_ref();
             let async_handle = Handle::current();
             let _enter_guard = async_handle.enter();
             ctx.spawn_local_with_priority(glib::source::Priority::HIGH, clone!(@weak request, @strong ipfs => async move {
-                let mut resolved_ipns_path = ipfs.resolve_ipns(&ipns_path, true).await.unwrap();
-                let mut ipfs_stream = ipfs.cat_unixfs(resolved_ipns_path);
+                let resolved_ipns_path = ipfs.resolve_ipns(&ipns_path, true).await.unwrap();
+                let ipfs_stream = ipfs.cat_unixfs(resolved_ipns_path);
                 let mut file_vec: Vec<u8> = vec![];
                 pin_mut!(ipfs_stream);
                 while let Some(result) = ipfs_stream.next().await {
@@ -435,9 +429,9 @@ fn new_view(
             let request_url = request.uri().unwrap().to_string();
             let decoded_url = decode(&request_url).unwrap();
             let ipfs_path = decoded_url.replacen("ipfs://", "", 1).parse::<ipfs::IpfsPath>().unwrap();
-            let mut mem_stream = gio::MemoryInputStream::new();
-            let mut mem_stream_ref = mem_stream.as_object_ref();
-            let mut ipfs_stream = ipfs.cat_unixfs(ipfs_path);
+            let mem_stream = gio::MemoryInputStream::new();
+            let mem_stream_ref = mem_stream.as_object_ref();
+            let ipfs_stream = ipfs.cat_unixfs(ipfs_path);
             let async_handle = Handle::current();
             let _enter_guard = async_handle.enter();
             ctx.spawn_local_with_priority(glib::source::Priority::HIGH, clone!(@weak request => async move {
@@ -903,9 +897,15 @@ async fn main() {
     ipfs.default_bootstrap().await.unwrap();
     ipfs.bootstrap().await.unwrap();
 
-    application.connect_activate(clone!(@weak application, @strong ipfs => move |_| {
-        new_window_four(&application, None, &ipfs);
-    }));
+    application.connect_activate(clone!(
+        #[weak]
+        application,
+        #[strong]
+        ipfs,
+        move |_| {
+            crate::widgets::window::Window::new(&application, None, &ipfs);
+        }
+    ));
     application.run();
 
     // Used to wait until the process is terminated instead of creating a loop
