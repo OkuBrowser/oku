@@ -12,7 +12,6 @@ use ipfs::Ipfs;
 use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
 use libadwaita::{prelude::*, ResponseAppearance};
 use std::cell::RefCell;
-use std::path::Path;
 use tokio_stream::StreamExt;
 use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::{URISchemeRequest, WebView};
@@ -936,12 +935,6 @@ impl Window {
                                 false,
                                 move |_, suggested_filename| {
                                     let file_uri = download.request().unwrap().uri().unwrap();
-                                    let file_name =
-                                        Path::new(url::Url::parse(&file_uri).unwrap().path())
-                                            .file_name()
-                                            .unwrap()
-                                            .to_string_lossy()
-                                            .to_string();
                                     let dialog = libadwaita::AlertDialog::new(
                                         Some("Download file?"),
                                         Some(&format!(
@@ -983,7 +976,7 @@ impl Window {
                                                                 .initial_folder(&gio::File::for_path(glib::user_special_dir(glib::enums::UserDirectory::Downloads).unwrap()))
                                                                 .title(&format!(
                                                                     "Select destination for '{}'",
-                                                                    file_name
+                                                                    suggested_filename.clone()
                                                                 ))
                                                                 .build();
                                                         file_dialog.save(
