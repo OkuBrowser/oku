@@ -11,6 +11,7 @@ use gtk::{gio, glib};
 use ipfs::Ipfs;
 use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
 use libadwaita::{prelude::*, ResponseAppearance};
+use std::cell::Cell;
 use std::cell::RefCell;
 use tokio_stream::StreamExt;
 use webkit2gtk::prelude::WebViewExt;
@@ -18,7 +19,6 @@ use webkit2gtk::{URISchemeRequest, WebView};
 
 pub mod imp {
     use super::*;
-    use std::cell::{Cell, RefCell};
 
     #[derive(Debug, Default, Properties)]
     #[properties(wrapper_type = super::Window)]
@@ -888,6 +888,18 @@ impl Window {
                     &this.application().unwrap().downcast().unwrap(),
                     None,
                     &ipfs,
+                );
+            }
+        ));
+
+        // Settings button clicked
+        imp.settings_button.connect_clicked(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                super::settings::Settings::new(
+                    &this.application().unwrap().downcast().unwrap(),
+                    &this,
                 );
             }
         ));

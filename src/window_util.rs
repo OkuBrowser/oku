@@ -1,7 +1,7 @@
 use cid::Cid;
 use glib::object::Cast;
 use gtk::prelude::{EditableExt, EntryExt};
-use webkit2gtk::prelude::WebViewExt;
+use webkit2gtk::{functions::uri_for_display, prelude::WebViewExt};
 
 /// Perform the initial connection at startup when passed a URL as a launch argument
 ///
@@ -141,7 +141,7 @@ pub fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
     if url == "about:blank" {
         url = "".to_string();
     }
-    nav_entry.set_text(&url);
+    nav_entry.set_text(&uri_for_display(&url).unwrap_or_default());
 }
 
 /// Provide the default configuration for Oku's WebView
