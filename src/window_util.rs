@@ -191,18 +191,6 @@ pub fn new_webkit_settings() -> webkit2gtk::Settings {
 ///
 /// # Arguments
 ///
-/// * `tab_view` - The tabs of the current browser window
-pub fn get_view(tab_view: &libadwaita::TabView) -> webkit2gtk::WebView {
-    let current_page = tab_view.selected_page().unwrap();
-    let current_page_number = tab_view.page_position(&current_page);
-    let specific_page = tab_view.nth_page(current_page_number);
-    specific_page.child().downcast().unwrap()
-}
-
-/// Get the WebKit instance for the current tab
-///
-/// # Arguments
-///
 /// * `page` - The TabPage containing the the WebKit instance
 pub fn get_view_from_page(page: &libadwaita::TabPage) -> webkit2gtk::WebView {
     page.child().downcast().unwrap()

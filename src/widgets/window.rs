@@ -1,5 +1,5 @@
 use crate::window_util::{
-    connect, get_view, get_view_from_page, initial_connect, new_webkit_settings, update_favicon,
+    connect, get_view_from_page, initial_connect, new_webkit_settings, update_favicon,
     update_load_progress, update_nav_bar, update_title,
 };
 use crate::{DATA_DIR, PICTURES_DIR, VERSION};
@@ -139,6 +139,24 @@ impl Window {
         this.set_visible(true);
 
         this
+    }
+
+    /// Get the WebKit instance for the current tab
+    pub fn get_view(&self) -> webkit2gtk::WebView {
+        let imp = self.imp();
+
+        if let Some(current_page) = imp.tab_view.selected_page() {
+            let current_page_number = imp.tab_view.page_position(&current_page);
+            let specific_page = imp.tab_view.nth_page(current_page_number);
+            specific_page.child().downcast().unwrap()
+        } else {
+            if !imp.tab_view.is_transferring_page() {
+                self.close();
+            }
+            let web_view = webkit2gtk::WebView::new();
+            web_view.load_uri("about:blank");
+            web_view
+        }
     }
 
     fn setup_navigation_buttons(&self) {
@@ -669,12 +687,10 @@ impl Window {
         imp.tab_view.connect_selected_page_notify(clone!(
             #[weak(rename_to = nav_entry)]
             imp.nav_entry,
-            #[weak(rename_to = tab_view)]
-            imp.tab_view,
             #[weak(rename_to = this)]
             self,
             move |_| {
-                let web_view = get_view(&tab_view);
+                let web_view = this.get_view();
                 update_nav_bar(&nav_entry, &web_view);
                 this.set_title(Some(
                     &web_view
@@ -691,42 +707,42 @@ impl Window {
 
         // Back button clicked
         imp.back_button.connect_clicked(clone!(
-            #[weak(rename_to = tab_view)]
-            imp.tab_view,
+            #[weak(rename_to = this)]
+            self,
             move |_| {
-                let web_view = get_view(&tab_view);
+                let web_view = this.get_view();
                 web_view.go_back()
             }
         ));
 
         // Forward button clicked
         imp.forward_button.connect_clicked(clone!(
-            #[weak(rename_to = tab_view)]
-            imp.tab_view,
+            #[weak(rename_to = this)]
+            self,
             move |_| {
-                let web_view = get_view(&tab_view);
+                let web_view = this.get_view();
                 web_view.go_forward()
             }
         ));
 
         // Refresh button clicked
         imp.refresh_button.connect_clicked(clone!(
-            #[weak(rename_to = tab_view)]
-            imp.tab_view,
+            #[weak(rename_to = this)]
+            self,
             move |_| {
-                let web_view = get_view(&tab_view);
+                let web_view = this.get_view();
                 web_view.reload_bypass_cache()
             }
         ));
 
         // User hit return key in navbar, prompting navigation
         imp.nav_entry.connect_activate(clone!(
-            #[weak(rename_to = tab_view)]
-            imp.tab_view,
             #[weak(rename_to = nav_entry)]
             imp.nav_entry,
+            #[weak(rename_to = this)]
+            self,
             move |_| {
-                let web_view = get_view(&tab_view);
+                let web_view = this.get_view();
                 connect(&nav_entry, &web_view);
             }
         ));
@@ -737,10 +753,10 @@ impl Window {
 
         // Zoom-in button clicked
         imp.zoomin_button.connect_clicked(clone!(
-            #[weak(rename_to = tab_view)]
-            imp.tab_view,
+            #[weak(rename_to = this)]
+            self,
             move |_| {
-                let web_view = get_view(&tab_view);
+                let web_view = this.get_view();
                 let current_zoom_level = web_view.zoom_level();
                 web_view.set_zoom_level(current_zoom_level + 0.1);
             }
@@ -748,10 +764,10 @@ impl Window {
 
         // Zoom-out button clicked
         imp.zoomout_button.connect_clicked(clone!(
-            #[weak(rename_to = tab_view)]
-            imp.tab_view,
+            #[weak(rename_to = this)]
+            self,
             move |_| {
-                let web_view = get_view(&tab_view);
+                let web_view = this.get_view();
                 let current_zoom_level = web_view.zoom_level();
                 web_view.set_zoom_level(current_zoom_level - 0.1);
             }
@@ -759,10 +775,10 @@ impl Window {
 
         // Reset Zoom button clicked
         imp.zoomreset_button.connect_clicked(clone!(
-            #[weak(rename_to = tab_view)]
-            imp.tab_view,
+            #[weak(rename_to = this)]
+            self,
             move |_| {
-                let web_view = get_view(&tab_view);
+                let web_view = this.get_view();
                 web_view.set_zoom_level(1.0);
             }
         ));
@@ -804,8 +820,6 @@ impl Window {
 
         // Enter Fullscreen button clicked
         imp.fullscreen_button.connect_clicked(clone!(
-            #[weak(rename_to = tab_view)]
-            imp.tab_view,
             #[weak(rename_to = tab_bar)]
             imp.tab_bar,
             #[weak(rename_to = headerbar)]
@@ -813,7 +827,7 @@ impl Window {
             #[weak(rename_to = this)]
             self,
             move |_| {
-                let web_view = get_view(&tab_view);
+                let web_view = this.get_view();
                 if !this.is_fullscreen() {
                     this.set_fullscreened(true);
                     tab_bar.set_visible(false);
@@ -846,10 +860,10 @@ impl Window {
 
         // Screenshot button clicked
         imp.screenshot_button.connect_clicked(clone!(
-            #[weak(rename_to = tab_view)]
-            imp.tab_view,
+            #[weak(rename_to = this)]
+            self,
             move |_| {
-                let web_view = get_view(&tab_view);
+                let web_view = this.get_view();
                 web_view.snapshot(
                     webkit2gtk::SnapshotRegion::FullDocument,
                     webkit2gtk::SnapshotOptions::all(),
@@ -1127,12 +1141,10 @@ impl Window {
                         }
                     ))));
                 let connect_uri_notify = RefCell::new(Some(new_view.connect_uri_notify(clone!(
-                    #[weak(rename_to = tab_view)]
-                    imp.tab_view,
                     #[weak(rename_to = nav_entry)]
                     imp.nav_entry,
                     move |w| {
-                        if get_view(&tab_view) == *w {
+                        if this.get_view() == *w {
                             update_nav_bar(&nav_entry, &w)
                         }
                     }

@@ -39,6 +39,7 @@ use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
 use gtk::prelude::EditableExt;
 use gtk::prelude::EntryExt;
+use gtk::prelude::GtkApplicationExt;
 use gtk::prelude::GtkWindowExt;
 use gtk::prelude::PopoverExt;
 use gtk::prelude::WidgetExt;
@@ -904,6 +905,16 @@ async fn main() {
         ipfs,
         move |_| {
             crate::widgets::window::Window::new(&application, None, &ipfs);
+        }
+    ));
+    application.connect_window_removed(clone!(
+        #[weak]
+        application,
+        move |_, _| {
+            if application.windows().len() == 0 {
+                application.quit();
+                std::process::exit(0)
+            }
         }
     ));
     application.run();
