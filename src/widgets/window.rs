@@ -1,5 +1,5 @@
 use crate::window_util::{
-    connect, get_view_from_page, initial_connect, new_webkit_settings, update_favicon,
+    connect, get_title, get_view_from_page, initial_connect, new_webkit_settings, update_favicon,
     update_load_progress, update_nav_bar, update_title,
 };
 use crate::{DATA_DIR, PICTURES_DIR, VERSION};
@@ -130,7 +130,7 @@ impl Window {
         imp.initial_url
             .replace(initial_url.unwrap_or("about:blank").to_string());
 
-        if imp.tab_view.n_pages() == 0 {
+        if imp.tab_view.n_pages() == 0 && app.windows().len() <= 1 {
             let initial_web_view = this.new_tab_page(ipfs).0;
             initial_connect(imp.initial_url.clone().into_inner(), &initial_web_view);
         }
@@ -149,9 +149,6 @@ impl Window {
             let specific_page = imp.tab_view.nth_page(current_page_number);
             specific_page.child().downcast().unwrap()
         } else {
-            if !imp.tab_view.is_transferring_page() {
-                self.close();
-            }
             let web_view = webkit2gtk::WebView::new();
             web_view.load_uri("about:blank");
             web_view
@@ -686,17 +683,26 @@ impl Window {
         imp.tab_view.connect_selected_page_notify(clone!(
             #[weak(rename_to = nav_entry)]
             imp.nav_entry,
+            #[weak(rename_to = refresh_button)]
+            imp.refresh_button,
+            #[weak(rename_to = back_button)]
+            imp.back_button,
+            #[weak(rename_to = forward_button)]
+            imp.forward_button,
             #[weak(rename_to = this)]
             self,
             move |_| {
                 let web_view = this.get_view();
                 update_nav_bar(&nav_entry, &web_view);
-                this.set_title(Some(
-                    &web_view
-                        .title()
-                        .unwrap_or_else(|| glib::GString::from("Oku"))
-                        .to_string(),
-                ));
+                this.set_title(Some(&get_title(&web_view)));
+                update_load_progress(&nav_entry, &web_view);
+                if web_view.is_loading() {
+                    refresh_button.set_icon_name("process-stop")
+                } else {
+                    refresh_button.set_icon_name("view-refresh")
+                }
+                back_button.set_sensitive(web_view.can_go_back());
+                forward_button.set_sensitive(web_view.can_go_forward());
             }
         ));
     }
@@ -730,7 +736,11 @@ impl Window {
             self,
             move |_| {
                 let web_view = this.get_view();
-                web_view.reload_bypass_cache()
+                if web_view.is_loading() {
+                    web_view.stop_loading()
+                } else {
+                    web_view.reload()
+                }
             }
         ));
 
@@ -935,12 +945,39 @@ impl Window {
                 let new_view = get_view_from_page(&new_page);
                 let network_session = new_view.network_session().unwrap();
 
+                let print_started = RefCell::new(Some(new_view.connect_print(clone!(#[weak]
+                this,
+                    #[upgrade_or]
+                    false, move |_, print_operation| {
+                        let dialog = gtk::PrintDialog::builder().title("Print").modal(true).build();
+                        let ctx = glib::MainContext::new();
+                        ctx.with_thread_default(clone!(#[weak]
+                        this, #[weak] print_operation, #[strong] ctx, move || {
+                            ctx.block_on(clone!(#[weak]
+                                this, #[weak] print_operation, async move {
+                                let print_setup = match dialog.setup_future(Some(&this)).await {
+                                    Ok(print_setup) => print_setup,
+                                    Err(_e) => {
+                                        return;
+                                    }
+                                };
+                                print_operation.set_page_setup(&print_setup.page_setup());
+                                print_operation.set_print_settings(&print_setup.print_settings());
+                                print_operation.print();
+                            }));
+                        })).unwrap();
+                        true
+                    })
+                )));
+
                 let download_started =
                     RefCell::new(Some(network_session.connect_download_started(clone!(
                         #[weak]
                         this,
                         move |_w, download| {
                             download.connect_decide_destination(clone!(
+                                #[weak]
+                        this,
                                 #[weak]
                                 download,
                                 #[upgrade_or]
@@ -973,9 +1010,9 @@ impl Window {
                                         None,
                                         clone!(
                                             #[weak]
-                                            download,
+                        this,
                                             #[weak]
-                                            this,
+                                            download,
                                             move |_, response| {
                                                 match response {
                                                     "cancel" => download.cancel(),
@@ -1036,15 +1073,23 @@ impl Window {
                 let load_changed = RefCell::new(Some(new_view.connect_load_changed(clone!(
                     #[weak(rename_to = tab_view)]
                     imp.tab_view,
+                    #[weak(rename_to = back_button)]
+                    imp.back_button,
+                    #[weak(rename_to = forward_button)]
+                    imp.forward_button,
                     #[weak]
                     imp,
+                    #[weak]
+                    this,
                     move |w, _| {
                         imp.obj().set_title(Some(
-                            &w.title()
-                                .unwrap_or_else(|| glib::GString::from("Oku"))
-                                .to_string(),
+                            &get_title(&w),
                         ));
                         update_favicon(tab_view, &w);
+                        if this.get_view() == *w {
+                            back_button.set_sensitive(w.can_go_back());
+                            forward_button.set_sensitive(w.can_go_forward());
+                        }
                     }
                 ))));
                 let enter_fullscreen =
@@ -1138,9 +1183,17 @@ impl Window {
                 let connect_uri_notify = RefCell::new(Some(new_view.connect_uri_notify(clone!(
                     #[weak(rename_to = nav_entry)]
                     imp.nav_entry,
+                    #[weak(rename_to = back_button)]
+                    imp.back_button,
+                    #[weak(rename_to = forward_button)]
+                    imp.forward_button,
+                    #[weak]
+                    this,
                     move |w| {
                         if this.get_view() == *w {
-                            update_nav_bar(&nav_entry, &w)
+                            update_nav_bar(&nav_entry, &w);
+                            back_button.set_sensitive(w.can_go_back());
+                            forward_button.set_sensitive(w.can_go_forward());
                         }
                     }
                 ))));
@@ -1150,10 +1203,21 @@ impl Window {
                         imp.tab_view,
                         #[weak(rename_to = nav_entry)]
                         imp.nav_entry,
+                        #[weak(rename_to = refresh_button)]
+                        imp.refresh_button,
+                        #[weak]
+                        this,
                         move |w| {
                             let current_page = tab_view.page(w);
-                            current_page.set_loading(true);
-                            update_load_progress(&nav_entry, &w)
+                            current_page.set_loading(w.is_loading());
+                            if this.get_view() == *w {
+                                update_load_progress(&nav_entry, &w);
+                                if current_page.is_loading() {
+                                    refresh_button.set_icon_name("process-stop")
+                                } else {
+                                    refresh_button.set_icon_name("view-refresh")
+                                }
+                            }
                         }
                     )),
                 ));
@@ -1161,47 +1225,61 @@ impl Window {
                     RefCell::new(Some(new_view.connect_is_loading_notify(clone!(
                         #[weak(rename_to = tab_view)]
                         imp.tab_view,
+                        #[weak(rename_to = refresh_button)]
+                        imp.refresh_button,
+                        #[weak]
+                        this,
                         move |w| {
                             let current_page = tab_view.page(w);
-                            current_page.set_loading(w.is_loading())
+                            current_page.set_loading(w.is_loading());
+                            if this.get_view() == *w {
+                                if current_page.is_loading() {
+                                    refresh_button.set_icon_name("process-stop")
+                                } else {
+                                    refresh_button.set_icon_name("view-refresh")
+                                }
+                            }
                         }
                     ))));
                 imp.tab_view.connect_page_detached(clone!(
-                    #[weak]
-                    new_view,
-                    move |_, _old_page, _page_position| {
+                    move |_, old_page, _page_position| {
+                        let old_view = get_view_from_page(&old_page);
+                        let old_network_session = old_view.network_session().unwrap();
+                        if let Some(id) = print_started.take() {
+                            old_view.disconnect(id);
+                        }
                         if let Some(id) = download_started.take() {
-                            new_view.disconnect(id);
+                            old_network_session.disconnect(id);
                         }
                         if let Some(id) = title_notify.take() {
-                            new_view.disconnect(id);
+                            old_view.disconnect(id);
                         }
                         if let Some(id) = favicon_notify.take() {
-                            new_view.disconnect(id);
+                            old_view.disconnect(id);
                         }
                         if let Some(id) = load_changed.take() {
-                            new_view.disconnect(id);
+                            old_view.disconnect(id);
                         }
                         if let Some(id) = enter_fullscreen.take() {
-                            new_view.disconnect(id);
+                            old_view.disconnect(id);
                         }
                         if let Some(id) = leave_fullscreen.take() {
-                            new_view.disconnect(id);
+                            old_view.disconnect(id);
                         }
                         if let Some(id) = is_muted_notify.take() {
-                            new_view.disconnect(id);
+                            old_view.disconnect(id);
                         }
                         if let Some(id) = is_playing_audio_notify.take() {
-                            new_view.disconnect(id);
+                            old_view.disconnect(id);
                         }
                         if let Some(id) = connect_uri_notify.take() {
-                            new_view.disconnect(id);
+                            old_view.disconnect(id);
                         }
                         if let Some(id) = estimated_load_progress_notify.take() {
-                            new_view.disconnect(id);
+                            old_view.disconnect(id);
                         }
                         if let Some(id) = is_loading_notify.take() {
-                            new_view.disconnect(id);
+                            old_view.disconnect(id);
                         }
                     }
                 ));

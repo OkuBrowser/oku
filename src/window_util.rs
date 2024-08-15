@@ -1,6 +1,9 @@
 use cid::Cid;
-use glib::object::Cast;
-use gtk::prelude::{EditableExt, EntryExt};
+use glib::object::{Cast, IsA};
+use gtk::{
+    prelude::WidgetExt,
+    prelude::{EditableExt, EntryExt},
+};
 use webkit2gtk::{functions::uri_for_display, prelude::WebViewExt};
 
 /// Perform the initial connection at startup when passed a URL as a launch argument
@@ -196,6 +199,14 @@ pub fn get_view_from_page(page: &libadwaita::TabPage) -> webkit2gtk::WebView {
     page.child().downcast().unwrap()
 }
 
+pub fn get_window_from_widget(widget: &impl IsA<gtk::Widget>) -> crate::widgets::window::Window {
+    widget
+        .ancestor(glib::Type::from_name("OkuWindow").unwrap())
+        .unwrap()
+        .downcast()
+        .unwrap()
+}
+
 /// Update a tab's icon
 ///
 /// # Arguments
@@ -216,6 +227,22 @@ pub fn update_favicon(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebV
     }
 }
 
+pub fn get_title(web_view: &webkit2gtk::WebView) -> String {
+    if web_view.uri().unwrap_or_default() == "about:blank" {
+        return String::from("Oku");
+    }
+    match web_view.title() {
+        Some(page_title) => {
+            if page_title.as_str() == "" {
+                String::from("Untitled")
+            } else {
+                String::from(page_title)
+            }
+        }
+        None => String::from("Untitled"),
+    }
+}
+
 /// Update a tab's title
 ///
 /// # Arguments
@@ -225,19 +252,7 @@ pub fn update_favicon(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebV
 /// * `web_view` - The WebKit instance for the tab
 pub fn update_title(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebView) {
     let relevant_page = tab_view.page(web_view);
-    let web_page_title = &web_view.title();
-    match web_page_title {
-        Some(page_title) => {
-            if page_title.as_str() == "" {
-                relevant_page.set_title("Untitled");
-            } else {
-                relevant_page.set_title(page_title)
-            }
-        }
-        None => {
-            relevant_page.set_title("Untitled");
-        }
-    }
+    relevant_page.set_title(&get_title(web_view));
 }
 
 /// Update the load progress indicator under the navigation bar
