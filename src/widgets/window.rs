@@ -963,16 +963,6 @@ impl Window {
                                     );
                                     dialog.set_default_response(Some("cancel"));
                                     dialog.set_close_response("cancel");
-                                    dialog.connect_response(
-                                        Some("cancel"),
-                                        clone!(
-                                            #[weak]
-                                            download,
-                                            move |_, _| {
-                                                download.cancel();
-                                            }
-                                        ),
-                                    );
                                     let suggested_filename = suggested_filename.to_string();
                                     dialog.connect_response(
                                         None,
