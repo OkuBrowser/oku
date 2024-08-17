@@ -14,6 +14,11 @@ use libadwaita::{prelude::*, ResponseAppearance};
 use std::cell::Cell;
 use std::cell::RefCell;
 use tokio_stream::StreamExt;
+use webkit2gtk::functions::{
+    user_media_permission_is_for_audio_device, user_media_permission_is_for_display_device,
+    user_media_permission_is_for_video_device,
+};
+use webkit2gtk::prelude::PermissionRequestExt;
 use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::{URISchemeRequest, WebView};
 
@@ -970,6 +975,82 @@ impl Window {
                     })
                 )));
 
+                let permission_request =
+                    RefCell::new(Some(new_view.connect_permission_request(clone!(
+                        #[weak]
+                        this,
+                        #[upgrade_or]
+                    false,
+                        move |_w, permission_request| {
+                            let (title, description) = if permission_request.is::<webkit2gtk::ClipboardPermissionRequest>() {
+                                ("Allow access to clipboard?", "This page is requesting permission to read the contents of your clipboard.")
+                            } else if permission_request.is::<webkit2gtk::DeviceInfoPermissionRequest>() {
+                                ("Allow access to audio & video devices?", "This page is requesting access to information regarding your audio & video devices.")
+                            } else if permission_request.is::<webkit2gtk::GeolocationPermissionRequest>() {
+                                ("Allow access to location?", "This page is requesting access to your location.")
+                            } else if permission_request.is::<webkit2gtk::MediaKeySystemPermissionRequest>() {
+                                ("Allow playback of encrypted media?", "This page wishes to play encrypted media.")
+                            } else if permission_request.is::<webkit2gtk::NotificationPermissionRequest>() {
+                                ("Allow notifications?", "This page is requesting permission to display notifications.")
+                            } else if permission_request.is::<webkit2gtk::PointerLockPermissionRequest>() {
+                                ("Allow locking the pointer?", "This page is requesting permission to lock your pointer.")
+                            } else if permission_request.is::<webkit2gtk::UserMediaPermissionRequest>() {
+                                let user_media_permission_request = permission_request.downcast_ref::<webkit2gtk::UserMediaPermissionRequest>().unwrap();
+                                if user_media_permission_is_for_audio_device(&user_media_permission_request) {
+                                    ("Allow access to audio devices?", "This page is requesting access to your audio source devices.")
+                                } else if user_media_permission_is_for_display_device(&user_media_permission_request) {
+                                    ("Allow access to display devices?", "This page is requesting access to your display devices.")
+                                } else if user_media_permission_is_for_video_device(&user_media_permission_request) {
+                                    ("Allow access to video devices?", "This page is requesting access to your video source devices.")
+                                } else {
+                                    ("Allow access to media devices?", "This page is requesting access to your media devices.")
+                                }
+                            } else if permission_request.is::<webkit2gtk::WebsiteDataAccessPermissionRequest>() {
+                                ("Allow access to third-party cookies?", "This page is requesing permission to read your data from third-party domains.")
+                            } else {
+                                ("", "")
+                            };
+                            let dialog = libadwaita::AlertDialog::new(
+                                Some(title),
+                                Some(description),
+                            );
+                            dialog.add_responses(&[
+                                ("deny", "Deny"),
+                                ("allow", "Allow"),
+                            ]);
+                            dialog.set_response_appearance(
+                                "deny",
+                                ResponseAppearance::Default,
+                            );
+                            dialog.set_response_appearance(
+                                "allow",
+                                ResponseAppearance::Destructive,
+                            );
+                            dialog.set_default_response(Some("deny"));
+                            dialog.set_close_response("deny");
+                            dialog.connect_response(
+                                None,
+                                clone!(
+                                    #[strong]
+                                    permission_request,
+                                    move |_, response| {
+                                        match response {
+                                            "deny" => permission_request.deny(),
+                                            "allow" => {
+                                                permission_request.allow()
+                                            }
+                                            _ => {
+                                                unreachable!()
+                                            }
+                                        }
+                                    }
+                                ),
+                            );
+                            dialog.present(Some(&this));
+                            true
+                        }
+                    ))));
+
                 let download_started =
                     RefCell::new(Some(network_session.connect_download_started(clone!(
                         #[weak]
@@ -1246,6 +1327,9 @@ impl Window {
                         let old_view = get_view_from_page(&old_page);
                         let old_network_session = old_view.network_session().unwrap();
                         if let Some(id) = print_started.take() {
+                            old_view.disconnect(id);
+                        }
+                        if let Some(id) = permission_request.take() {
                             old_view.disconnect(id);
                         }
                         if let Some(id) = download_started.take() {
