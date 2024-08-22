@@ -35,3 +35,4 @@ gtk4-dependencies
 # Development
 tree.txt
 target-old
+test.rs

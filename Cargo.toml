@@ -28,31 +28,37 @@ resolver = "2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-#arti-client = { version = "0.10.2", features = ["static"] }
+arti-client = { version = "0.21.0", features = ["onion-service-client"] }
 bincode = "1.3.3"
 cairo-rs = { version = "*", features = ["v1_18", "png"] }
 chrono = { version = "0.4.34", features = ["unstable-locales"] }
 cid = "0.11.0"
 directories-next = "2.0.0"
 futures = "0.3.30"
-gdk = { version = "*", package = "gdk4", features = ["v4_16"] }
+gdk = { version = "*", package = "gdk4", features = ["v4_14"] }
 gdk-pixbuf = { version = "*", features = ["v2_42"] }
-gio = { version = "*", features = ["v2_82"] }
-glib = { version = "*", features = ["v2_82"] }
+gio = { version = "*", features = ["v2_80"] }
+glib = { version = "*", features = ["v2_80"] }
 glib-macros = { version = "*" }
-gtk = { version = "*", package = "gtk4", features = ["gnome_47"], default-features = false }
+gtk = { version = "*", package = "gtk4", features = ["gnome_46"], default-features = false }
+http-body-util = "0.1.0"
+hyper = { version = "1", features = ["http1", "client"] }
+hyper-util = { version = "0.1.1", features = ["tokio"] }
 ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", branch = "libp2p-next", package = "rust-ipfs"}
 lazy_static = "1.5.0"
-libadwaita = { version = "*", features = ["v1_6"] }
+libadwaita = { version = "*", features = ["v1_5"] }
 notify-rust = { version = "4.11.1", features = ["images", "z"], default-features = false }
 pango = { version = "*" }
 url = "2.5.2"
 urlencoding = "2.1.3"
 reqwest = { version = "0.12.5", features = ["blocking"] }
 tokio = { version = "1.39.2", features = ["full"] }
+tokio-native-tls = "0.3.1"
 tokio-stream = "0.1.15"
 # transmission_rs = "0.8.12"
 webkit2gtk = { version = "*", package = "webkit6", features = ["v2_44"] }
+tor-rtcompat = "0.21.0"
+tree_magic_mini = { version = "3.1.5", features = ["with-gpl-data"] }
 
 [profile.release]
 codegen-units = 1

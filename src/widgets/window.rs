@@ -4,23 +4,20 @@ use crate::window_util::{
 };
 use crate::{DATA_DIR, PICTURES_DIR, VERSION};
 use chrono::Utc;
-use futures::pin_mut;
 use glib::{clone, Properties};
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
-use ipfs::Ipfs;
 use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
 use libadwaita::{prelude::*, ResponseAppearance};
 use std::cell::Cell;
 use std::cell::RefCell;
-use tokio_stream::StreamExt;
 use webkit2gtk::functions::{
     user_media_permission_is_for_audio_device, user_media_permission_is_for_display_device,
     user_media_permission_is_for_video_device,
 };
 use webkit2gtk::prelude::PermissionRequestExt;
 use webkit2gtk::prelude::WebViewExt;
-use webkit2gtk::{URISchemeRequest, WebView};
+use webkit2gtk::{WebContext, WebView};
 
 pub mod imp {
     use super::*;
@@ -29,7 +26,7 @@ pub mod imp {
     #[properties(wrapper_type = super::Window)]
     pub struct Window {
         // Window parameters
-        pub(crate) is_private: Cell<bool>,
+        pub(crate) _is_private: Cell<bool>,
         pub(crate) initial_url: RefCell<String>,
         // Left header buttons
         pub(crate) nav_entry: gtk::Entry,
@@ -43,7 +40,7 @@ pub mod imp {
         pub(crate) overview_button: libadwaita::TabButton,
         pub(crate) downloads_button: gtk::Button,
         pub(crate) find_button: gtk::Button,
-        pub(crate) ipfs_button: gtk::Button,
+        pub(crate) replicas_button: gtk::Button,
         pub(crate) tor_button: gtk::Button,
         pub(crate) menu_button: gtk::Button,
         pub(crate) right_header_buttons: gtk::Box,
@@ -108,7 +105,11 @@ glib::wrapper! {
 }
 
 impl Window {
-    pub fn new(app: &libadwaita::Application, initial_url: Option<&str>, ipfs: &Ipfs) -> Self {
+    pub fn new(
+        app: &libadwaita::Application,
+        web_context: &WebContext,
+        initial_url: Option<&str>,
+    ) -> Self {
         let this: Self = glib::Object::builder::<Self>()
             .property("application", app)
             .build();
@@ -124,10 +125,10 @@ impl Window {
         this.setup_overview_button_clicked();
         this.setup_downloads_button_clicked();
         this.setup_tab_indicator();
-        this.setup_add_tab_button_clicked(&ipfs);
-        this.setup_tab_signals(&ipfs);
+        this.setup_add_tab_button_clicked(&web_context);
+        this.setup_tab_signals(&web_context);
         this.setup_navigation_signals();
-        this.setup_menu_buttons_clicked(&ipfs);
+        this.setup_menu_buttons_clicked(&web_context);
         this.setup_new_view_signals();
 
         let imp = this.imp();
@@ -136,7 +137,7 @@ impl Window {
             .replace(initial_url.unwrap_or("about:blank").to_string());
 
         if imp.tab_view.n_pages() == 0 && app.windows().len() <= 1 {
-            let initial_web_view = this.new_tab_page(ipfs).0;
+            let initial_web_view = this.new_tab_page(&web_context).0;
             initial_connect(imp.initial_url.clone().into_inner(), &initial_web_view);
         }
         this.set_content(Some(&imp.tab_overview));
@@ -259,13 +260,13 @@ impl Window {
         imp.find_button.set_margin_bottom(4);
         imp.find_button.set_icon_name("edit-find");
 
-        // IPFS menu button
-        imp.ipfs_button.set_can_focus(true);
-        imp.ipfs_button.set_receives_default(true);
-        imp.ipfs_button.set_halign(gtk::Align::Start);
-        imp.ipfs_button.set_margin_start(4);
-        imp.ipfs_button.set_margin_bottom(4);
-        imp.ipfs_button.set_icon_name("emblem-shared");
+        // Replica menu button
+        imp.replicas_button.set_can_focus(true);
+        imp.replicas_button.set_receives_default(true);
+        imp.replicas_button.set_halign(gtk::Align::Start);
+        imp.replicas_button.set_margin_start(4);
+        imp.replicas_button.set_margin_bottom(4);
+        imp.replicas_button.set_icon_name("emblem-shared");
 
         // Onion routing button
         imp.tor_button.set_can_focus(true);
@@ -294,7 +295,7 @@ impl Window {
         imp.right_header_buttons.append(&imp.overview_button);
         imp.right_header_buttons.append(&imp.downloads_button);
         imp.right_header_buttons.append(&imp.find_button);
-        imp.right_header_buttons.append(&imp.ipfs_button);
+        imp.right_header_buttons.append(&imp.replicas_button);
         imp.right_header_buttons.append(&imp.tor_button);
         imp.right_header_buttons.append(&imp.menu_button);
     }
@@ -484,132 +485,31 @@ impl Window {
     /// # Arguments
     ///  
     /// * `ipfs` - An IPFS client
-    fn new_view(&self, ipfs: &Ipfs) -> webkit2gtk::WebView {
+    fn new_view(&self, web_context: &WebContext) -> webkit2gtk::WebView {
         let web_settings: webkit2gtk::Settings = new_webkit_settings();
-        let web_view = WebView::new();
+        let web_view = WebView::builder()
+            .web_context(web_context)
+            .settings(&web_settings)
+            .build();
         web_view.set_vexpand(true);
         let network_session = web_view.network_session().unwrap();
         let data_manager = network_session.website_data_manager().unwrap();
-        let web_context = web_view.context().unwrap();
         let security_manager = web_context.security_manager().unwrap();
         let extensions_path = format!("{}/web-extensions/", *DATA_DIR);
 
         data_manager.set_favicons_enabled(true);
 
-        web_context.register_uri_scheme(
-            "ipns",
-            clone!(
-                #[strong]
-                ipfs,
-                move |request: &URISchemeRequest| {
-                    let ctx = glib::MainContext::default();
-                    let request_url = request.uri().unwrap().to_string();
-                    let decoded_url = urlencoding::decode(&request_url).unwrap();
-                    let ipns_path = format!("/ipns/{}", decoded_url.replacen("ipns://", "", 1))
-                        .parse::<ipfs::IpfsPath>()
-                        .unwrap();
-                    let mem_stream = gio::MemoryInputStream::new();
-                    ctx.spawn_local_with_priority(
-                        glib::source::Priority::HIGH,
-                        clone!(
-                            #[weak]
-                            request,
-                            #[strong]
-                            ipfs,
-                            async move {
-                                let resolved_ipns_path =
-                                    ipfs.resolve_ipns(&ipns_path, true).await.unwrap();
-                                let ipfs_stream = ipfs.cat_unixfs(resolved_ipns_path);
-                                let mut file_vec: Vec<u8> = vec![];
-                                pin_mut!(ipfs_stream);
-                                while let Some(result) = ipfs_stream.next().await {
-                                    match result {
-                                        Ok(bytes) => {
-                                            file_vec.extend(bytes);
-                                        }
-                                        Err(e) => {
-                                            eprintln!(
-                                                "Error: {} (streamed {} bytes)",
-                                                e,
-                                                file_vec.len()
-                                            );
-                                            if file_vec.len() == 0 {
-                                                request.finish_error(&mut glib::error::Error::new(
-                                                    gio::ResolverError::NotFound,
-                                                    &e.to_string(),
-                                                ));
-                                            }
-                                            break;
-                                        }
-                                    }
-                                }
-                                let byte_size = file_vec.len();
-                                mem_stream.add_bytes(&glib::Bytes::from_owned(file_vec));
-                                request.finish(&mem_stream, byte_size.try_into().unwrap(), None);
-                            }
-                        ),
-                    );
-                }
-            ),
-        );
-        web_context.register_uri_scheme(
-            "ipfs",
-            clone!(
-                #[strong]
-                ipfs,
-                move |request: &URISchemeRequest| {
-                    let ctx = glib::MainContext::default();
-                    let request_url = request.uri().unwrap().to_string();
-                    let decoded_url = urlencoding::decode(&request_url).unwrap();
-                    let ipfs_path = decoded_url
-                        .replacen("ipfs://", "", 1)
-                        .parse::<ipfs::IpfsPath>()
-                        .unwrap();
-                    let mem_stream = gio::MemoryInputStream::new();
-                    let ipfs_stream = ipfs.cat_unixfs(ipfs_path);
-                    ctx.spawn_local_with_priority(
-                        glib::source::Priority::HIGH,
-                        clone!(
-                            #[weak]
-                            request,
-                            async move {
-                                let mut file_vec: Vec<u8> = vec![];
-                                pin_mut!(ipfs_stream);
-                                while let Some(result) = ipfs_stream.next().await {
-                                    match result {
-                                        Ok(bytes) => {
-                                            file_vec.extend(bytes);
-                                        }
-                                        Err(e) => {
-                                            eprintln!(
-                                                "Error: {} (streamed {} bytes)",
-                                                e,
-                                                file_vec.len()
-                                            );
-                                            if file_vec.len() == 0 {
-                                                request.finish_error(&mut glib::error::Error::new(
-                                                    gio::ResolverError::NotFound,
-                                                    &e.to_string(),
-                                                ));
-                                            }
-                                            break;
-                                        }
-                                    }
-                                }
-                                let byte_size = file_vec.len();
-                                mem_stream.add_bytes(&glib::Bytes::from_owned(file_vec));
-                                request.finish(&mem_stream, byte_size.try_into().unwrap(), None);
-                            }
-                        ),
-                    );
-                }
-            ),
-        );
         security_manager.register_uri_scheme_as_secure("ipfs");
         security_manager.register_uri_scheme_as_secure("ipns");
+        security_manager.register_uri_scheme_as_secure("tor");
+        security_manager.register_uri_scheme_as_secure("test");
+        security_manager.register_uri_scheme_as_cors_enabled("ipfs");
+        security_manager.register_uri_scheme_as_cors_enabled("ipns");
+        security_manager.register_uri_scheme_as_cors_enabled("tor");
+        security_manager.register_uri_scheme_as_cors_enabled("test");
+
         web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
-        // web_settings.set_enable_write_console_messages_to_stdout(verbose);
-        web_view.set_settings(&web_settings);
+        web_settings.set_enable_write_console_messages_to_stdout(true);
         web_context.set_web_process_extensions_directory(&extensions_path);
         web_view.set_visible(true);
         web_view.set_width_request(1024);
@@ -624,10 +524,13 @@ impl Window {
     /// # Arguments
     ///
     /// * `ipfs` - An IPFS client
-    pub fn new_tab_page(&self, ipfs: &Ipfs) -> (webkit2gtk::WebView, libadwaita::TabPage) {
+    pub fn new_tab_page(
+        &self,
+        web_context: &WebContext,
+    ) -> (webkit2gtk::WebView, libadwaita::TabPage) {
         let imp = self.imp();
 
-        let new_view = self.new_view(&ipfs);
+        let new_view = self.new_view(&web_context);
         let new_page = imp.tab_view.append(&new_view);
         new_page.set_title("New Tab");
         new_page.set_icon(Some(&gio::ThemedIcon::new("content-loading-symbolic")));
@@ -657,31 +560,31 @@ impl Window {
         ));
     }
 
-    fn setup_add_tab_button_clicked(&self, ipfs: &Ipfs) {
+    fn setup_add_tab_button_clicked(&self, web_context: &WebContext) {
         let imp = self.imp();
 
         // Add Tab button clicked
         imp.add_tab_button.connect_clicked(clone!(
             #[weak(rename_to = this)]
             self,
-            #[strong]
-            ipfs,
+            #[weak]
+            web_context,
             move |_| {
-                this.new_tab_page(&ipfs);
+                this.new_tab_page(&web_context);
             }
         ));
     }
 
-    pub fn setup_tab_signals(&self, ipfs: &Ipfs) {
+    pub fn setup_tab_signals(&self, web_context: &WebContext) {
         let imp = self.imp();
 
         imp.tab_overview.connect_create_tab(clone!(
             #[weak(rename_to = this)]
             self,
-            #[strong]
-            ipfs,
+            #[weak]
+            web_context,
             #[upgrade_or_panic]
-            move |_| this.new_tab_page(&ipfs).1
+            move |_| this.new_tab_page(&web_context).1
         ));
 
         // Selected tab changed
@@ -803,9 +706,12 @@ impl Window {
     /// # Arguments
     ///
     /// * `ipfs` - An IPFS client
-    fn create_window_from_drag(&self, ipfs: &Ipfs) -> std::option::Option<libadwaita::TabView> {
+    fn create_window_from_drag(
+        &self,
+        web_context: &WebContext,
+    ) -> std::option::Option<libadwaita::TabView> {
         let application = self.application().unwrap().downcast().unwrap();
-        let new_window = self::Window::new(&application, None, &ipfs);
+        let new_window = self::Window::new(&application, &web_context, None);
         Some(new_window.imp().tab_view.to_owned())
     }
 
@@ -820,7 +726,7 @@ impl Window {
         about_dialog.present(Some(self));
     }
 
-    pub fn setup_menu_buttons_clicked(&self, ipfs: &Ipfs) {
+    pub fn setup_menu_buttons_clicked(&self, web_context: &WebContext) {
         self.setup_zoom_buttons_clicked();
         let imp = self.imp();
 
@@ -896,13 +802,13 @@ impl Window {
         imp.new_window_button.connect_clicked(clone!(
             #[weak(rename_to = this)]
             self,
-            #[strong]
-            ipfs,
+            #[weak]
+            web_context,
             move |_| {
                 self::Window::new(
                     &this.application().unwrap().downcast().unwrap(),
+                    &web_context,
                     None,
-                    &ipfs,
                 );
             }
         ));
@@ -930,11 +836,11 @@ impl Window {
         imp.tab_view.connect_create_window(clone!(
             #[weak(rename_to = this)]
             self,
-            #[strong]
-            ipfs,
+            #[weak]
+            web_context,
             #[upgrade_or]
             None,
-            move |_tab_view| this.create_window_from_drag(&ipfs)
+            move |_tab_view| this.create_window_from_drag(&web_context)
         ));
     }
 
