@@ -78,7 +78,6 @@ pub mod imp {
         pub(crate) find_wrap_around: gtk::ToggleButton,
         pub(crate) find_option_buttons: gtk::Box,
         pub(crate) find_search_entry: gtk::SearchEntry,
-        pub(crate) current_match_label: gtk::Label,
         pub(crate) total_matches_label: gtk::Label,
         pub(crate) find_middle_box: gtk::Box,
         // Tabs
@@ -158,8 +157,8 @@ impl Window {
         this.setup_find_button_clicked();
         this.setup_replicas_button_clicked();
         this.setup_tab_indicator();
-        this.setup_add_tab_button_clicked(&web_context);
-        this.setup_tab_signals(&web_context);
+        this.setup_add_tab_button_clicked(&web_context, &style_manager);
+        this.setup_tab_signals(&web_context, &style_manager);
         this.setup_navigation_signals();
         this.setup_menu_buttons_clicked(&web_context);
         this.setup_new_view_signals(&web_context, &style_manager);
@@ -170,7 +169,9 @@ impl Window {
             .replace(initial_url.unwrap_or("about:blank").to_string());
 
         if imp.tab_view.n_pages() == 0 && app.windows().len() <= 1 {
-            let initial_web_view = this.new_tab_page(&web_context, None, None).0;
+            let initial_web_view = this
+                .new_tab_page(&web_context, None, None, &style_manager)
+                .0;
             initial_connect(imp.initial_url.clone().into_inner(), &initial_web_view);
         }
         this.set_content(Some(&imp.tab_overview));
@@ -506,6 +507,21 @@ impl Window {
                 let find_controller = web_view.find_controller().unwrap();
                 let find_options = this.get_find_options();
                 find_controller.search(&find_search_entry.text(), find_options.bits(), u32::MAX);
+                imp.find_search_entry.connect_activate(clone!(
+                    #[weak]
+                    find_controller,
+                    move |_find_search_entry| find_controller.search_next()
+                ));
+                imp.find_search_entry.connect_stop_search(clone!(
+                    #[weak]
+                    imp,
+                    #[weak]
+                    find_controller,
+                    move |_find_search_entry| {
+                        imp.total_matches_label.set_text("");
+                        find_controller.search_finish()
+                    }
+                ));
                 imp.next_find_button.connect_clicked(clone!(
                     #[weak]
                     find_controller,
@@ -518,19 +534,32 @@ impl Window {
                 ));
                 imp.find_case_insensitive.connect_clicked(clone!(
                     #[weak]
+                    imp,
+                    #[weak]
                     find_controller,
-                    move |_find_case_insensitive| find_controller.search_finish()
+                    move |_find_case_insensitive| {
+                        imp.total_matches_label.set_text("");
+                        find_controller.search_finish()
+                    }
                 ));
                 imp.find_at_word_starts.connect_clicked(clone!(
                     #[weak]
+                    imp,
+                    #[weak]
                     find_controller,
-                    move |_find_at_word_starts| find_controller.search_finish()
+                    move |_find_at_word_starts| {
+                        imp.total_matches_label.set_text("");
+                        find_controller.search_finish()
+                    }
                 ));
                 imp.find_treat_medial_capital_as_word_start
                     .connect_clicked(clone!(
                         #[weak]
+                        imp,
+                        #[weak]
                         find_controller,
                         move |_find_treat_medial_capital_as_word_start| {
+                            imp.total_matches_label.set_text("");
                             find_controller.search_finish()
                         }
                     ));
@@ -547,13 +576,19 @@ impl Window {
                             imp.next_find_button.set_icon_name("go-down");
                             imp.previous_find_button.set_icon_name("go-up");
                         }
+                        imp.total_matches_label.set_text("");
                         find_controller.search_finish()
                     }
                 ));
                 imp.find_wrap_around.connect_clicked(clone!(
                     #[weak]
+                    imp,
+                    #[weak]
                     find_controller,
-                    move |_find_wrap_around| find_controller.search_finish()
+                    move |_find_wrap_around| {
+                        imp.total_matches_label.set_text("");
+                        find_controller.search_finish()
+                    }
                 ));
             }
         ));
@@ -574,10 +609,13 @@ impl Window {
         imp.find_search_entry
             .set_input_purpose(gtk::InputPurpose::Url);
         imp.find_search_entry.set_halign(gtk::Align::Fill);
+        imp.find_search_entry.set_margin_start(4);
+        imp.find_search_entry.set_margin_end(4);
 
         imp.find_middle_box.append(&imp.find_search_entry);
-        imp.find_middle_box.append(&imp.current_match_label);
         imp.find_middle_box.append(&imp.total_matches_label);
+        imp.find_middle_box.set_margin_start(2);
+        imp.find_middle_box.set_margin_end(2);
 
         imp.previous_find_button.set_can_focus(true);
         imp.previous_find_button.set_receives_default(true);
@@ -592,6 +630,8 @@ impl Window {
         imp.find_buttons.append(&imp.previous_find_button);
         imp.find_buttons.append(&imp.next_find_button);
         imp.find_buttons.add_css_class("linked");
+        imp.find_buttons.set_margin_start(2);
+        imp.find_buttons.set_margin_end(2);
 
         imp.find_case_insensitive.set_can_focus(true);
         imp.find_case_insensitive.set_receives_default(true);
@@ -609,7 +649,7 @@ impl Window {
         imp.find_treat_medial_capital_as_word_start
             .set_receives_default(true);
         imp.find_treat_medial_capital_as_word_start
-            .set_icon_name("go-previous");
+            .set_icon_name("format-text-underline");
         imp.find_treat_medial_capital_as_word_start
             .add_css_class("linked");
 
@@ -630,6 +670,8 @@ impl Window {
         imp.find_option_buttons.append(&imp.find_backwards);
         imp.find_option_buttons.append(&imp.find_wrap_around);
         imp.find_option_buttons.add_css_class("linked");
+        imp.find_option_buttons.set_margin_start(2);
+        imp.find_option_buttons.set_margin_end(2);
 
         imp.find_box.set_orientation(gtk::Orientation::Horizontal);
         imp.find_box.set_hexpand(true);
@@ -801,6 +843,7 @@ impl Window {
         web_context: &WebContext,
         related_view: Option<&webkit2gtk::WebView>,
         initial_request: Option<&webkit2gtk::URIRequest>,
+        style_manager: &libadwaita::StyleManager,
     ) -> (webkit2gtk::WebView, libadwaita::TabPage) {
         let imp = self.imp();
 
@@ -834,7 +877,11 @@ impl Window {
         ));
     }
 
-    fn setup_add_tab_button_clicked(&self, web_context: &WebContext) {
+    fn setup_add_tab_button_clicked(
+        &self,
+        web_context: &WebContext,
+        style_manager: &libadwaita::StyleManager,
+    ) {
         let imp = self.imp();
 
         // Add Tab button clicked
@@ -843,13 +890,19 @@ impl Window {
             self,
             #[weak]
             web_context,
+            #[weak]
+            style_manager,
             move |_| {
-                this.new_tab_page(&web_context, None, None);
+                this.new_tab_page(&web_context, None, None, &style_manager);
             }
         ));
     }
 
-    pub fn setup_tab_signals(&self, web_context: &WebContext) {
+    pub fn setup_tab_signals(
+        &self,
+        web_context: &WebContext,
+        style_manager: &libadwaita::StyleManager,
+    ) {
         let imp = self.imp();
 
         imp.tab_overview.connect_create_tab(clone!(
@@ -857,8 +910,12 @@ impl Window {
             self,
             #[weak]
             web_context,
+            #[weak]
+            style_manager,
             #[upgrade_or_panic]
-            move |_| this.new_tab_page(&web_context, None, None).1
+            move |_| this
+                .new_tab_page(&web_context, None, None, &style_manager)
+                .1
         ));
 
         // Selected tab changed
@@ -871,6 +928,8 @@ impl Window {
             imp.back_button,
             #[weak(rename_to = forward_button)]
             imp.forward_button,
+            #[weak]
+            style_manager,
             #[weak(rename_to = this)]
             self,
             move |_| {
@@ -885,6 +944,7 @@ impl Window {
                 }
                 back_button.set_sensitive(web_view.can_go_back());
                 forward_button.set_sensitive(web_view.can_go_forward());
+                this.update_domain_color(&web_view, &style_manager);
             }
         ));
     }
@@ -1136,7 +1196,25 @@ impl Window {
                                 #[weak]
                                     imp,
                                     move |_find_controller, match_count| {
-                                        imp.total_matches_label.set_text(&format!("{} matches", match_count));
+                                        if match_count > 1 {
+                                            imp.total_matches_label.set_text(&format!("{} matches", match_count));
+                                        } else {
+                                            imp.total_matches_label.set_text("");
+                                        }
+                                }
+                            )
+                        )
+                    )
+                );
+
+                let failed_to_find_text = RefCell::new(
+                    Some(
+                        find_controller.connect_failed_to_find_text(
+                            clone!(
+                                #[weak]
+                                    imp,
+                                    move |_find_controller| {
+                                        imp.total_matches_label.set_text("0 matches");
                                 }
                             )
                         )
@@ -1157,11 +1235,18 @@ impl Window {
                 let create = RefCell::new(
                     Some(
                         new_view.connect_create(
-                            clone!(#[weak] web_context, #[weak]
-                            this, #[upgrade_or_panic] move |w, navigation_action| {
-                                let mut navigation_action = navigation_action.clone();
-                                this.new_tab_page(&web_context, Some(w), navigation_action.request().as_ref()).0.into()
-                            })
+                            clone!(
+                                #[weak]
+                                web_context,
+                                #[weak]
+                                style_manager,
+                                #[weak]
+                                this,
+                                #[upgrade_or_panic] move |w, navigation_action| {
+                                    let mut navigation_action = navigation_action.clone();
+                                    this.new_tab_page(&web_context, Some(w), navigation_action.request().as_ref(), &style_manager).0.into()
+                                }
+                            )
                         )
                     )
                 );
@@ -1564,6 +1649,9 @@ impl Window {
                         let old_view = get_view_from_page(&old_page);
                         let old_network_session = old_view.network_session().unwrap();
                         let old_find_controller = old_view.find_controller().unwrap();
+                        if let Some(id) = failed_to_find_text.take() {
+                            old_find_controller.disconnect(id);
+                        }
                         if let Some(id) = found_text.take() {
                             old_find_controller.disconnect(id);
                         }
@@ -1629,7 +1717,7 @@ impl Window {
     ) {
         let imp = self.imp();
 
-        let url = web_view.uri().unwrap_or_default();
+        let url = web_view.uri().unwrap_or("about:blank".into());
         let parsed_url = url::Url::parse(&url);
         let domain = parsed_url
             .as_ref()
