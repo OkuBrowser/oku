@@ -3,18 +3,17 @@ use cid::Cid;
 use futures::pin_mut;
 use glib::object::{Cast, IsA};
 use glib_macros::clone;
-use gtk::{
-    prelude::WidgetExt,
-    prelude::{EditableExt, EntryExt},
-};
+use gtk::{prelude::EditableExt, prelude::WidgetExt};
 use http_body_util::{BodyExt, Empty};
 use hyper::StatusCode;
 use hyper_util::rt::TokioIo;
 use ipfs::Ipfs;
-use std::convert::TryFrom;
+use oku_fs::fs::OkuFs;
+use std::{convert::TryFrom, path::PathBuf};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_stream::StreamExt;
 use tor_rtcompat::PreferredRuntime;
+use tracing::error;
 use webkit2gtk::{
     functions::uri_for_display, prelude::WebViewExt, soup::MessageHeaders, URISchemeRequest,
     URISchemeResponse,
@@ -58,7 +57,8 @@ pub fn initial_connect(mut initial_url: String, web_view: &webkit2gtk::WebView) 
                             web_view.load_uri(&initial_url);
                         }
                         // It doesn't work as IPFS
-                        Err(_) => {
+                        Err(e) => {
+                            error!("{}", e);
                             initial_url = parsed_url.unwrap().as_str().to_owned();
                             web_view.load_uri(&initial_url);
                         }
@@ -66,12 +66,14 @@ pub fn initial_connect(mut initial_url: String, web_view: &webkit2gtk::WebView) 
                 }
                 // Still not valid, even with HTTP
                 Err(e) => {
+                    error!("{}", e);
                     web_view.load_plain_text(&format!("{:#?}", e));
                 }
             }
         }
         // URL is malformed beyond missing a scheme
         Err(e) => {
+            error!("{}", e);
             web_view.load_plain_text(&format!("{:#?}", e));
         }
     }
@@ -84,7 +86,7 @@ pub fn initial_connect(mut initial_url: String, web_view: &webkit2gtk::WebView) 
 /// * `nav_entry` - The navigation bar of the browser
 ///
 /// * `web_view` - The WebKit instance for the current tab
-pub fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
+pub fn connect(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebView) {
     let mut nav_text = nav_entry.text().to_string();
     let mut parsed_url = url::Url::parse(&nav_text);
     match parsed_url {
@@ -119,7 +121,8 @@ pub fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
                             nav_entry.set_text(&nav_text);
                         }
                         // It doesn't work as IPFS
-                        Err(_) => {
+                        Err(e) => {
+                            error!("{}", e);
                             nav_text = parsed_url.unwrap().as_str().to_owned();
                             web_view.load_uri(&nav_text);
                             nav_entry.set_text(&nav_text)
@@ -128,12 +131,14 @@ pub fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
                 }
                 // Still not valid, even with HTTP
                 Err(e) => {
+                    error!("{}", e);
                     web_view.load_plain_text(&format!("{:#?}", e));
                 }
             }
         }
         // URL is malformed beyond missing a scheme
         Err(e) => {
+            error!("{}", e);
             web_view.load_plain_text(&format!("{:#?}", e));
         }
     }
@@ -146,7 +151,7 @@ pub fn connect(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
 /// * `nav_entry` - The navigation bar of the browser
 ///
 /// * `web_view` - The WebKit instance for the current tab
-pub fn update_nav_bar(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
+pub fn update_nav_bar(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebView) {
     let mut url = web_view.uri().unwrap().to_string();
     let cid = url
         .replacen("http://", "", 1)
@@ -267,22 +272,6 @@ pub fn get_title(web_view: &webkit2gtk::WebView) -> String {
 pub fn update_title(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebView) {
     let relevant_page = tab_view.page(web_view);
     relevant_page.set_title(&get_title(web_view));
-}
-
-/// Update the load progress indicator under the navigation bar
-///
-/// # Arguments
-///
-/// * `nav_entry` - The navigation bar of the browser
-///
-/// * `web_view` - The WebKit instance for the current tab
-pub fn update_load_progress(nav_entry: &gtk::Entry, web_view: &webkit2gtk::WebView) {
-    let load_progress = web_view.estimated_load_progress();
-    if load_progress as i64 == 1 {
-        nav_entry.set_progress_fraction(0.00)
-    } else {
-        nav_entry.set_progress_fraction(load_progress)
-    }
 }
 
 pub async fn make_tor_request(
@@ -407,6 +396,7 @@ pub fn tor_scheme_handler<'a>(
                                     return;
                                 }
                                 Err(e) => {
+                                    error!("{}", e);
                                     request.finish_error(&mut glib::error::Error::new(
                                         webkit2gtk::NetworkError::Transport,
                                         &e.to_string(),
@@ -436,6 +426,7 @@ pub fn tor_scheme_handler<'a>(
                         }
                     }
                     Err(e) => {
+                        error!("{}", e);
                         request.finish_error(&mut glib::error::Error::new(
                             webkit2gtk::NetworkError::Failed,
                             &e.to_string(),
@@ -473,6 +464,7 @@ pub fn ipfs_scheme_handler<'a>(ipfs: &Ipfs, request: &'a URISchemeRequest) -> &'
                                     file_vec.extend(bytes);
                                 }
                                 Err(e) => {
+                                    error!("{}", e);
                                     if file_vec.len() == 0 {
                                         request.finish_error(&mut glib::error::Error::new(
                                             webkit2gtk::NetworkError::FileDoesNotExist,
@@ -505,11 +497,88 @@ pub fn ipfs_scheme_handler<'a>(ipfs: &Ipfs, request: &'a URISchemeRequest) -> &'
             return request;
         }
         Err(e) => {
+            error!("{}", e);
             request.finish_error(&mut glib::error::Error::new(
                 webkit2gtk::NetworkError::Failed,
                 &e.to_string(),
             ));
             return request;
+        }
+    }
+}
+
+pub fn node_scheme_handler<'a>(
+    node: &OkuFs,
+    request: &'a URISchemeRequest,
+) -> &'a URISchemeRequest {
+    let ctx = glib::MainContext::default();
+    let request_url = request.uri().unwrap().to_string();
+    let decoded_url = urlencoding::decode(&request_url)
+        .unwrap()
+        .replacen("hive://", "", 1);
+    match oku_fs::fuse::parse_fuse_path(&PathBuf::from(decoded_url.clone())) {
+        Ok(parsed_path) => match parsed_path {
+            Some((namespace_id, replica_path)) => {
+                ctx.spawn_local_with_priority(
+                    glib::source::Priority::HIGH,
+                    clone!(
+                        #[weak]
+                        request,
+                        #[strong]
+                        node,
+                        async move {
+                            match node
+                                .read_local_or_external_file(
+                                    namespace_id,
+                                    replica_path,
+                                    false,
+                                    false,
+                                )
+                                .await
+                            {
+                                Ok(file_bytes) => {
+                                    let file_vec = file_bytes.to_vec();
+                                    let byte_size = file_vec.len();
+                                    let content_type = tree_magic_mini::from_u8(&file_vec);
+                                    let mem_stream = gio::MemoryInputStream::from_bytes(
+                                        &glib::Bytes::from_owned(file_vec),
+                                    );
+                                    request.finish(
+                                        &mem_stream,
+                                        byte_size.try_into().unwrap(),
+                                        Some(content_type),
+                                    );
+                                    return;
+                                }
+                                Err(e) => {
+                                    error!("{}", e);
+                                    request.finish_error(&mut glib::error::Error::new(
+                                        webkit2gtk::NetworkError::Failed,
+                                        &e.to_string(),
+                                    ));
+                                    return;
+                                }
+                            }
+                        }
+                    ),
+                );
+                request
+            }
+            None => {
+                request.finish_error(&mut glib::error::Error::new(
+                    webkit2gtk::NetworkError::Failed,
+                    &format!("{} does not contain a replica ID", decoded_url),
+                ));
+                request
+            }
+        },
+        Err(e) => {
+            error!("{}", e);
+            request.finish_error(&mut glib::error::Error::new(
+                webkit2gtk::NetworkError::Failed,
+                &e.to_string(),
+            ));
+            request
         }
     }
 }
@@ -538,6 +607,7 @@ pub fn ipns_scheme_handler<'a>(ipfs: &Ipfs, request: &'a URISchemeRequest) -> &'
                                     file_vec.extend(bytes);
                                 }
                                 Err(e) => {
+                                    error!("{}", e);
                                     if file_vec.len() == 0 {
                                         request.finish_error(&mut glib::error::Error::new(
                                             webkit2gtk::NetworkError::FileDoesNotExist,
@@ -570,6 +640,7 @@ pub fn ipns_scheme_handler<'a>(ipfs: &Ipfs, request: &'a URISchemeRequest) -> &'
             request
         }
         Err(e) => {
+            error!("{}", e);
             request.finish_error(&mut glib::error::Error::new(
                 webkit2gtk::NetworkError::Failed,
                 &e.to_string(),

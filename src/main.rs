@@ -15,7 +15,7 @@
     along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#![feature(doc_cfg)]
+// #![feature(doc_cfg)]
 #![allow(clippy::needless_doctest_main)]
 #![doc(
     html_logo_url = "https://github.com/Dirout/oku/raw/master/branding/logo-filled.svg",
@@ -29,17 +29,22 @@ use arti_client::StreamPrefs;
 use arti_client::TorClient;
 use directories_next::ProjectDirs;
 use directories_next::UserDirs;
+use fuser::BackgroundSession;
 use gio::prelude::*;
 use glib_macros::clone;
 use gtk::prelude::GtkApplicationExt;
 use ipfs::Ipfs;
 use ipfs::Keypair;
 use ipfs::UninitializedIpfsNoop as UninitializedIpfs;
+use oku_fs::fs::OkuFs;
+use std::path::PathBuf;
+use tokio::runtime::Handle;
 use tor_rtcompat::PreferredRuntime;
 use webkit2gtk::URISchemeRequest;
 use webkit2gtk::WebContext;
 use window_util::ipfs_scheme_handler;
 use window_util::ipns_scheme_handler;
+use window_util::node_scheme_handler;
 use window_util::tor_scheme_handler;
 
 #[macro_use]
@@ -50,30 +55,35 @@ lazy_static! {
     static ref PROJECT_DIRECTORIES: ProjectDirs =
         ProjectDirs::from("com", "github.dirout", "oku").unwrap();
     /// The platform-specific directory where Oku caches data
-    static ref CACHE_DIR: &'static str = PROJECT_DIRECTORIES.cache_dir().to_str().unwrap();
+    static ref CACHE_DIR: PathBuf = PROJECT_DIRECTORIES.cache_dir().to_path_buf();
     /// The platform-specific directory where Oku stores user data
-    static ref DATA_DIR: &'static str = PROJECT_DIRECTORIES.data_dir().to_str().unwrap();
+    static ref DATA_DIR: PathBuf = PROJECT_DIRECTORIES.data_dir().to_path_buf();
     /// The platform-specific directories containing user files
     static ref USER_DIRECTORIES: UserDirs = UserDirs::new().unwrap();
     /// The platform-specific directory where users store pictures
-    static ref PICTURES_DIR: &'static str = USER_DIRECTORIES.picture_dir().unwrap().to_str().unwrap();
+    static ref PICTURES_DIR: PathBuf = USER_DIRECTORIES.picture_dir().unwrap().to_path_buf();
+    /// The platform-specific directory where the Oku file system is mounted
+    static ref MOUNT_DIR: PathBuf = DATA_DIR.join("mount");
 }
 
 /// The current release version number of Oku
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 
-async fn create_web_context() -> WebContext {
+async fn create_web_context() -> (WebContext, BackgroundSession, Ipfs) {
+    let (node, mount_handle) = create_oku_client().await;
     let tor_client = create_tor_client();
     let ipfs = create_ipfs_client().await;
 
     let web_context = WebContext::builder().build();
     web_context.register_uri_scheme(
-        "test",
-        clone!(move |request: &URISchemeRequest| {
-            let content = b"Test!";
-            let mem_stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from_static(content));
-            request.finish(&mem_stream, -1, None);
-        }),
+        "hive",
+        clone!(
+            #[strong]
+            node,
+            move |request: &URISchemeRequest| {
+                node_scheme_handler(&node, request);
+            }
+        ),
     );
     web_context.register_uri_scheme(
         "ipns",
@@ -105,7 +115,15 @@ async fn create_web_context() -> WebContext {
             }
         ),
     );
-    web_context
+    (web_context, mount_handle, ipfs)
+}
+
+async fn create_oku_client() -> (OkuFs, BackgroundSession) {
+    let node = OkuFs::start(&Handle::current()).await.unwrap();
+    let node_clone = node.clone();
+    let _ = std::fs::remove_dir_all(MOUNT_DIR.to_path_buf());
+    let _ = std::fs::create_dir_all(MOUNT_DIR.to_path_buf());
+    (node_clone, node.mount(MOUNT_DIR.to_path_buf()).unwrap())
 }
 
 fn create_tor_client() -> TorClient<PreferredRuntime> {
@@ -148,12 +166,19 @@ async fn create_ipfs_client() -> Ipfs {
 /// The main function of Oku
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter("oku")
+        .pretty()
+        .with_file(false)
+        .with_line_number(false)
+        .init();
+
+    let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::unbounded_channel();
+
     let application = libadwaita::Application::builder()
         .application_id("com.github.dirout.oku")
         .build();
-
-    let web_context = create_web_context().await;
-
+    let (web_context, mount_handle, ipfs) = create_web_context().await;
     application.connect_activate(clone!(
         #[weak]
         application,
@@ -161,21 +186,38 @@ async fn main() {
         web_context,
         move |_| {
             crate::widgets::window::Window::new(&application, &web_context, None);
+            let ctx = glib::MainContext::default();
+            ctx.spawn_local(clone!(
+                #[weak]
+                application,
+                async move {
+                    tokio::signal::ctrl_c().await.unwrap();
+                    application.quit();
+                }
+            ));
         }
     ));
     application.connect_window_removed(clone!(
         #[weak]
         application,
+        #[strong]
+        shutdown_send,
         move |_, _| {
             if application.windows().len() == 0 {
-                application.quit();
-                std::process::exit(0)
+                shutdown_send.send(()).unwrap();
             }
         }
     ));
+    application.connect_shutdown(clone!(move |_| {
+        shutdown_send.send(()).unwrap();
+    }));
     application.run();
 
-    tokio::signal::ctrl_c().await.unwrap();
+    let _ = shutdown_recv.recv().await;
+    mount_handle.join();
+    ipfs.exit_daemon().await;
+    application.quit();
+    std::process::exit(0)
 }
 
 // Create a new functional & graphical browser window

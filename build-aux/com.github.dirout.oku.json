@@ -1,10 +1,10 @@
 {
     "app-id" : "com.github.dirout.oku",
     "runtime" : "org.gnome.Platform",
-    "runtime-version" : "41",
+    "runtime-version" : "46",
     "sdk" : "org.gnome.Sdk",
     "sdk-extensions" : [
-        "org.freedesktop.Sdk.Extension.rust-nightly"
+        "org.freedesktop.Sdk.Extension.rust-stable"
     ],
     "command" : "oku",
     "finish-args" : [
@@ -15,11 +15,10 @@
         "--device=all",
         "--socket=pulseaudio",
         "--filesystem=xdg-download",
-        "--filesystem=xdg-pictures",
-        "--device=all"
+        "--filesystem=xdg-pictures"
     ],
     "build-options" : {
-        "append-path" : "/usr/lib/sdk/rust-nightly/bin",
+        "append-path" : "/usr/lib/sdk/rust-stable/bin",
         "env" : {
             "RUSTFLAGS" : "--remap-path-prefix =../",
             "CARGO_HOME" : "/run/build/oku/cargo"
