@@ -21,12 +21,14 @@
     html_logo_url = "https://github.com/Dirout/oku/raw/master/branding/logo-filled.svg",
     html_favicon_url = "https://github.com/Dirout/oku/raw/master/branding/logo-filled.svg"
 )]
+pub mod config;
 pub mod widgets;
 pub mod window_util;
 
 use arti_client::BootstrapBehavior;
 use arti_client::StreamPrefs;
 use arti_client::TorClient;
+use config::Config;
 use directories_next::ProjectDirs;
 use directories_next::UserDirs;
 use fuser::BackgroundSession;
@@ -38,6 +40,8 @@ use ipfs::Keypair;
 use ipfs::UninitializedIpfsNoop as UninitializedIpfs;
 use oku_fs::fs::OkuFs;
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::Mutex;
 use tokio::runtime::Handle;
 use tor_rtcompat::PreferredRuntime;
 use webkit2gtk::URISchemeRequest;
@@ -64,6 +68,9 @@ lazy_static! {
     static ref PICTURES_DIR: PathBuf = USER_DIRECTORIES.picture_dir().unwrap().to_path_buf();
     /// The platform-specific directory where the Oku file system is mounted
     static ref MOUNT_DIR: PathBuf = DATA_DIR.join("mount");
+    /// The platform-specific file path where Oku settings are stored
+    static ref CONFIG_DIR: PathBuf = DATA_DIR.join("config.toml");
+    static ref CONFIG: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::load_or_default()));
 }
 
 /// The current release version number of Oku
@@ -167,10 +174,12 @@ async fn create_ipfs_client() -> Ipfs {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
-        .with_env_filter("oku")
+        .with_env_filter("oku=trace")
         .pretty()
-        .with_file(false)
-        .with_line_number(false)
+        .with_thread_ids(true)
+        .with_thread_names(true)
+        .with_file(true)
+        .with_line_number(true)
         .init();
 
     let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::unbounded_channel();
@@ -178,6 +187,7 @@ async fn main() {
     let application = libadwaita::Application::builder()
         .application_id("com.github.dirout.oku")
         .build();
+
     let (web_context, mount_handle, ipfs) = create_web_context().await;
     application.connect_activate(clone!(
         #[weak]

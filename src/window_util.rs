@@ -290,7 +290,7 @@ pub async fn make_tor_request(
     let mut resp = request_sender
         .send_request(
             hyper::Request::builder()
-                .header("Host", request_pair.clone().0)
+                // .header("Host", request_pair.clone().0)
                 .method(request_http_method)
                 .uri(request_pair.1)
                 .body(Empty::<hyper::body::Bytes>::new())

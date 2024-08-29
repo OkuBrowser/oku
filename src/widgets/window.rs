@@ -2,7 +2,7 @@ use crate::window_util::{
     connect, get_title, get_view_from_page, initial_connect, new_webkit_settings, update_favicon,
     update_nav_bar, update_title,
 };
-use crate::{DATA_DIR, MOUNT_DIR, PICTURES_DIR, VERSION};
+use crate::{CONFIG, DATA_DIR, MOUNT_DIR, VERSION};
 use chrono::Utc;
 use glib::{clone, Properties};
 use gtk::subclass::prelude::*;
@@ -12,7 +12,7 @@ use libadwaita::{prelude::*, ResponseAppearance};
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::hash::{Hash, Hasher};
-use tracing::error;
+use tracing::{debug, error, info, trace};
 use webkit2gtk::functions::{
     user_media_permission_is_for_audio_device, user_media_permission_is_for_display_device,
     user_media_permission_is_for_video_device,
@@ -20,6 +20,8 @@ use webkit2gtk::functions::{
 use webkit2gtk::prelude::PermissionRequestExt;
 use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::{FindOptions, WebContext, WebView};
+
+use super::settings::apply_config;
 
 pub mod imp {
     use super::*;
@@ -54,7 +56,9 @@ pub mod imp {
         pub(crate) zoomin_button: gtk::Button,
         pub(crate) zoom_buttons: gtk::Box,
         pub(crate) zoomreset_button: gtk::Button,
+        pub(crate) zoom_percentage: gtk::Label,
         pub(crate) fullscreen_button: gtk::Button,
+        pub(crate) print_button: gtk::Button,
         pub(crate) screenshot_button: gtk::Button,
         pub(crate) new_window_button: gtk::Button,
         pub(crate) history_button: gtk::Button,
@@ -157,7 +161,7 @@ impl Window {
         this.setup_find_button_clicked();
         this.setup_replicas_button_clicked();
         this.setup_tab_indicator();
-        this.setup_add_tab_button_clicked(&web_context, &style_manager);
+        this.setup_add_tab_button_clicked(&web_context);
         this.setup_tab_signals(&web_context, &style_manager);
         this.setup_navigation_signals();
         this.setup_menu_buttons_clicked(&web_context);
@@ -169,12 +173,11 @@ impl Window {
             .replace(initial_url.unwrap_or("about:blank").to_string());
 
         if imp.tab_view.n_pages() == 0 && app.windows().len() <= 1 {
-            let initial_web_view = this
-                .new_tab_page(&web_context, None, None, &style_manager)
-                .0;
+            let initial_web_view = this.new_tab_page(&web_context, None, None).0;
             initial_connect(imp.initial_url.clone().into_inner(), &initial_web_view);
         }
         this.set_content(Some(&imp.tab_overview));
+        apply_config(&style_manager, &this);
         this.set_visible(true);
 
         this
@@ -407,6 +410,11 @@ impl Window {
         imp.zoom_buttons.append(&imp.zoomin_button);
         imp.zoom_buttons.add_css_class("linked");
 
+        // Zoom percentage label
+        imp.zoom_percentage.set_text("100%");
+        imp.zoom_percentage.set_margin_start(4);
+        imp.zoom_percentage.set_margin_end(4);
+
         // Zoom reset button
         imp.zoomreset_button.set_can_focus(true);
         imp.zoomreset_button.set_receives_default(true);
@@ -416,6 +424,11 @@ impl Window {
         imp.fullscreen_button.set_can_focus(true);
         imp.fullscreen_button.set_receives_default(true);
         imp.fullscreen_button.set_icon_name("view-fullscreen");
+
+        // Print button
+        imp.print_button.set_can_focus(true);
+        imp.print_button.set_receives_default(true);
+        imp.print_button.set_icon_name("document-print");
 
         // Screenshot button
         imp.screenshot_button.set_can_focus(true);
@@ -445,8 +458,10 @@ impl Window {
         // Menu popover
         imp.menu_box.set_hexpand(true);
         imp.menu_box.append(&imp.zoom_buttons);
+        imp.menu_box.append(&imp.zoom_percentage);
         imp.menu_box.append(&imp.zoomreset_button);
         imp.menu_box.append(&imp.fullscreen_button);
+        imp.menu_box.append(&imp.print_button);
         imp.menu_box.append(&imp.screenshot_button);
         imp.menu_box.append(&imp.new_window_button);
         imp.menu_box.append(&imp.history_button);
@@ -547,7 +562,14 @@ impl Window {
                     imp,
                     #[weak]
                     find_controller,
-                    move |_find_at_word_starts| {
+                    move |find_at_word_starts| {
+                        if find_at_word_starts.is_active() {
+                            imp.find_treat_medial_capital_as_word_start
+                                .set_sensitive(true);
+                        } else {
+                            imp.find_treat_medial_capital_as_word_start
+                                .set_sensitive(false);
+                        }
                         imp.total_matches_label.set_text("");
                         find_controller.search_finish()
                     }
@@ -638,11 +660,15 @@ impl Window {
         imp.find_case_insensitive
             .set_icon_name("format-text-strikethrough");
         imp.find_case_insensitive.add_css_class("linked");
+        imp.find_case_insensitive
+            .set_tooltip_text(Some("Ignore case when searching"));
 
         imp.find_at_word_starts.set_can_focus(true);
         imp.find_at_word_starts.set_receives_default(true);
         imp.find_at_word_starts.set_icon_name("go-first");
         imp.find_at_word_starts.add_css_class("linked");
+        imp.find_at_word_starts
+            .set_tooltip_text(Some("Search text only at the start of words"));
 
         imp.find_treat_medial_capital_as_word_start
             .set_can_focus(true);
@@ -652,16 +678,24 @@ impl Window {
             .set_icon_name("format-text-underline");
         imp.find_treat_medial_capital_as_word_start
             .add_css_class("linked");
+        imp.find_treat_medial_capital_as_word_start
+            .set_tooltip_text(Some(
+                "Treat capital letters in the middle of words as word start",
+            ));
 
         imp.find_backwards.set_can_focus(true);
         imp.find_backwards.set_receives_default(true);
         imp.find_backwards.set_icon_name("media-seek-backward");
         imp.find_backwards.add_css_class("linked");
+        imp.find_backwards
+            .set_tooltip_text(Some("Search backwards"));
 
         imp.find_wrap_around.set_can_focus(true);
         imp.find_wrap_around.set_receives_default(true);
         imp.find_wrap_around.set_icon_name("media-playlist-repeat");
         imp.find_wrap_around.add_css_class("linked");
+        imp.find_wrap_around
+            .set_tooltip_text(Some("Wrap around the document when searching"));
 
         imp.find_option_buttons.append(&imp.find_case_insensitive);
         imp.find_option_buttons.append(&imp.find_at_word_starts);
@@ -828,6 +862,8 @@ impl Window {
         } else {
             web_view.load_uri("about:blank");
         }
+        let rgba = gdk::RGBA::new(1.00, 1.00, 1.00, 0.00);
+        web_view.set_background_color(&rgba);
         web_view.set_visible(true);
 
         web_view
@@ -843,7 +879,6 @@ impl Window {
         web_context: &WebContext,
         related_view: Option<&webkit2gtk::WebView>,
         initial_request: Option<&webkit2gtk::URIRequest>,
-        style_manager: &libadwaita::StyleManager,
     ) -> (webkit2gtk::WebView, libadwaita::TabPage) {
         let imp = self.imp();
 
@@ -877,11 +912,7 @@ impl Window {
         ));
     }
 
-    fn setup_add_tab_button_clicked(
-        &self,
-        web_context: &WebContext,
-        style_manager: &libadwaita::StyleManager,
-    ) {
+    fn setup_add_tab_button_clicked(&self, web_context: &WebContext) {
         let imp = self.imp();
 
         // Add Tab button clicked
@@ -890,10 +921,8 @@ impl Window {
             self,
             #[weak]
             web_context,
-            #[weak]
-            style_manager,
             move |_| {
-                this.new_tab_page(&web_context, None, None, &style_manager);
+                this.new_tab_page(&web_context, None, None);
             }
         ));
     }
@@ -910,12 +939,8 @@ impl Window {
             self,
             #[weak]
             web_context,
-            #[weak]
-            style_manager,
             #[upgrade_or_panic]
-            move |_| this
-                .new_tab_page(&web_context, None, None, &style_manager)
-                .1
+            move |_| this.new_tab_page(&web_context, None, None).1
         ));
 
         // Selected tab changed
@@ -928,6 +953,8 @@ impl Window {
             imp.back_button,
             #[weak(rename_to = forward_button)]
             imp.forward_button,
+            #[weak(rename_to = zoom_percentage)]
+            imp.zoom_percentage,
             #[weak]
             style_manager,
             #[weak(rename_to = this)]
@@ -945,6 +972,7 @@ impl Window {
                 back_button.set_sensitive(web_view.can_go_back());
                 forward_button.set_sensitive(web_view.can_go_forward());
                 this.update_domain_color(&web_view, &style_manager);
+                zoom_percentage.set_text(&format!("{:.0}%", web_view.zoom_level() * 100.0))
             }
         ));
     }
@@ -1084,7 +1112,7 @@ impl Window {
                         "document.documentElement.requestFullscreen();",
                         None,
                         None,
-                        gio::Cancellable::NONE,
+                        Some(&gio::Cancellable::new()),
                         move |_| {},
                     )
                 } else {
@@ -1093,10 +1121,26 @@ impl Window {
                         "document.exitFullscreen();",
                         None,
                         None,
-                        gio::Cancellable::NONE,
+                        Some(&gio::Cancellable::new()),
                         move |_| {},
                     )
                 }
+            }
+        ));
+
+        // Print button clicked
+        imp.print_button.connect_clicked(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_print_button| {
+                let web_view = this.get_view();
+                web_view.evaluate_javascript(
+                    "window.print();",
+                    None,
+                    None,
+                    Some(&gio::Cancellable::new()),
+                    move |_| {},
+                )
             }
         ));
 
@@ -1106,21 +1150,133 @@ impl Window {
             self,
             move |_| {
                 let web_view = this.get_view();
-                web_view.snapshot(
-                    webkit2gtk::SnapshotRegion::FullDocument,
-                    webkit2gtk::SnapshotOptions::all(),
-                    gio::Cancellable::NONE,
-                    move |snapshot| {
-                        snapshot
-                            .unwrap()
-                            .save_to_png(format!(
-                                "{}/{}.png",
-                                PICTURES_DIR.to_string_lossy(),
-                                Utc::now()
-                            ))
-                            .unwrap();
-                    },
+                let dialog = libadwaita::AlertDialog::new(
+                    Some("Take a screenshot?"),
+                    Some("Do you wish to save a screenshot of the current page?"),
                 );
+                dialog.add_responses(&[
+                    ("cancel", "Cancel"),
+                    ("visible", "Screenshot visible area"),
+                    ("full", "Screenshot full document"),
+                ]);
+                dialog.set_response_appearance(
+                    "cancel",
+                    ResponseAppearance::Default,
+                );
+                dialog.set_response_appearance(
+                    "visible",
+                    ResponseAppearance::Suggested,
+                );
+                dialog.set_response_appearance(
+                    "full",
+                    ResponseAppearance::Suggested,
+                );
+                dialog.set_default_response(Some("cancel"));
+                dialog.set_close_response("cancel");
+                dialog.connect_response(
+                    None,
+                    clone!(
+                        #[weak]
+                        web_view,
+                        #[weak]
+                        this,
+                        move |_, response| {
+                            if response != "cancel" {
+                                let snapshot_region = match response {
+                                    "visible" => webkit2gtk::SnapshotRegion::Visible,
+                                    "full" => webkit2gtk::SnapshotRegion::FullDocument,
+                                    _ => unreachable!()
+                                };
+                                debug!("snapshot_region: {:?}", snapshot_region);
+                                web_view.snapshot(
+                                    snapshot_region,
+                                    webkit2gtk::SnapshotOptions::all(),
+                                    Some(&gio::Cancellable::new()),
+                                    clone!(
+                                        #[weak]
+                                        this,
+                                        move |snapshot| {
+                                            if let Ok(snapshot) = snapshot {
+                                                let file_dialog =
+                                                    gtk::FileDialog::builder()
+                                                        .accept_label("Save")
+                                                        .initial_name(format!("{}.png", Utc::now()))
+                                                        .initial_folder(&gio::File::for_path(glib::user_special_dir(glib::enums::UserDirectory::Pictures).unwrap()))
+                                                        .title("Select a destination to save the screenshot")
+                                                        .build();
+                                                let ctx = glib::MainContext::ref_thread_default();
+                                                match ctx.acquire() {
+                                                    Ok(ctx_guard) => {
+                                                        ctx.spawn_local(
+                                                            clone!(
+                                                                #[weak]
+                                                                snapshot,
+                                                                #[weak]
+                                                                file_dialog,
+                                                                #[weak]
+                                                                this,
+                                                                async move {
+                                                                    trace!("Screenshot future spawned");
+                                                                    match file_dialog.save_future(Some(&this)).await {
+                                                                        Ok(destination) => {
+                                                                            trace!("Screenshot future awaited");
+                                                                            match destination.path() {
+                                                                                Some(destination_path) => {
+                                                                                    match snapshot.save_to_png(destination_path.to_str().unwrap()) {
+                                                                                        Ok(_) => info!("Saved screenshot to {:?}", destination_path),
+                                                                                        Err(e) => error!("{}", e)
+                                                                                    }
+                                                                                },
+                                                                                None => trace!("No path for {:#?}", destination)
+                                                                            }
+                                                                        },
+                                                                        Err(e) => error!("{}", e)
+                                                                    }
+                                                                }
+                                                            )
+                                                        );
+                                                        drop(ctx_guard);
+                                                    },
+                                                    Err(e) => {
+                                                        error!("{}", e);
+                                                    }
+                                                };
+                                                                // None::<&gtk::Window>,
+                                                                // Some(&gio::Cancellable::new()),
+                                                                // clone!(
+                                                                //     #[weak]
+                                                                //     snapshot,
+                                                                //     move |destination| {
+                                                                //         trace!("Destination: {:?}", destination);
+                                                                //         match destination {
+                                                                //             Ok(destination) => {
+                                                                //                 match destination.path() {
+                                                                //                     Some(destination_path) => {
+                                                                //                         match snapshot.save_to_png(destination_path.to_str().unwrap()) {
+                                                                //                             Ok(_) => info!("Saved screenshot to {:?}", destination_path),
+                                                                //                             Err(e) => error!("{}", e)
+                                                                //                         }
+                                                                //                     },
+                                                                //                     None => trace!("No path for {:#?}", destination)
+                                                                //                 }
+                                                                //             },
+                                                                //             Err(e) => error!("{}", e)
+                                                                //         };
+                                                                //     }
+                                                                // ),
+                                                //             )
+                                                //         }
+                                                //     )
+                                                // );
+                                            }
+                                        },
+                                    )
+                                );
+                            }
+                        }
+                    ),
+                );
+                dialog.present(Some(&this));
             }
         ));
 
@@ -1214,23 +1370,23 @@ impl Window {
                                 #[weak]
                                     imp,
                                     move |_find_controller| {
-                                        imp.total_matches_label.set_text("0 matches");
+                                        imp.total_matches_label.set_text("");
                                 }
                             )
                         )
                     )
                 );
 
-                let colour_scheme_update = RefCell::new(
-                    Some(
-                        style_manager.connect_color_scheme_notify(
-                            clone!(#[weak] new_view, #[weak]
-                                this, #[upgrade_or_panic] move |style_manager| {
-                                    this.update_domain_color(&new_view, &style_manager);
-                                })
-                            )
-                        )
-                    );
+                // let colour_scheme_update = RefCell::new(
+                //     Some(
+                //         style_manager.connect_color_scheme_notify(
+                //             clone!(#[weak] new_view, #[weak]
+                //                 this, #[upgrade_or_panic] move |style_manager| {
+                //                     this.update_domain_color(&new_view, &style_manager);
+                //                 })
+                //             )
+                //         )
+                //     );
 
                 let create = RefCell::new(
                     Some(
@@ -1239,12 +1395,10 @@ impl Window {
                                 #[weak]
                                 web_context,
                                 #[weak]
-                                style_manager,
-                                #[weak]
                                 this,
                                 #[upgrade_or_panic] move |w, navigation_action| {
                                     let mut navigation_action = navigation_action.clone();
-                                    this.new_tab_page(&web_context, Some(w), navigation_action.request().as_ref(), &style_manager).0.into()
+                                    this.new_tab_page(&web_context, Some(w), navigation_action.request().as_ref()).0.into()
                                 }
                             )
                         )
@@ -1276,23 +1430,53 @@ impl Window {
                     #[upgrade_or]
                     false, move |_, print_operation| {
                         let dialog = gtk::PrintDialog::builder().title("Print").modal(true).build();
-                        let ctx = glib::MainContext::new();
-                        ctx.with_thread_default(clone!(#[weak]
-                        this, #[weak] print_operation, #[strong] ctx, move || {
-                            ctx.block_on(clone!(#[weak]
-                                this, #[weak] print_operation, async move {
-                                let print_setup = match dialog.setup_future(Some(&this)).await {
-                                    Ok(print_setup) => print_setup,
-                                    Err(e) => {
-                                        error!("{}", e);
-                                        return;
-                                    }
-                                };
-                                print_operation.set_page_setup(&print_setup.page_setup());
-                                print_operation.set_print_settings(&print_setup.print_settings());
-                                print_operation.print();
-                            }));
-                        })).unwrap();
+                        let ctx = glib::MainContext::ref_thread_default();
+                        match ctx.acquire() {
+                            Ok(ctx_guard) => {
+                                ctx.spawn_local(
+                                    clone!(
+                                        #[weak]
+                                        print_operation,
+                                        #[weak]
+                                        dialog,
+                                        #[weak]
+                                        this,
+                                        async move {
+                                            trace!("Print future spawned");
+                                            match dialog.setup_future(Some(&this)).await {
+                                                Ok(print_setup) => {
+                                                    trace!("Print future awaited");
+                                                    print_operation.set_page_setup(&print_setup.page_setup());
+                                                    print_operation.set_print_settings(&print_setup.print_settings());
+                                                    print_operation.print();
+                                                },
+                                                Err(e) => {
+                                                    error!("{}", e);
+                                                    return;
+                                                }
+                                            }
+                                        }
+                                    )
+                                );
+                                drop(ctx_guard);
+                            },
+                            Err(e) => {
+                                error!("{}", e);
+                            }
+                        };
+                        // dialog.setup(Some(&this), Some(&gio::Cancellable::new()), clone!(#[weak] print_operation, move |print_setup| {
+                        //     match print_setup {
+                        //         Ok(print_setup) => {
+                        //             print_operation.set_page_setup(&print_setup.page_setup());
+                        //             print_operation.set_print_settings(&print_setup.print_settings());
+                        //             print_operation.print();
+                        //         },
+                        //         Err(e) => {
+                        //             error!("{}", e);
+                        //             return;
+                        //         }
+                        //     }
+                        // }));
                         true
                     })
                 )));
@@ -1433,7 +1617,7 @@ impl Window {
                                                                 .build();
                                                         file_dialog.save(
                                                             Some(&this),
-                                                            gio::Cancellable::NONE,
+                                                            Some(&gio::Cancellable::new()),
                                                             clone!(
                                                                 #[weak]
                                                                 download,
@@ -1502,7 +1686,6 @@ impl Window {
                         #[upgrade_or]
                         false,
                         move |_w| {
-                            // imp.headerbar.set_visible(false);
                             imp.obj().set_fullscreened(true);
                             imp.tab_bar_revealer.set_reveal_child(false);
                             true
@@ -1515,7 +1698,6 @@ impl Window {
                         #[upgrade_or]
                         false,
                         move |_w| {
-                            // imp.headerbar.set_visible(true);
                             imp.obj().set_fullscreened(false);
                             imp.tab_bar_revealer.set_reveal_child(true);
                             true
@@ -1579,7 +1761,18 @@ impl Window {
                             }
                         }
                     ))));
-                let connect_uri_notify = RefCell::new(Some(new_view.connect_uri_notify(clone!(
+                let zoom_level_notify = RefCell::new(Some(new_view.connect_zoom_level_notify(clone!(
+                    #[weak(rename_to = zoom_percentage)]
+                    imp.zoom_percentage,
+                    #[weak]
+                    this,
+                    move |w| {
+                        if this.get_view() == *w {
+                            zoom_percentage.set_text(&format!("{:.0}%", w.zoom_level() * 100.0))
+                        }
+                    }
+                ))));
+                let uri_notify = RefCell::new(Some(new_view.connect_uri_notify(clone!(
                     #[weak(rename_to = nav_entry)]
                     imp.nav_entry,
                     #[weak(rename_to = back_button)]
@@ -1649,15 +1842,18 @@ impl Window {
                         let old_view = get_view_from_page(&old_page);
                         let old_network_session = old_view.network_session().unwrap();
                         let old_find_controller = old_view.find_controller().unwrap();
+                        if let Some(id) = zoom_level_notify.take() {
+                            old_view.disconnect(id);
+                        }
                         if let Some(id) = failed_to_find_text.take() {
                             old_find_controller.disconnect(id);
                         }
                         if let Some(id) = found_text.take() {
                             old_find_controller.disconnect(id);
                         }
-                        if let Some(id) = colour_scheme_update.take() {
-                            style_manager.disconnect(id);
-                        }
+                        // if let Some(id) = colour_scheme_update.take() {
+                        //     style_manager.disconnect(id);
+                        // }
                         if let Some(id) = create.take() {
                             old_view.disconnect(id);
                         }
@@ -1694,7 +1890,7 @@ impl Window {
                         if let Some(id) = is_playing_audio_notify.take() {
                             old_view.disconnect(id);
                         }
-                        if let Some(id) = connect_uri_notify.take() {
+                        if let Some(id) = uri_notify.take() {
                             old_view.disconnect(id);
                         }
                         if let Some(id) = estimated_load_progress_notify.take() {
@@ -1710,12 +1906,35 @@ impl Window {
     }
 
     /// Adapted from Geopard (https://github.com/ranfdev/Geopard)
-    fn update_domain_color(
+    pub fn update_domain_color(
         &self,
         web_view: &webkit2gtk::WebView,
         style_manager: &libadwaita::StyleManager,
     ) {
         let imp = self.imp();
+
+        let mut failed_attempts = 0;
+        loop {
+            match CONFIG.try_lock() {
+                Ok(config) => {
+                    if !config.colour_per_domain() {
+                        imp.style_provider.borrow().load_from_string("");
+                        let rgba = gdk::RGBA::new(1.00, 1.00, 1.00, 0.00);
+                        web_view.set_background_color(&rgba);
+                        return;
+                    } else {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    failed_attempts += 1;
+                    error!("{}", e);
+                    if failed_attempts == 10 {
+                        return;
+                    }
+                }
+            }
+        }
 
         let url = web_view.uri().unwrap_or("about:blank".into());
         let parsed_url = url::Url::parse(&url);
@@ -1759,5 +1978,15 @@ impl Window {
         };
 
         imp.style_provider.borrow().load_from_string(&stylesheet);
+        let rgba = {
+            let hsl = if style_manager.is_dark() {
+                coolor::Hsl::new(hue as f32, 0.20, 0.08)
+            } else {
+                coolor::Hsl::new(hue as f32, 1.00, 0.99)
+            };
+            let rgb = hsl.to_rgb();
+            gdk::RGBA::new(rgb.r.into(), rgb.g.into(), rgb.b.into(), 0.00)
+        };
+        web_view.set_background_color(&rgba);
     }
 }

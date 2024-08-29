@@ -1,34 +1,10 @@
+use crate::config::ColourScheme;
+use crate::CONFIG;
 use glib::{clone, Properties};
 use gtk::glib;
 use gtk::subclass::prelude::*;
 use libadwaita::subclass::{dialog::AdwDialogImpl, preferences_dialog::PreferencesDialogImpl};
 use libadwaita::{prelude::*, StyleManager};
-use std::cell::Cell;
-
-#[derive(Default, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
-#[non_exhaustive]
-pub enum ColourScheme {
-    #[default]
-    Default,
-    ForceLight,
-    PreferLight,
-    PreferDark,
-    ForceDark,
-    __Unknown(i32),
-}
-
-impl ColourScheme {
-    pub fn to_adw_scheme(&self) -> libadwaita::ColorScheme {
-        match self {
-            Self::Default => libadwaita::ColorScheme::Default,
-            Self::ForceLight => libadwaita::ColorScheme::ForceLight,
-            Self::PreferLight => libadwaita::ColorScheme::PreferLight,
-            Self::PreferDark => libadwaita::ColorScheme::PreferDark,
-            Self::ForceDark => libadwaita::ColorScheme::ForceDark,
-            Self::__Unknown(i) => libadwaita::ColorScheme::__Unknown(*i),
-        }
-    }
-}
 
 pub mod imp {
     use super::*;
@@ -36,12 +12,12 @@ pub mod imp {
     #[derive(Debug, Default, Properties)]
     #[properties(wrapper_type = super::Settings)]
     pub struct Settings {
-        pub(crate) colour_scheme: Cell<ColourScheme>,
         pub(crate) main_page: libadwaita::PreferencesPage,
         pub(crate) appearance_group: libadwaita::PreferencesGroup,
         pub(crate) colour_scheme_row: libadwaita::ComboRow,
         pub(crate) colour_scheme_selection: gtk::SingleSelection,
         pub(crate) colour_scheme_list: gtk::StringList,
+        pub(crate) domain_colour_row: libadwaita::SwitchRow,
     }
 
     impl Settings {}
@@ -76,43 +52,67 @@ glib::wrapper! {
     @extends libadwaita::PreferencesDialog, libadwaita::Dialog, gtk::Widget;
 }
 
+pub fn apply_config(style_manager: &StyleManager, window: &super::window::Window) {
+    let config = CONFIG.lock().unwrap();
+    style_manager.set_color_scheme(config.colour_scheme().to_adw_scheme());
+    config.save();
+    drop(config);
+    let web_view = window.get_view();
+    window.update_domain_color(&web_view, &style_manager);
+}
+
 impl Settings {
     pub fn new(app: &libadwaita::Application, window: &super::window::Window) -> Self {
         let this: Self = glib::Object::builder::<Self>().build();
-
+        let imp = this.imp();
         this.set_title("Settings");
 
-        let imp = this.imp();
-
+        let config = CONFIG.lock().unwrap();
+        imp.domain_colour_row.set_active(config.colour_per_domain());
+        drop(config);
         let style_manager = app.style_manager();
-        style_manager.set_color_scheme(imp.colour_scheme.take().to_adw_scheme());
+        let config = CONFIG.lock().unwrap();
+        style_manager.set_color_scheme(config.colour_scheme().to_adw_scheme());
+        drop(config);
 
-        this.setup_main_page();
-        this.setup_colour_scheme_signal(&style_manager);
+        this.setup_main_page(&style_manager, &window);
+        this.setup_colour_scheme_signal(&style_manager, &window);
+
         this.set_visible(true);
         this.present(Some(window));
 
         this
     }
 
-    pub fn setup_main_page(&self) {
+    pub fn save(&self) {
+        let config = CONFIG.lock().unwrap();
+        config.save()
+    }
+
+    pub fn setup_main_page(&self, style_manager: &StyleManager, window: &super::window::Window) {
         let imp = self.imp();
 
-        self.setup_appearance_group();
+        self.setup_appearance_group(&style_manager, &window);
 
         imp.main_page.add(&imp.appearance_group);
         self.add(&imp.main_page);
     }
 
-    pub fn setup_appearance_group(&self) {
+    pub fn setup_appearance_group(
+        &self,
+        style_manager: &StyleManager,
+        window: &super::window::Window,
+    ) {
         let imp = self.imp();
 
         self.setup_colour_scheme_row();
+        self.setup_domain_colour_row(&style_manager, &window);
 
         imp.appearance_group.set_title("Appearance");
         imp.appearance_group
             .set_description(Some("Preferences regarding the browser's look &amp; feel."));
         imp.appearance_group.add(&imp.colour_scheme_row);
+        imp.appearance_group.add(&imp.domain_colour_row);
     }
 
     pub fn setup_colour_scheme_row(&self) {
@@ -128,10 +128,28 @@ impl Settings {
 
         imp.colour_scheme_row.set_title("Colour Scheme");
         imp.colour_scheme_row
+            .set_subtitle("Select whether the browser should be light or dark");
+        imp.colour_scheme_row
             .set_model(imp.colour_scheme_selection.model().as_ref());
+
+        let config = CONFIG.lock().unwrap();
+        let initial_position = match config.colour_scheme() {
+            ColourScheme::Default => 0,
+            ColourScheme::ForceLight => 1,
+            ColourScheme::PreferLight => 2,
+            ColourScheme::PreferDark => 3,
+            ColourScheme::ForceDark => 4,
+            ColourScheme::__Unknown(_i) => 0,
+        };
+        drop(config);
+        imp.colour_scheme_row.set_selected(initial_position);
     }
 
-    pub fn setup_colour_scheme_signal(&self, style_manager: &StyleManager) {
+    pub fn setup_colour_scheme_signal(
+        &self,
+        style_manager: &StyleManager,
+        window: &super::window::Window,
+    ) {
         let imp = self.imp();
 
         imp.colour_scheme_row.connect_selected_notify(clone!(
@@ -140,9 +158,9 @@ impl Settings {
             #[weak(rename_to = colour_scheme_list)]
             imp.colour_scheme_list,
             #[weak]
-            imp,
-            #[weak]
             style_manager,
+            #[weak]
+            window,
             move |_| {
                 let selected_string = colour_scheme_list
                     .string(colour_scheme_row.selected())
@@ -155,8 +173,34 @@ impl Settings {
                     "Force Dark" => ColourScheme::ForceDark,
                     _ => ColourScheme::Default,
                 };
-                imp.colour_scheme.replace(selected_colour_scheme);
-                style_manager.set_color_scheme(imp.colour_scheme.take().to_adw_scheme());
+                let config = CONFIG.lock().unwrap();
+                config.set_colour_scheme(selected_colour_scheme);
+                drop(config);
+                apply_config(&style_manager, &window);
+            }
+        ));
+    }
+
+    pub fn setup_domain_colour_row(
+        &self,
+        style_manager: &StyleManager,
+        window: &super::window::Window,
+    ) {
+        let imp = self.imp();
+
+        imp.domain_colour_row.set_title("Colour Cycling");
+        imp.domain_colour_row
+            .set_subtitle("Enable changing the browser colour on different sites");
+        imp.domain_colour_row.connect_active_notify(clone!(
+            #[weak]
+            style_manager,
+            #[weak]
+            window,
+            move |domain_colour_row| {
+                let config = CONFIG.lock().unwrap();
+                config.set_colour_per_domain(domain_colour_row.is_active());
+                drop(config);
+                apply_config(&style_manager, &window);
             }
         ));
     }

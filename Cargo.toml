@@ -65,6 +65,9 @@ fuser = "0.13.0"
 open = "5.3.0"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tracing = "0.1.40"
+coolor = "1.0.0"
+toml = "0.8.19"
+serde = "1.0.209"
 
 [profile.release]
 codegen-units = 1
