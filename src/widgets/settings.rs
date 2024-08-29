@@ -110,7 +110,7 @@ impl Settings {
 
         imp.appearance_group.set_title("Appearance");
         imp.appearance_group
-            .set_description(Some("Preferences regarding the browser's look &amp; feel."));
+            .set_description(Some("Preferences regarding the browser's look &amp; feel"));
         imp.appearance_group.add(&imp.colour_scheme_row);
         imp.appearance_group.add(&imp.domain_colour_row);
     }

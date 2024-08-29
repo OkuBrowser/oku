@@ -290,7 +290,7 @@ pub async fn make_tor_request(
     let mut resp = request_sender
         .send_request(
             hyper::Request::builder()
-                // .header("Host", request_pair.clone().0)
+                .header("Host", request_pair.clone().0)
                 .method(request_http_method)
                 .uri(request_pair.1)
                 .body(Empty::<hyper::body::Bytes>::new())
@@ -337,19 +337,14 @@ pub fn tor_scheme_handler<'a>(
     )
     .unwrap();
     let request_port = request_url.port_or_known_default().unwrap_or(80);
-    let request_scheme = if request_port == 443 {
-        String::from("https")
-    } else {
-        String::from("http")
-    };
+    // let request_scheme = if request_port == 443 {
+    //     String::from("https")
+    // } else {
+    //     String::from("http")
+    // };
     let request_pair = (
         request_url.host_str().unwrap_or_default().to_string(),
-        format!(
-            "{}://{}{}",
-            request_scheme,
-            request_url.host_str().unwrap_or_default(),
-            request_url.path()
-        ),
+        request_url.path().to_string(),
     );
     ctx.spawn_local_with_priority(
         glib::source::Priority::HIGH,

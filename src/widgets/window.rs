@@ -1188,89 +1188,48 @@ impl Window {
                                     _ => unreachable!()
                                 };
                                 debug!("snapshot_region: {:?}", snapshot_region);
-                                web_view.snapshot(
-                                    snapshot_region,
-                                    webkit2gtk::SnapshotOptions::all(),
+                                let file_dialog =
+                                    gtk::FileDialog::builder()
+                                        .accept_label("Save")
+                                        .initial_name(format!("{}.png", Utc::now()))
+                                        .initial_folder(&gio::File::for_path(glib::user_special_dir(glib::enums::UserDirectory::Pictures).unwrap()))
+                                        .title("Select a destination to save the screenshot")
+                                        .build();
+                                file_dialog.save(
+                                    Some(&this),
                                     Some(&gio::Cancellable::new()),
                                     clone!(
-                                        #[weak]
-                                        this,
-                                        move |snapshot| {
-                                            if let Ok(snapshot) = snapshot {
-                                                let file_dialog =
-                                                    gtk::FileDialog::builder()
-                                                        .accept_label("Save")
-                                                        .initial_name(format!("{}.png", Utc::now()))
-                                                        .initial_folder(&gio::File::for_path(glib::user_special_dir(glib::enums::UserDirectory::Pictures).unwrap()))
-                                                        .title("Select a destination to save the screenshot")
-                                                        .build();
-                                                let ctx = glib::MainContext::ref_thread_default();
-                                                match ctx.acquire() {
-                                                    Ok(ctx_guard) => {
-                                                        ctx.spawn_local(
-                                                            clone!(
-                                                                #[weak]
-                                                                snapshot,
-                                                                #[weak]
-                                                                file_dialog,
-                                                                #[weak]
-                                                                this,
-                                                                async move {
-                                                                    trace!("Screenshot future spawned");
-                                                                    match file_dialog.save_future(Some(&this)).await {
-                                                                        Ok(destination) => {
-                                                                            trace!("Screenshot future awaited");
-                                                                            match destination.path() {
-                                                                                Some(destination_path) => {
-                                                                                    match snapshot.save_to_png(destination_path.to_str().unwrap()) {
-                                                                                        Ok(_) => info!("Saved screenshot to {:?}", destination_path),
-                                                                                        Err(e) => error!("{}", e)
-                                                                                    }
-                                                                                },
-                                                                                None => trace!("No path for {:#?}", destination)
+                                        #[strong]
+                                        snapshot_region,
+                                        move |destination| {
+                                            trace!("Destination: {:?}", destination);
+                                            match destination {
+                                                Ok(destination) => {
+                                                    match destination.path() {
+                                                        Some(destination_path) => {
+                                                            web_view.snapshot(
+                                                                snapshot_region,
+                                                                webkit2gtk::SnapshotOptions::all(),
+                                                                Some(&gio::Cancellable::new()),
+                                                                clone!(
+                                                                    move |snapshot| {
+                                                                        if let Ok(snapshot) = snapshot {
+                                                                            match snapshot.save_to_png(destination_path.to_str().unwrap()) {
+                                                                                Ok(_) => info!("Saved screenshot to {:?}", destination_path),
+                                                                                Err(e) => error!("{}", e)
                                                                             }
-                                                                        },
-                                                                        Err(e) => error!("{}", e)
-                                                                    }
-                                                                }
-                                                            )
-                                                        );
-                                                        drop(ctx_guard);
-                                                    },
-                                                    Err(e) => {
-                                                        error!("{}", e);
+                                                                        }
+                                                                    },
+                                                                )
+                                                            );
+                                                        },
+                                                        None => trace!("No path for {:#?}", destination)
                                                     }
-                                                };
-                                                                // None::<&gtk::Window>,
-                                                                // Some(&gio::Cancellable::new()),
-                                                                // clone!(
-                                                                //     #[weak]
-                                                                //     snapshot,
-                                                                //     move |destination| {
-                                                                //         trace!("Destination: {:?}", destination);
-                                                                //         match destination {
-                                                                //             Ok(destination) => {
-                                                                //                 match destination.path() {
-                                                                //                     Some(destination_path) => {
-                                                                //                         match snapshot.save_to_png(destination_path.to_str().unwrap()) {
-                                                                //                             Ok(_) => info!("Saved screenshot to {:?}", destination_path),
-                                                                //                             Err(e) => error!("{}", e)
-                                                                //                         }
-                                                                //                     },
-                                                                //                     None => trace!("No path for {:#?}", destination)
-                                                                //                 }
-                                                                //             },
-                                                                //             Err(e) => error!("{}", e)
-                                                                //         };
-                                                                //     }
-                                                                // ),
-                                                //             )
-                                                //         }
-                                                //     )
-                                                // );
-                                            }
-                                        },
-                                    )
+                                                },
+                                                Err(e) => error!("{}", e)
+                                            };
+                                        }
+                                    ),
                                 );
                             }
                         }
@@ -1425,62 +1384,6 @@ impl Window {
                     )
                 );
 
-                let print_started = RefCell::new(Some(new_view.connect_print(clone!(#[weak]
-                this,
-                    #[upgrade_or]
-                    false, move |_, print_operation| {
-                        let dialog = gtk::PrintDialog::builder().title("Print").modal(true).build();
-                        let ctx = glib::MainContext::ref_thread_default();
-                        match ctx.acquire() {
-                            Ok(ctx_guard) => {
-                                ctx.spawn_local(
-                                    clone!(
-                                        #[weak]
-                                        print_operation,
-                                        #[weak]
-                                        dialog,
-                                        #[weak]
-                                        this,
-                                        async move {
-                                            trace!("Print future spawned");
-                                            match dialog.setup_future(Some(&this)).await {
-                                                Ok(print_setup) => {
-                                                    trace!("Print future awaited");
-                                                    print_operation.set_page_setup(&print_setup.page_setup());
-                                                    print_operation.set_print_settings(&print_setup.print_settings());
-                                                    print_operation.print();
-                                                },
-                                                Err(e) => {
-                                                    error!("{}", e);
-                                                    return;
-                                                }
-                                            }
-                                        }
-                                    )
-                                );
-                                drop(ctx_guard);
-                            },
-                            Err(e) => {
-                                error!("{}", e);
-                            }
-                        };
-                        // dialog.setup(Some(&this), Some(&gio::Cancellable::new()), clone!(#[weak] print_operation, move |print_setup| {
-                        //     match print_setup {
-                        //         Ok(print_setup) => {
-                        //             print_operation.set_page_setup(&print_setup.page_setup());
-                        //             print_operation.set_print_settings(&print_setup.print_settings());
-                        //             print_operation.print();
-                        //         },
-                        //         Err(e) => {
-                        //             error!("{}", e);
-                        //             return;
-                        //         }
-                        //     }
-                        // }));
-                        true
-                    })
-                )));
-
                 let permission_request =
                     RefCell::new(Some(new_view.connect_permission_request(clone!(
                         #[weak]
@@ -1597,7 +1500,7 @@ impl Window {
                                         None,
                                         clone!(
                                             #[weak]
-                        this,
+                                            this,
                                             #[weak]
                                             download,
                                             move |_, response| {
@@ -1851,16 +1754,10 @@ impl Window {
                         if let Some(id) = found_text.take() {
                             old_find_controller.disconnect(id);
                         }
-                        // if let Some(id) = colour_scheme_update.take() {
-                        //     style_manager.disconnect(id);
-                        // }
                         if let Some(id) = create.take() {
                             old_view.disconnect(id);
                         }
                         if let Some(id) = status_message.take() {
-                            old_view.disconnect(id);
-                        }
-                        if let Some(id) = print_started.take() {
                             old_view.disconnect(id);
                         }
                         if let Some(id) = permission_request.take() {
