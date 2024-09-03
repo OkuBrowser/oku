@@ -33,6 +33,7 @@ use fuser::BackgroundSession;
 use gio::prelude::*;
 use glib_macros::clone;
 use gtk::prelude::GtkApplicationExt;
+use history::HistoryManager;
 use ipfs::Ipfs;
 use ipfs::Keypair;
 use ipfs::UninitializedIpfsNoop as UninitializedIpfs;
@@ -66,8 +67,9 @@ lazy_static! {
     static ref MOUNT_DIR: PathBuf = DATA_DIR.join("mount");
     /// The platform-specific file path where Oku settings are stored
     static ref CONFIG_DIR: PathBuf = DATA_DIR.join("config.toml");
-    static ref HISTORY_DIR: PathBuf = DATA_DIR.join(".history");
+    static ref HISTORY_DIR: PathBuf = DATA_DIR.join("history");
     static ref CONFIG: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::load_or_default()));
+    static ref HISTORY_MANAGER: Arc<Mutex<HistoryManager>> = Arc::new(Mutex::new(HistoryManager::load_sessions_or_create().unwrap()));
 }
 
 /// The current release version number of Oku

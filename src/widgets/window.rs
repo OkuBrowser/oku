@@ -2,7 +2,7 @@ use crate::window_util::{
     connect, get_title, get_view_from_page, initial_connect, new_webkit_settings, update_favicon,
     update_nav_bar, update_title,
 };
-use crate::{CONFIG, DATA_DIR, MOUNT_DIR, VERSION};
+use crate::{CONFIG, DATA_DIR, HISTORY_MANAGER, MOUNT_DIR, VERSION};
 use chrono::Utc;
 use glib::{clone, Properties};
 use gtk::subclass::prelude::*;
@@ -1198,7 +1198,6 @@ impl Window {
                                         #[strong]
                                         snapshot_region,
                                         move |destination| {
-                                            trace!("Destination: {:?}", destination);
                                             match destination {
                                                 Ok(destination) => {
                                                     match destination.path() {
@@ -1219,7 +1218,7 @@ impl Window {
                                                                 )
                                                             );
                                                         },
-                                                        None => trace!("No path for {:#?}", destination)
+                                                        None => debug!("No path for {:#?}", destination)
                                                     }
                                                 },
                                                 Err(e) => error!("{}", e)
@@ -1315,12 +1314,14 @@ impl Window {
                                     if let Some(request) = navigation_action.request() {
                                         let old_uri = w.uri().unwrap_or_default();
                                         if let Some(new_uri) = request.uri() {
+                                            debug!("{:?} (old URI: {}, new URI: {})", navigation_type, old_uri, new_uri);
                                             match navigation_type {
                                                 NavigationType::LinkClicked => {
-                                                    debug!("Link clicked (old URI: {}, new URI: {})", old_uri, new_uri);
-                                                },
-                                                NavigationType::Other => {
-                                                    debug!("Other (old URI: {}, new URI: {})", old_uri, new_uri);
+                                                    let history_manager = HISTORY_MANAGER.lock().unwrap();
+                                                    let current_session = history_manager.get_current_session();
+                                                    current_session.add_navigation(old_uri.to_string(), new_uri.to_string());
+                                                    current_session.save();
+                                                    drop(history_manager);
                                                 },
                                                 _ => ()
                                             }

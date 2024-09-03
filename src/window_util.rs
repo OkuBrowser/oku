@@ -10,6 +10,8 @@ use tokio_stream::StreamExt;
 use tracing::error;
 use webkit2gtk::{functions::uri_for_display, prelude::WebViewExt, URISchemeRequest};
 
+use crate::HISTORY_MANAGER;
+
 /// Perform the initial connection at startup when passed a URL as a launch argument
 ///
 /// * `initial_url` - The URL passed as a launch argument
@@ -78,11 +80,20 @@ pub fn initial_connect(mut initial_url: String, web_view: &webkit2gtk::WebView) 
 ///
 /// * `web_view` - The WebKit instance for the current tab
 pub fn connect(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebView) {
-    let mut nav_text = nav_entry.text().to_string();
+    let nav_text = nav_entry.text().to_string();
     let mut parsed_url = url::Url::parse(&nav_text);
     match parsed_url {
         // When URL is completely OK
         Ok(_) => {
+            let history_manager = HISTORY_MANAGER.lock().unwrap();
+            let current_session = history_manager.get_current_session();
+            current_session.add_navigation(
+                web_view.uri().unwrap_or("about:blank".into()).to_string(),
+                nav_text.to_string(),
+            );
+            current_session.save();
+            drop(history_manager);
+            nav_entry.set_text(&nav_text);
             web_view.load_uri(&nav_text);
         }
         // When URL is missing a scheme
@@ -90,47 +101,19 @@ pub fn connect(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebView) {
             parsed_url = url::Url::parse(&format!("http://{}", nav_text)); // Try with HTTP first
             match parsed_url {
                 // If it's now valid with HTTP
-                Ok(_) => {
-                    let split_url: Vec<&str> = nav_text.split('/').collect();
-                    let host = split_url[0];
-                    let cid = Cid::try_from(host);
-                    // Try seeing if we can swap it with IPFS
-                    match cid {
-                        // It works as IPFS
-                        Ok(_) => {
-                            let unwrapped_cid = cid.unwrap();
-                            let cid1 =
-                                Cid::new_v1(unwrapped_cid.codec(), unwrapped_cid.hash().to_owned());
-                            parsed_url = url::Url::parse(&format!("ipfs://{}", nav_text));
-                            let mut unwrapped_url = parsed_url.unwrap();
-                            let cid1_string = &cid1
-                                .to_string_of_base(cid::multibase::Base::Base32Lower)
-                                .unwrap();
-                            unwrapped_url.set_host(Some(cid1_string)).unwrap();
-                            nav_text = unwrapped_url.as_str().to_owned();
-                            web_view.load_uri(&nav_text);
-                            nav_entry.set_text(&nav_text);
-                        }
-                        // It doesn't work as IPFS
-                        Err(e) => {
-                            error!("{}", e);
-                            nav_text = parsed_url.unwrap().as_str().to_owned();
-                            web_view.load_uri(&nav_text);
-                            nav_entry.set_text(&nav_text)
-                        }
-                    }
+                Ok(nav_url) => {
+                    nav_entry.set_text(nav_url.as_str());
+                    connect(&nav_entry, &web_view);
                 }
                 // Still not valid, even with HTTP
                 Err(e) => {
                     error!("{}", e);
-                    web_view.load_plain_text(&format!("{:#?}", e));
                 }
             }
         }
         // URL is malformed beyond missing a scheme
         Err(e) => {
             error!("{}", e);
-            web_view.load_plain_text(&format!("{:#?}", e));
         }
     }
 }
