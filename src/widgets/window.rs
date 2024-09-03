@@ -12,6 +12,8 @@ use libadwaita::{prelude::*, ResponseAppearance};
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::hash::{Hash, Hasher};
+use std::rc::Rc;
+use std::sync::Arc;
 use tracing::{debug, error, info, trace};
 use webkit2gtk::functions::{
     uri_for_display, user_media_permission_is_for_audio_device,
@@ -20,8 +22,8 @@ use webkit2gtk::functions::{
 use webkit2gtk::prelude::PermissionRequestExt;
 use webkit2gtk::prelude::PolicyDecisionExt;
 use webkit2gtk::prelude::WebViewExt;
-use webkit2gtk::NavigationType;
 use webkit2gtk::{FindOptions, NavigationPolicyDecision, PolicyDecisionType, WebContext, WebView};
+use webkit2gtk::{LoadEvent, NavigationType};
 
 use super::settings::apply_config;
 
@@ -1312,18 +1314,23 @@ impl Window {
                                 if let Some(mut navigation_action) = navigation_policy_decision.navigation_action() {
                                     let navigation_type = navigation_action.navigation_type();
                                     if let Some(request) = navigation_action.request() {
-                                        let old_uri = w.uri().unwrap_or_default();
-                                        if let Some(new_uri) = request.uri() {
-                                            debug!("{:?} (old URI: {}, new URI: {})", navigation_type, old_uri, new_uri);
-                                            match navigation_type {
-                                                NavigationType::LinkClicked => {
-                                                    let history_manager = HISTORY_MANAGER.lock().unwrap();
-                                                    let current_session = history_manager.get_current_session();
-                                                    current_session.add_navigation(old_uri.to_string(), new_uri.to_string());
-                                                    current_session.save();
-                                                    drop(history_manager);
-                                                },
-                                                _ => ()
+                                        if let Some(back_forward_list) = w.back_forward_list() {
+                                            if let Some(current_item) = back_forward_list.current_item() {
+                                                if let Some(old_uri) = current_item.original_uri() {
+                                                    if let Some(new_uri) = request.uri() {
+                                                        debug!("{:?} (old URI: {}, new URI: {})", navigation_type, old_uri, new_uri);
+                                                        match navigation_type {
+                                                            NavigationType::LinkClicked => {
+                                                                let history_manager = HISTORY_MANAGER.lock().unwrap();
+                                                                let current_session = history_manager.get_current_session();
+                                                                current_session.add_navigation(old_uri.to_string(), new_uri.to_string());
+                                                                current_session.save();
+                                                                drop(history_manager);
+                                                            },
+                                                            _ => ()
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -1602,7 +1609,7 @@ impl Window {
                     imp,
                     #[weak]
                     this,
-                    move |w, _| {
+                    move |w, _load_event| {
                         imp.obj().set_title(Some(
                             &get_title(&w),
                         ));
