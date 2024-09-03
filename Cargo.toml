@@ -58,7 +58,7 @@ tokio-native-tls = "0.3.1"
 tokio-stream = "0.1.15"
 # transmission_rs = "0.8.12"
 webkit2gtk = { version = "*", package = "webkit6", features = ["v2_44"] }
-tor-rtcompat = "0.21.0"
+tor-rtcompat = "0.22.0"
 tree_magic_mini = { version = "3.1.5", features = ["with-gpl-data"] }
 fuser = "0.13.0"
 open = "5.3.0"
