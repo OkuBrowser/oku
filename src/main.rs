@@ -22,12 +22,10 @@
     html_favicon_url = "https://github.com/Dirout/oku/raw/master/branding/logo-filled.svg"
 )]
 pub mod config;
+pub mod history;
 pub mod widgets;
 pub mod window_util;
 
-use arti_client::BootstrapBehavior;
-use arti_client::StreamPrefs;
-use arti_client::TorClient;
 use config::Config;
 use directories_next::ProjectDirs;
 use directories_next::UserDirs;
@@ -43,13 +41,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::runtime::Handle;
-use tor_rtcompat::PreferredRuntime;
 use webkit2gtk::URISchemeRequest;
 use webkit2gtk::WebContext;
 use window_util::ipfs_scheme_handler;
 use window_util::ipns_scheme_handler;
 use window_util::node_scheme_handler;
-use window_util::tor_scheme_handler;
 
 #[macro_use]
 extern crate lazy_static;
@@ -70,6 +66,7 @@ lazy_static! {
     static ref MOUNT_DIR: PathBuf = DATA_DIR.join("mount");
     /// The platform-specific file path where Oku settings are stored
     static ref CONFIG_DIR: PathBuf = DATA_DIR.join("config.toml");
+    static ref HISTORY_DIR: PathBuf = DATA_DIR.join(".history");
     static ref CONFIG: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::load_or_default()));
 }
 
@@ -78,7 +75,6 @@ const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 
 async fn create_web_context() -> (WebContext, BackgroundSession, Ipfs) {
     let (node, mount_handle) = create_oku_client().await;
-    let tor_client = create_tor_client();
     let ipfs = create_ipfs_client().await;
 
     let web_context = WebContext::builder().build();
@@ -112,16 +108,6 @@ async fn create_web_context() -> (WebContext, BackgroundSession, Ipfs) {
             }
         ),
     );
-    web_context.register_uri_scheme(
-        "tor",
-        clone!(
-            #[strong]
-            tor_client,
-            move |request: &URISchemeRequest| {
-                tor_scheme_handler(&tor_client, request);
-            }
-        ),
-    );
     (web_context, mount_handle, ipfs)
 }
 
@@ -131,17 +117,6 @@ async fn create_oku_client() -> (OkuFs, BackgroundSession) {
     let _ = std::fs::remove_dir_all(MOUNT_DIR.to_path_buf());
     let _ = std::fs::create_dir_all(MOUNT_DIR.to_path_buf());
     (node_clone, node.mount(MOUNT_DIR.to_path_buf()).unwrap())
-}
-
-fn create_tor_client() -> TorClient<PreferredRuntime> {
-    let mut tor_client = TorClient::builder()
-        .bootstrap_behavior(BootstrapBehavior::OnDemand)
-        .create_unbootstrapped()
-        .unwrap();
-    let mut tor_stream_prefs = StreamPrefs::new();
-    tor_stream_prefs.connect_to_onion_services(arti_client::config::BoolOrAuto::Explicit(true));
-    tor_client.set_stream_prefs(tor_stream_prefs);
-    tor_client
 }
 
 async fn create_ipfs_client() -> Ipfs {

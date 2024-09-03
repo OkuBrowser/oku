@@ -28,7 +28,6 @@ resolver = "2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-arti-client = { version = "0.21.0", features = ["onion-service-client"] }
 bincode = "1.3.3"
 cairo-rs = { version = "*", features = ["v1_18", "png"] }
 chrono = { version = "0.4.34", features = ["unstable-locales"] }
@@ -48,8 +47,8 @@ ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", branch = "libp2p-ne
 lazy_static = "1.5.0"
 libadwaita = { version = "*", features = ["v1_5"] }
 notify-rust = { version = "4.11.1", features = ["images", "z"], default-features = false }
-# oku-fs = { git = "https://github.com/emmyoh/oku-fs" }
-oku-fs = { path = "/home/emil/Documents/GitHub/oku-fs", features = ["fuse"] }
+oku-fs = { git = "https://github.com/emmyoh/oku-fs", features = ["fuse"] }
+# oku-fs = { path = "/home/emil/Documents/GitHub/oku-fs", features = ["fuse"] }
 pango = { version = "*" }
 url = "2.5.2"
 urlencoding = "2.1.3"

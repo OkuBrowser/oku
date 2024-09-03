@@ -1,23 +1,14 @@
-use arti_client::TorClient;
 use cid::Cid;
 use futures::pin_mut;
 use glib::object::{Cast, IsA};
 use glib_macros::clone;
 use gtk::{prelude::EditableExt, prelude::WidgetExt};
-use http_body_util::{BodyExt, Empty};
-use hyper::StatusCode;
-use hyper_util::rt::TokioIo;
 use ipfs::Ipfs;
 use oku_fs::fs::OkuFs;
 use std::{convert::TryFrom, path::PathBuf};
-use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_stream::StreamExt;
-use tor_rtcompat::PreferredRuntime;
 use tracing::error;
-use webkit2gtk::{
-    functions::uri_for_display, prelude::WebViewExt, soup::MessageHeaders, URISchemeRequest,
-    URISchemeResponse,
-};
+use webkit2gtk::{functions::uri_for_display, prelude::WebViewExt, URISchemeRequest};
 
 /// Perform the initial connection at startup when passed a URL as a launch argument
 ///
@@ -272,167 +263,6 @@ pub fn get_title(web_view: &webkit2gtk::WebView) -> String {
 pub fn update_title(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebView) {
     let relevant_page = tab_view.page(web_view);
     relevant_page.set_title(&get_title(web_view));
-}
-
-pub async fn make_tor_request(
-    request_http_method: &str,
-    request_pair: (String, String),
-    tor_stream: impl AsyncRead + AsyncWrite + Unpin + Send + 'static,
-) -> (Vec<u8>, StatusCode, MessageHeaders, String) {
-    let mut file_vec: Vec<u8> = vec![];
-    let (mut request_sender, connection) =
-        hyper::client::conn::http1::handshake(TokioIo::new(tor_stream))
-            .await
-            .unwrap();
-    let connection_handle = tokio::spawn(async move {
-        connection.await.unwrap();
-    });
-    let mut resp = request_sender
-        .send_request(
-            hyper::Request::builder()
-                .header("Host", request_pair.clone().0)
-                .method(request_http_method)
-                .uri(request_pair.1)
-                .body(Empty::<hyper::body::Bytes>::new())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    let message_headers = MessageHeaders::new(webkit2gtk::soup::MessageHeadersType::Response);
-    for (header_name, header_value) in resp.headers() {
-        message_headers.append(header_name.as_str(), header_value.to_str().unwrap())
-    }
-    while let Some(frame) = resp.body_mut().frame().await {
-        let bytes = frame.unwrap().into_data().unwrap();
-        file_vec.extend(bytes);
-    }
-    let content_type = match resp.headers().get(hyper::header::CONTENT_TYPE) {
-        Some(h) => {
-            if let Ok(h_str) = h.to_str() {
-                h_str
-            } else {
-                tree_magic_mini::from_u8(&file_vec)
-            }
-        }
-        None => tree_magic_mini::from_u8(&file_vec),
-    }
-    .to_string();
-    message_headers.set_content_type(Some(content_type.clone()), None);
-    message_headers.set_content_length(file_vec.len().try_into().unwrap_or_default());
-    connection_handle.abort();
-    (file_vec, resp.status(), message_headers, content_type)
-}
-
-pub fn tor_scheme_handler<'a>(
-    tor_client: &TorClient<PreferredRuntime>,
-    request: &'a URISchemeRequest,
-) -> &'a URISchemeRequest {
-    let ctx = glib::MainContext::default();
-    let request_url = url::Url::parse(
-        &request
-            .uri()
-            .unwrap()
-            .to_string()
-            .replacen("tor://", "http://", 1),
-    )
-    .unwrap();
-    let request_port = request_url.port_or_known_default().unwrap_or(80);
-    // let request_scheme = if request_port == 443 {
-    //     String::from("https")
-    // } else {
-    //     String::from("http")
-    // };
-    let request_pair = (
-        request_url.host_str().unwrap_or_default().to_string(),
-        request_url.path().to_string(),
-    );
-    ctx.spawn_local_with_priority(
-        glib::source::Priority::HIGH,
-        clone!(
-            #[weak]
-            request,
-            #[strong]
-            tor_client,
-            async move {
-                match tor_client
-                    .connect((request_pair.clone().0, request_port))
-                    .await
-                {
-                    Ok(tor_stream) => {
-                        if request_port == 443 {
-                            let cx = tokio_native_tls::native_tls::TlsConnector::builder()
-                                .build()
-                                .unwrap();
-                            let cx = tokio_native_tls::TlsConnector::from(cx);
-                            match cx.connect(&request_pair.clone().0, tor_stream).await {
-                                Ok(tor_stream) => {
-                                    let (file_vec, status, message_headers, content_type) =
-                                        make_tor_request(
-                                            request.http_method().unwrap_or("GET".into()).as_str(),
-                                            request_pair,
-                                            tor_stream,
-                                        )
-                                        .await;
-                                    let byte_size = file_vec.len();
-                                    let input = gio::MemoryInputStream::from_bytes(
-                                        &glib::Bytes::from_owned(file_vec),
-                                    );
-                                    let response = URISchemeResponse::new(
-                                        &input,
-                                        byte_size.try_into().unwrap(),
-                                    );
-                                    response.set_status(
-                                        status.as_u16().into(),
-                                        status.canonical_reason(),
-                                    );
-                                    response.set_http_headers(message_headers);
-                                    response.set_content_type(&content_type);
-                                    request.finish_with_response(&response);
-                                    return;
-                                }
-                                Err(e) => {
-                                    error!("{}", e);
-                                    request.finish_error(&mut glib::error::Error::new(
-                                        webkit2gtk::NetworkError::Transport,
-                                        &e.to_string(),
-                                    ));
-                                    return;
-                                }
-                            }
-                        } else {
-                            let (file_vec, status, message_headers, content_type) =
-                                make_tor_request(
-                                    request.http_method().unwrap_or("GET".into()).as_str(),
-                                    request_pair,
-                                    tor_stream,
-                                )
-                                .await;
-                            let byte_size = file_vec.len();
-                            let input = gio::MemoryInputStream::from_bytes(
-                                &glib::Bytes::from_owned(file_vec),
-                            );
-                            let response =
-                                URISchemeResponse::new(&input, byte_size.try_into().unwrap());
-                            response.set_status(status.as_u16().into(), status.canonical_reason());
-                            response.set_http_headers(message_headers);
-                            response.set_content_type(&content_type);
-                            request.finish_with_response(&response);
-                            return;
-                        }
-                    }
-                    Err(e) => {
-                        error!("{}", e);
-                        request.finish_error(&mut glib::error::Error::new(
-                            webkit2gtk::NetworkError::Failed,
-                            &e.to_string(),
-                        ));
-                        return;
-                    }
-                }
-            }
-        ),
-    );
-    request
 }
 
 pub fn ipfs_scheme_handler<'a>(ipfs: &Ipfs, request: &'a URISchemeRequest) -> &'a URISchemeRequest {

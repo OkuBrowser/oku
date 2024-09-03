@@ -14,12 +14,14 @@ use std::cell::RefCell;
 use std::hash::{Hash, Hasher};
 use tracing::{debug, error, info, trace};
 use webkit2gtk::functions::{
-    user_media_permission_is_for_audio_device, user_media_permission_is_for_display_device,
-    user_media_permission_is_for_video_device,
+    uri_for_display, user_media_permission_is_for_audio_device,
+    user_media_permission_is_for_display_device, user_media_permission_is_for_video_device,
 };
 use webkit2gtk::prelude::PermissionRequestExt;
+use webkit2gtk::prelude::PolicyDecisionExt;
 use webkit2gtk::prelude::WebViewExt;
-use webkit2gtk::{FindOptions, WebContext, WebView};
+use webkit2gtk::NavigationType;
+use webkit2gtk::{FindOptions, NavigationPolicyDecision, PolicyDecisionType, WebContext, WebView};
 
 use super::settings::apply_config;
 
@@ -46,7 +48,6 @@ pub mod imp {
         pub(crate) downloads_button: gtk::Button,
         pub(crate) find_button: gtk::Button,
         pub(crate) replicas_button: gtk::Button,
-        pub(crate) tor_button: gtk::Button,
         pub(crate) menu_button: gtk::Button,
         pub(crate) right_header_buttons: gtk::Box,
         // HeaderBar
@@ -359,13 +360,6 @@ impl Window {
         imp.replicas_button.set_receives_default(true);
         imp.replicas_button.set_icon_name("emblem-shared");
 
-        // Onion routing button
-        imp.tor_button.set_can_focus(true);
-        imp.tor_button.set_receives_default(true);
-        imp.tor_button.set_hexpand(false);
-        imp.tor_button.set_vexpand(false);
-        imp.tor_button.set_icon_name("security-medium");
-
         // Menu button
         imp.menu_button.set_can_focus(true);
         imp.menu_button.set_receives_default(true);
@@ -375,7 +369,6 @@ impl Window {
         imp.right_header_buttons.append(&imp.downloads_button);
         imp.right_header_buttons.append(&imp.find_button);
         imp.right_header_buttons.append(&imp.replicas_button);
-        imp.right_header_buttons.append(&imp.tor_button);
         imp.right_header_buttons.append(&imp.menu_button);
     }
 
@@ -682,6 +675,8 @@ impl Window {
             .set_tooltip_text(Some(
                 "Treat capital letters in the middle of words as word start",
             ));
+        imp.find_treat_medial_capital_as_word_start
+            .set_sensitive(false);
 
         imp.find_backwards.set_can_focus(true);
         imp.find_backwards.set_receives_default(true);
@@ -890,6 +885,7 @@ impl Window {
         imp.tab_view.set_selected_page(&new_page);
         new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("view-pin-symbolic")));
         new_page.set_indicator_activatable(true);
+        imp.nav_entry.grab_focus();
 
         (new_view, new_page)
     }
@@ -1304,6 +1300,40 @@ impl Window {
                 let network_session = new_view.network_session().unwrap();
                 let find_controller = new_view.find_controller().unwrap();
 
+                let decide_policy = RefCell::new(Some(new_view.connect_decide_policy(clone!(
+                    #[weak]
+                    imp,
+                    #[upgrade_or]
+                    false,
+                    move |w, policy_decision, decision_type| {
+                        match decision_type {
+                            PolicyDecisionType::NavigationAction => {
+                                let navigation_policy_decision: NavigationPolicyDecision = policy_decision.clone().downcast().unwrap();
+                                navigation_policy_decision.use_();
+                                if let Some(mut navigation_action) = navigation_policy_decision.navigation_action() {
+                                    let navigation_type = navigation_action.navigation_type();
+                                    if let Some(request) = navigation_action.request() {
+                                        let old_uri = w.uri().unwrap_or_default();
+                                        if let Some(new_uri) = request.uri() {
+                                            match navigation_type {
+                                                NavigationType::LinkClicked => {
+                                                    debug!("Link clicked (old URI: {}, new URI: {})", old_uri, new_uri);
+                                                },
+                                                NavigationType::Other => {
+                                                    debug!("Other (old URI: {}, new URI: {})", old_uri, new_uri);
+                                                },
+                                                _ => ()
+                                            }
+                                        }
+                                    }
+                                }
+                                true
+                            },
+                            _ => false
+                        }
+                    }
+                ))));
+
                 let found_text = RefCell::new(
                     Some(
                         find_controller.connect_found_text(
@@ -1372,7 +1402,7 @@ impl Window {
                                 imp,
                                 move |_w, hit_test_result, _modifier| {
                                     if let Some(link_uri) = hit_test_result.link_uri() {
-                                        imp.url_status.set_text(link_uri.as_str());
+                                        imp.url_status.set_text(uri_for_display(link_uri.as_str()).unwrap_or_default().as_str());
                                         imp.url_status_box.set_visible(true);
                                     } else {
                                         imp.url_status.set_text("");
@@ -1389,7 +1419,7 @@ impl Window {
                         #[weak]
                         this,
                         #[upgrade_or]
-                    false,
+                        false,
                         move |_w, permission_request| {
                             let (title, description) = if permission_request.is::<webkit2gtk::ClipboardPermissionRequest>() {
                                 ("Allow access to clipboard?", "This page is requesting permission to read the contents of your clipboard.")
@@ -1467,7 +1497,7 @@ impl Window {
                         move |_w, download| {
                             download.connect_decide_destination(clone!(
                                 #[weak]
-                        this,
+                                this,
                                 #[weak]
                                 download,
                                 #[upgrade_or]
@@ -1745,6 +1775,9 @@ impl Window {
                         let old_view = get_view_from_page(&old_page);
                         let old_network_session = old_view.network_session().unwrap();
                         let old_find_controller = old_view.find_controller().unwrap();
+                        if let Some(id) = decide_policy.take() {
+                            old_view.disconnect(id);
+                        }
                         if let Some(id) = zoom_level_notify.take() {
                             old_view.disconnect(id);
                         }
