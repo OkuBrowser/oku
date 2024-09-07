@@ -1,76 +1,14 @@
-use cid::Cid;
+use crate::HISTORY_MANAGER;
 use futures::pin_mut;
 use glib::object::{Cast, IsA};
 use glib_macros::clone;
 use gtk::{prelude::EditableExt, prelude::WidgetExt};
 use ipfs::Ipfs;
 use oku_fs::fs::OkuFs;
-use std::{convert::TryFrom, path::PathBuf};
+use std::path::PathBuf;
 use tokio_stream::StreamExt;
-use tracing::error;
+use tracing::{error, warn};
 use webkit2gtk::{functions::uri_for_display, prelude::WebViewExt, URISchemeRequest};
-
-use crate::HISTORY_MANAGER;
-
-/// Perform the initial connection at startup when passed a URL as a launch argument
-///
-/// * `initial_url` - The URL passed as a launch argument
-///
-/// * `web_view` - The WebKit instance for the current tab
-pub fn initial_connect(mut initial_url: String, web_view: &webkit2gtk::WebView) {
-    let mut parsed_url = url::Url::parse(&initial_url);
-    match parsed_url {
-        // When URL is completely OK
-        Ok(_) => {
-            web_view.load_uri(&initial_url);
-        }
-        // When URL is missing a scheme
-        Err(url::ParseError::RelativeUrlWithoutBase) => {
-            parsed_url = url::Url::parse(&format!("http://{}", initial_url)); // Try with HTTP first
-            match parsed_url {
-                // If it's now valid with HTTP
-                Ok(_) => {
-                    let split_url: Vec<&str> = initial_url.split('/').collect();
-                    let host = split_url[0];
-                    let cid = Cid::try_from(host);
-                    // Try seeing if we can swap it with IPFS
-                    match cid {
-                        // It works as IPFS
-                        Ok(_) => {
-                            let unwrapped_cid = cid.unwrap();
-                            let cid1 =
-                                Cid::new_v1(unwrapped_cid.codec(), unwrapped_cid.hash().to_owned());
-                            parsed_url = url::Url::parse(&format!("ipfs://{}", initial_url));
-                            let mut unwrapped_url = parsed_url.unwrap();
-                            let cid1_string = &cid1
-                                .to_string_of_base(cid::multibase::Base::Base32Lower)
-                                .unwrap();
-                            unwrapped_url.set_host(Some(cid1_string)).unwrap();
-                            initial_url = unwrapped_url.as_str().to_owned();
-                            web_view.load_uri(&initial_url);
-                        }
-                        // It doesn't work as IPFS
-                        Err(e) => {
-                            error!("{}", e);
-                            initial_url = parsed_url.unwrap().as_str().to_owned();
-                            web_view.load_uri(&initial_url);
-                        }
-                    }
-                }
-                // Still not valid, even with HTTP
-                Err(e) => {
-                    error!("{}", e);
-                    web_view.load_plain_text(&format!("{:#?}", e));
-                }
-            }
-        }
-        // URL is malformed beyond missing a scheme
-        Err(e) => {
-            error!("{}", e);
-            web_view.load_plain_text(&format!("{:#?}", e));
-        }
-    }
-}
 
 /// Connect to a page using the current tab
 ///
@@ -85,14 +23,27 @@ pub fn connect(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebView) {
     match parsed_url {
         // When URL is completely OK
         Ok(_) => {
-            let history_manager = HISTORY_MANAGER.lock().unwrap();
-            let current_session = history_manager.get_current_session();
-            current_session.add_navigation(
-                web_view.uri().unwrap_or("about:blank".into()).to_string(),
-                nav_text.to_string(),
-            );
-            current_session.save();
-            drop(history_manager);
+            if let Some(back_forward_list) = web_view.back_forward_list() {
+                if let Some(current_item) = back_forward_list.current_item() {
+                    if let Some(old_uri) = current_item.original_uri() {
+                        if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
+                            history_manager
+                                .add_navigation(old_uri.to_string(), nav_text.to_string());
+                            let current_session = history_manager.get_current_session();
+                            current_session.update_uri(
+                                old_uri.to_string(),
+                                current_item.uri().map(|x| x.to_string()),
+                                Some(get_title(&web_view)),
+                            );
+                            current_session.save();
+                            drop(current_session);
+                            drop(history_manager);
+                        } else {
+                            warn!("Could not lock history manager during navigation.");
+                        }
+                    }
+                }
+            }
             nav_entry.set_text(&nav_text);
             web_view.load_uri(&nav_text);
         }
@@ -245,13 +196,29 @@ pub fn get_title(web_view: &webkit2gtk::WebView) -> String {
 /// * `web_view` - The WebKit instance for the tab
 pub fn update_title(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebView) {
     let relevant_page = tab_view.page(web_view);
-    relevant_page.set_title(&get_title(web_view));
+    let title = get_title(web_view);
+    if let Some(back_forward_list) = web_view.back_forward_list() {
+        if let Some(current_item) = back_forward_list.current_item() {
+            if let Some(original_uri) = current_item.original_uri() {
+                if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
+                    let current_session = history_manager.get_current_session();
+                    current_session.update_uri(original_uri.to_string(), None, Some(title.clone()));
+                    current_session.save();
+                    drop(current_session);
+                    drop(history_manager);
+                } else {
+                    warn!("Could not lock history manager during page title change.");
+                }
+            }
+        }
+    }
+    relevant_page.set_title(&title);
 }
 
 pub fn ipfs_scheme_handler<'a>(ipfs: &Ipfs, request: &'a URISchemeRequest) -> &'a URISchemeRequest {
     let ctx = glib::MainContext::default();
     let request_url = request.uri().unwrap().to_string();
-    let decoded_url = urlencoding::decode(&request_url).unwrap();
+    let decoded_url = uri_for_display(&request_url).unwrap();
     match decoded_url
         .replacen("ipfs://", "", 1)
         .parse::<ipfs::IpfsPath>()
@@ -321,7 +288,7 @@ pub fn node_scheme_handler<'a>(
 ) -> &'a URISchemeRequest {
     let ctx = glib::MainContext::default();
     let request_url = request.uri().unwrap().to_string();
-    let decoded_url = urlencoding::decode(&request_url)
+    let decoded_url = uri_for_display(&request_url)
         .unwrap()
         .replacen("hive://", "", 1);
     match oku_fs::fuse::parse_fuse_path(&PathBuf::from(decoded_url.clone())) {
@@ -394,7 +361,7 @@ pub fn node_scheme_handler<'a>(
 pub fn ipns_scheme_handler<'a>(ipfs: &Ipfs, request: &'a URISchemeRequest) -> &'a URISchemeRequest {
     let ctx = glib::MainContext::default();
     let request_url = request.uri().unwrap().to_string();
-    let decoded_url = urlencoding::decode(&request_url).unwrap();
+    let decoded_url = uri_for_display(&request_url).unwrap();
     match format!("/ipns/{}", decoded_url.replacen("ipns://", "", 1)).parse::<ipfs::IpfsPath>() {
         Ok(ipns_path) => {
             ctx.spawn_local_with_priority(

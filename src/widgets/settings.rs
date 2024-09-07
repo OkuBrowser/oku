@@ -1,6 +1,6 @@
 use crate::config::ColourScheme;
 use crate::CONFIG;
-use glib::{clone, Properties};
+use glib::clone;
 use gtk::glib;
 use gtk::subclass::prelude::*;
 use libadwaita::subclass::{dialog::AdwDialogImpl, preferences_dialog::PreferencesDialogImpl};
@@ -9,8 +9,7 @@ use libadwaita::{prelude::*, StyleManager};
 pub mod imp {
     use super::*;
 
-    #[derive(Debug, Default, Properties)]
-    #[properties(wrapper_type = super::Settings)]
+    #[derive(Debug, Default)]
     pub struct Settings {
         pub(crate) main_page: libadwaita::PreferencesPage,
         pub(crate) appearance_group: libadwaita::PreferencesGroup,
@@ -29,19 +28,7 @@ pub mod imp {
         type ParentType = libadwaita::PreferencesDialog;
     }
 
-    impl ObjectImpl for Settings {
-        fn properties() -> &'static [glib::ParamSpec] {
-            Self::derived_properties()
-        }
-
-        fn set_property(&self, id: usize, value: &glib::Value, pspec: &glib::ParamSpec) {
-            Self::derived_set_property(self, id, value, pspec)
-        }
-
-        fn property(&self, id: usize, pspec: &glib::ParamSpec) -> glib::Value {
-            Self::derived_property(self, id, pspec)
-        }
-    }
+    impl ObjectImpl for Settings {}
     impl WidgetImpl for Settings {}
     impl PreferencesDialogImpl for Settings {}
     impl AdwDialogImpl for Settings {}

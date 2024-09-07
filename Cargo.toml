@@ -30,7 +30,7 @@ resolver = "2"
 [dependencies]
 bincode = "1.3.3"
 cairo-rs = { version = "*", features = ["v1_18", "png"] }
-chrono = { version = "0.4.34", features = ["unstable-locales"] }
+chrono = { version = "0.4.34", features = ["unstable-locales", "serde"] }
 cid = "0.11.0"
 directories-next = "2.0.0"
 futures = "0.3.30"
@@ -40,18 +40,14 @@ gio = { version = "*", features = ["v2_80"] }
 glib = { version = "*", features = ["v2_80"] }
 glib-macros = { version = "*" }
 gtk = { version = "*", package = "gtk4", features = ["gnome_46"], default-features = false }
-hyper = { version = "1", features = ["http1", "client"] }
 ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", branch = "libp2p-next", package = "rust-ipfs"}
 lazy_static = "1.5.0"
 libadwaita = { version = "*", features = ["v1_5"] }
-notify-rust = { version = "4.11.1", features = ["images", "z"], default-features = false }
 oku-fs = { git = "https://github.com/emmyoh/oku-fs", features = ["fuse"] }
 # oku-fs = { path = "/home/emil/Documents/GitHub/oku-fs", features = ["fuse"] }
 pango = { version = "*" }
 url = "2.5.2"
-urlencoding = "2.1.3"
 tokio = { version = "1.40.0", features = ["full"] }
-tokio-native-tls = "0.3.1"
 tokio-stream = "0.1.15"
 # transmission_rs = "0.8.12"
 webkit2gtk = { version = "*", package = "webkit6", features = ["v2_44"] }
@@ -65,9 +61,12 @@ toml = "0.8.19"
 serde = "1.0.209"
 uuid = { version = "1.10.0", features = ["v4", "fast-rng", "serde"] }
 miette = "7.2.0"
-petgraph = { version = "0.6.5", features = ["serde-1"] }
 glob = "0.3.1"
 layout-rs = "0.1.2"
+daggy = { version = "0.8.0", features = ["stable_dag", "serde-1"] }
+indicium = { version = "0.6.2", features = ["simple", "strsim", "gxhash", "serde"], default-features = false }
+once_cell = "1.19.0"
+html-escape = "0.2.13"
 
 [profile.release]
 codegen-units = 1

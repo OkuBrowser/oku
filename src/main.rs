@@ -23,6 +23,7 @@
 )]
 pub mod config;
 pub mod history;
+pub mod suggestion_item;
 pub mod widgets;
 pub mod window_util;
 
@@ -172,7 +173,7 @@ async fn main() {
         #[weak]
         web_context,
         move |_| {
-            crate::widgets::window::Window::new(&application, &web_context, None);
+            crate::widgets::window::Window::new(&application, &web_context);
             let ctx = glib::MainContext::default();
             ctx.spawn_local(clone!(
                 #[weak]

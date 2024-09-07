@@ -1,20 +1,21 @@
+use super::settings::apply_config;
+use crate::suggestion_item::SuggestionItem;
 use crate::window_util::{
-    connect, get_title, get_view_from_page, initial_connect, new_webkit_settings, update_favicon,
-    update_nav_bar, update_title,
+    connect, get_title, get_view_from_page, new_webkit_settings, update_favicon, update_nav_bar,
+    update_title,
 };
 use crate::{CONFIG, DATA_DIR, HISTORY_MANAGER, MOUNT_DIR, VERSION};
 use chrono::Utc;
-use glib::{clone, Properties};
+use glib::clone;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
 use libadwaita::{prelude::*, ResponseAppearance};
-use std::cell::Cell;
 use std::cell::RefCell;
+use std::cell::{Cell, Ref};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use std::sync::Arc;
-use tracing::{debug, error, info, trace};
+use tracing::{error, info, warn};
 use webkit2gtk::functions::{
     uri_for_display, user_media_permission_is_for_audio_device,
     user_media_permission_is_for_display_device, user_media_permission_is_for_video_device,
@@ -25,20 +26,23 @@ use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::{FindOptions, NavigationPolicyDecision, PolicyDecisionType, WebContext, WebView};
 use webkit2gtk::{LoadEvent, NavigationType};
 
-use super::settings::apply_config;
-
 pub mod imp {
     use super::*;
 
-    #[derive(Debug, Default, Properties)]
-    #[properties(wrapper_type = super::Window)]
+    #[derive(Debug, Default)]
     pub struct Window {
         // Window parameters
         pub(crate) _is_private: Cell<bool>,
-        pub(crate) initial_url: RefCell<String>,
         pub(crate) style_provider: RefCell<gtk::CssProvider>,
-        // Left header buttons
+        // Navigation bar
         pub(crate) nav_entry: gtk::SearchEntry,
+        pub(crate) suggestions_store: RefCell<Option<Rc<gio::ListStore>>>,
+        pub(crate) suggestions_factory: gtk::SignalListItemFactory,
+        pub(crate) suggestions_model: gtk::SingleSelection,
+        pub(crate) suggestions_view: gtk::ListView,
+        pub(crate) suggestions_scrolled_window: gtk::ScrolledWindow,
+        pub(crate) suggestions_popover: gtk::Popover,
+        // Left header buttons
         pub(crate) back_button: gtk::Button,
         pub(crate) forward_button: gtk::Button,
         pub(crate) navigation_buttons: gtk::Box,
@@ -112,19 +116,7 @@ pub mod imp {
         type ParentType = libadwaita::ApplicationWindow;
     }
 
-    impl ObjectImpl for Window {
-        fn properties() -> &'static [glib::ParamSpec] {
-            Self::derived_properties()
-        }
-
-        fn set_property(&self, id: usize, value: &glib::Value, pspec: &glib::ParamSpec) {
-            Self::derived_set_property(self, id, value, pspec)
-        }
-
-        fn property(&self, id: usize, pspec: &glib::ParamSpec) -> glib::Value {
-            Self::derived_property(self, id, pspec)
-        }
-    }
+    impl ObjectImpl for Window {}
     impl WidgetImpl for Window {}
     impl WindowImpl for Window {}
     impl ApplicationWindowImpl for Window {}
@@ -138,11 +130,7 @@ glib::wrapper! {
 }
 
 impl Window {
-    pub fn new(
-        app: &libadwaita::Application,
-        web_context: &WebContext,
-        initial_url: Option<&str>,
-    ) -> Self {
+    pub fn new(app: &libadwaita::Application, web_context: &WebContext) -> Self {
         let style_manager = app.style_manager();
 
         let this: Self = glib::Object::builder::<Self>()
@@ -167,17 +155,15 @@ impl Window {
         this.setup_add_tab_button_clicked(&web_context);
         this.setup_tab_signals(&web_context, &style_manager);
         this.setup_navigation_signals();
+        this.setup_suggestions_popover();
         this.setup_menu_buttons_clicked(&web_context);
         this.setup_new_view_signals(&web_context, &style_manager);
 
         let imp = this.imp();
 
-        imp.initial_url
-            .replace(initial_url.unwrap_or("about:blank").to_string());
-
         if imp.tab_view.n_pages() == 0 && app.windows().len() <= 1 {
             let initial_web_view = this.new_tab_page(&web_context, None, None).0;
-            initial_connect(imp.initial_url.clone().into_inner(), &initial_web_view);
+            initial_web_view.load_uri("about:blank");
         }
         this.set_content(Some(&imp.tab_overview));
         apply_config(&style_manager, &this);
@@ -466,6 +452,7 @@ impl Window {
 
         imp.menu_popover.set_child(Some(&imp.menu_box));
         imp.menu_popover.set_parent(&imp.menu_button);
+        imp.menu_popover.set_autohide(true);
     }
 
     fn setup_downloads_popover(&self) {
@@ -473,6 +460,7 @@ impl Window {
 
         imp.downloads_popover.set_child(Some(&imp.downloads_box));
         imp.downloads_popover.set_parent(&imp.downloads_button);
+        imp.downloads_popover.set_autohide(true);
     }
 
     fn get_find_options(&self) -> FindOptions {
@@ -717,6 +705,7 @@ impl Window {
         self.setup_find_box();
         imp.find_popover.set_child(Some(&imp.find_box));
         imp.find_popover.set_parent(&imp.find_button);
+        imp.find_popover.set_autohide(true);
     }
 
     fn setup_tabs(&self) {
@@ -1023,6 +1012,123 @@ impl Window {
                 connect(&nav_entry, &web_view);
             }
         ));
+
+        imp.nav_entry.connect_search_changed(clone!(
+            #[weak]
+            imp,
+            #[weak(rename_to = this)]
+            self,
+            move |_nav_entry| {
+                let favicon_database = this
+                    .get_view()
+                    .network_session()
+                    .unwrap()
+                    .website_data_manager()
+                    .unwrap()
+                    .favicon_database()
+                    .unwrap();
+
+                let mut suggestion_items = Vec::new();
+                if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
+                    suggestion_items = history_manager
+                        .get_suggestions(&favicon_database, imp.nav_entry.text().to_string());
+                    drop(history_manager);
+                }
+                let suggestions_store = this.suggestions_store();
+                suggestions_store.remove_all();
+                if imp.suggestions_popover.is_visible() {
+                    imp.suggestions_popover.popdown();
+                }
+                if suggestion_items.len() > 0 {
+                    for suggestion_item in suggestion_items.iter() {
+                        suggestions_store.append(suggestion_item);
+                    }
+                    if !imp.suggestions_popover.is_visible() {
+                        imp.suggestions_popover.popup();
+                    }
+                }
+            }
+        ));
+    }
+
+    pub fn suggestions_store(&self) -> Ref<gio::ListStore> {
+        let suggestions_store = self.imp().suggestions_store.borrow();
+
+        Ref::map(suggestions_store, |suggestions_store| {
+            let suggestions_store = suggestions_store.as_deref().unwrap();
+            suggestions_store
+        })
+    }
+
+    pub fn setup_suggestions_popover(&self) {
+        let imp = self.imp();
+
+        let suggestions_store = gio::ListStore::new::<crate::suggestion_item::SuggestionItem>();
+        imp.suggestions_store
+            .replace(Some(Rc::new(suggestions_store)));
+
+        imp.suggestions_model
+            .set_model(Some(&self.suggestions_store().clone()));
+        imp.suggestions_model.set_autoselect(false);
+        imp.suggestions_model.connect_selected_item_notify(clone!(
+            #[weak]
+            imp,
+            move |suggestions_model| {
+                if let Some(item) = suggestions_model.selected_item() {
+                    let suggestion_item = item.downcast_ref::<SuggestionItem>().unwrap();
+                    imp.nav_entry.set_text(&suggestion_item.uri());
+                }
+            }
+        ));
+
+        imp.suggestions_factory
+            .connect_setup(clone!(move |_, item| {
+                let row = super::suggestion_row::SuggestionRow::new();
+                let list_item = item.downcast_ref::<gtk::ListItem>().unwrap();
+                list_item.set_child(Some(&row));
+                list_item
+                    .property_expression("item")
+                    .chain_property::<crate::suggestion_item::SuggestionItem>("title")
+                    .bind(&row, "title-property", gtk::Widget::NONE);
+                list_item
+                    .property_expression("item")
+                    .chain_property::<crate::suggestion_item::SuggestionItem>("uri")
+                    .bind(&row, "uri", gtk::Widget::NONE);
+                list_item
+                    .property_expression("item")
+                    .chain_property::<crate::suggestion_item::SuggestionItem>("favicon")
+                    .bind(&row, "favicon", gtk::Widget::NONE);
+            }));
+
+        imp.suggestions_view.set_model(Some(&imp.suggestions_model));
+        imp.suggestions_view
+            .set_factory(Some(&imp.suggestions_factory));
+        imp.suggestions_view.set_enable_rubberband(false);
+        imp.suggestions_view.set_show_separators(true);
+        imp.suggestions_view
+            .set_hscroll_policy(gtk::ScrollablePolicy::Natural);
+        imp.suggestions_view
+            .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
+        imp.suggestions_view.set_overflow(gtk::Overflow::Visible);
+
+        imp.suggestions_scrolled_window
+            .set_child(Some(&imp.suggestions_view));
+        imp.suggestions_scrolled_window
+            .set_hscrollbar_policy(gtk::PolicyType::Never);
+        imp.suggestions_scrolled_window.set_max_content_height(400);
+        imp.suggestions_scrolled_window
+            .set_propagate_natural_height(true);
+        imp.suggestions_scrolled_window
+            .set_propagate_natural_width(true);
+
+        imp.suggestions_popover
+            .set_child(Some(&imp.suggestions_scrolled_window));
+        imp.suggestions_popover.set_parent(&imp.nav_entry);
+        imp.suggestions_popover.add_css_class("menu");
+        imp.suggestions_popover.add_css_class("suggestions");
+        imp.suggestions_popover.set_has_arrow(false);
+        imp.suggestions_popover.set_autohide(false);
+        imp.suggestions_popover.set_can_focus(false);
     }
 
     pub fn setup_zoom_buttons_clicked(&self) {
@@ -1071,7 +1177,7 @@ impl Window {
         web_context: &WebContext,
     ) -> std::option::Option<libadwaita::TabView> {
         let application = self.application().unwrap().downcast().unwrap();
-        let new_window = self::Window::new(&application, &web_context, None);
+        let new_window = self::Window::new(&application, &web_context);
         Some(new_window.imp().tab_view.to_owned())
     }
 
@@ -1185,7 +1291,6 @@ impl Window {
                                     "full" => webkit2gtk::SnapshotRegion::FullDocument,
                                     _ => unreachable!()
                                 };
-                                debug!("snapshot_region: {:?}", snapshot_region);
                                 let file_dialog =
                                     gtk::FileDialog::builder()
                                         .accept_label("Save")
@@ -1220,7 +1325,7 @@ impl Window {
                                                                 )
                                                             );
                                                         },
-                                                        None => debug!("No path for {:#?}", destination)
+                                                        None => warn!("No path for {:#?}", destination)
                                                     }
                                                 },
                                                 Err(e) => error!("{}", e)
@@ -1246,7 +1351,6 @@ impl Window {
                 self::Window::new(
                     &this.application().unwrap().downcast().unwrap(),
                     &web_context,
-                    None,
                 );
             }
         ));
@@ -1302,10 +1406,6 @@ impl Window {
                 let find_controller = new_view.find_controller().unwrap();
 
                 let decide_policy = RefCell::new(Some(new_view.connect_decide_policy(clone!(
-                    #[weak]
-                    imp,
-                    #[upgrade_or]
-                    false,
                     move |w, policy_decision, decision_type| {
                         match decision_type {
                             PolicyDecisionType::NavigationAction => {
@@ -1318,14 +1418,18 @@ impl Window {
                                             if let Some(current_item) = back_forward_list.current_item() {
                                                 if let Some(old_uri) = current_item.original_uri() {
                                                     if let Some(new_uri) = request.uri() {
-                                                        debug!("{:?} (old URI: {}, new URI: {})", navigation_type, old_uri, new_uri);
                                                         match navigation_type {
                                                             NavigationType::LinkClicked => {
-                                                                let history_manager = HISTORY_MANAGER.lock().unwrap();
-                                                                let current_session = history_manager.get_current_session();
-                                                                current_session.add_navigation(old_uri.to_string(), new_uri.to_string());
-                                                                current_session.save();
-                                                                drop(history_manager);
+                                                                if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
+                                                                    history_manager.add_navigation(old_uri.to_string(), new_uri.to_string());
+                                                                    let current_session = history_manager.get_current_session();
+                                                                    current_session.update_uri(old_uri.to_string(), current_item.uri().map(|x| x.to_string()), Some(get_title(&w)));
+                                                                    current_session.save();
+                                                                    drop(current_session);
+                                                                    drop(history_manager);
+                                                                } else {
+                                                                    warn!("Could not lock history manager while clicking link.");
+                                                                }
                                                             },
                                                             _ => ()
                                                         }
@@ -1374,17 +1478,6 @@ impl Window {
                     )
                 );
 
-                // let colour_scheme_update = RefCell::new(
-                //     Some(
-                //         style_manager.connect_color_scheme_notify(
-                //             clone!(#[weak] new_view, #[weak]
-                //                 this, #[upgrade_or_panic] move |style_manager| {
-                //                     this.update_domain_color(&new_view, &style_manager);
-                //                 })
-                //             )
-                //         )
-                //     );
-
                 let create = RefCell::new(
                     Some(
                         new_view.connect_create(
@@ -1395,7 +1488,30 @@ impl Window {
                                 this,
                                 #[upgrade_or_panic] move |w, navigation_action| {
                                     let mut navigation_action = navigation_action.clone();
-                                    this.new_tab_page(&web_context, Some(w), navigation_action.request().as_ref()).0.into()
+                                    let new_related_view = this.new_tab_page(&web_context, Some(w), navigation_action.request().as_ref()).0;
+                                    if let Some(back_forward_list) = w.back_forward_list() {
+                                        if let Some(current_item) = back_forward_list.current_item() {
+                                            if let Some(old_uri) = current_item.original_uri() {
+                                                if let Some(new_uri) = new_related_view.uri() {
+                                                    if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
+                                                        history_manager.add_navigation(old_uri.to_string(), new_uri.to_string());
+                                                        let current_session = history_manager.get_current_session();
+                                                        current_session.update_uri(
+                                                            old_uri.to_string(),
+                                                            current_item.uri().map(|x| x.to_string()),
+                                                            Some(get_title(&new_related_view)),
+                                                        );
+                                                        current_session.save();
+                                                        drop(current_session);
+                                                        drop(history_manager);
+                                                    } else {
+                                                        warn!("Could not lock history manager during new tab creation.");
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    new_related_view.into()
                                 }
                             )
                         )
@@ -1609,14 +1725,35 @@ impl Window {
                     imp,
                     #[weak]
                     this,
-                    move |w, _load_event| {
+                    move |w, load_event| {
+                        let title = get_title(&w);
                         imp.obj().set_title(Some(
-                            &get_title(&w),
+                            &title
                         ));
                         update_favicon(tab_view, &w);
                         if this.get_view() == *w {
                             back_button.set_sensitive(w.can_go_back());
                             forward_button.set_sensitive(w.can_go_forward());
+                            match load_event {
+                                LoadEvent::Redirected => {
+                                    if let Some(back_forward_list) = w.back_forward_list() {
+                                        if let Some(current_item) = back_forward_list.current_item() {
+                                            if let Some(original_uri) = current_item.original_uri() {
+                                                if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
+                                                    let current_session = history_manager.get_current_session();
+                                                    current_session.update_uri(original_uri.to_string(), current_item.uri().map(|x| x.to_string()), Some(title));
+                                                    current_session.save();
+                                                    drop(current_session);
+                                                    drop(history_manager);
+                                                } else {
+                                                    warn!("Could not lock history manager during redirection.");
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                _ => ()
+                            }
                         }
                     }
                 ))));
@@ -1893,25 +2030,25 @@ impl Window {
         let hue = hash % 360;
         let stylesheet = if style_manager.is_dark() {
             format!(
-                "
-                    @define-color view_bg_color hsl({hue}, 20%, 8%);
-                    @define-color view_fg_color hsl({hue}, 100%, 98%);
-                    @define-color window_bg_color hsl({hue}, 20%, 8%);
-                    @define-color window_fg_color hsl({hue}, 100%, 98%);
-                    @define-color headerbar_bg_color hsl({hue}, 80%, 10%);
-                    @define-color headerbar_fg_color hsl({hue}, 100%, 98%);
-                "
+                ":root {{
+                    --view-fg-color: hsl({hue}, 100%, 98%);
+                    --view-bg-color: hsl({hue}, 20%, 8%);
+                    --window-bg-color: hsl({hue}, 20%, 8%);
+                    --window-fg-color: hsl({hue}, 100%, 98%);
+                    --headerbar-bg-color: hsl({hue}, 80%, 10%);
+                    --headerbar-fg-color: hsl({hue}, 100%, 98%);
+                }}"
             )
         } else {
             format!(
-                "
-                    @define-color view_bg_color hsl({hue}, 100%, 99%);
-                    @define-color view_fg_color hsl({hue}, 100%, 12%);
-                    @define-color window_bg_color hsl({hue}, 100%, 99%);
-                    @define-color window_fg_color hsl({hue}, 100%, 12%);
-                    @define-color headerbar_bg_color hsl({hue}, 100%, 96%);
-                    @define-color headerbar_fg_color hsl({hue}, 100%, 12%);
-                    "
+                ":root {{
+                    --view-bg-color: hsl({hue}, 100%, 99%);
+                    --view-fg-color: hsl({hue}, 100%, 12%);
+                    --window-bg-color: hsl({hue}, 100%, 99%);
+                    --window-fg-color: hsl({hue}, 100%, 12%);
+                    --headerbar-bg-color: hsl({hue}, 100%, 96%);
+                    --headerbar-fg-color: hsl({hue}, 100%, 12%);
+                }}"
             )
         };
 
