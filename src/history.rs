@@ -17,6 +17,7 @@ use miette::IntoDiagnostic;
 use serde::Deserialize;
 use serde::Serialize;
 use std::cell::RefCell;
+use std::cmp::Reverse;
 use std::path::PathBuf;
 use tracing::error;
 use tracing::warn;
@@ -107,9 +108,9 @@ impl HistorySession {
             },
             Err(e) => error!("{}", e),
         }
-        if self.graph.borrow().node_count() > 0 {
-            self.visualise_dag()
-        }
+        // if self.graph.borrow().node_count() > 0 {
+        //     self.visualise_dag()
+        // }
     }
 
     pub fn find_or_add_uri(&self, uri: String) -> NodeIndex<DefaultIx> {
@@ -276,10 +277,16 @@ impl HistoryManager {
             })
         } else {
             for file in files {
-                match std::fs::read(file) {
-                    Ok(file_bytes) => match bincode::deserialize(&file_bytes) {
+                match std::fs::read(file.clone()) {
+                    Ok(file_bytes) => match bincode::deserialize::<HistorySession>(&file_bytes) {
                         Ok(history_session) => {
-                            history_sessions.push(history_session);
+                            if history_session.graph.borrow().node_count() == 0
+                                && history_session.id != current_session.borrow().id
+                            {
+                                let _ = std::fs::remove_file(file);
+                            } else {
+                                history_sessions.push(history_session);
+                            }
                         }
                         Err(e) => {
                             error!("{}", e)
@@ -342,8 +349,10 @@ impl HistoryManager {
                 graph.node_weight(x.1).unwrap().clone()
             })
             .collect::<Vec<HistoryItem>>();
-        history_items.sort_unstable_by_key(|x| (x.uri(), x.timestamp));
+        history_items.sort_unstable_by_key(|x| (x.uri(), Reverse(x.timestamp)));
         history_items.dedup_by_key(|x| x.uri());
+        history_items.sort_unstable_by_key(|x| (x.original_uri(), Reverse(x.timestamp)));
+        history_items.dedup_by_key(|x| x.original_uri());
         history_items.truncate(5);
         history_items
             .iter()

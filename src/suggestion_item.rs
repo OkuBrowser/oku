@@ -14,6 +14,7 @@ use glib::Value;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use tracing::error;
+use webkit2gtk::functions::uri_for_display;
 
 pub mod imp {
     use super::*;
@@ -49,11 +50,14 @@ pub mod imp {
             match pspec.name() {
                 "uri" => {
                     let uri = value.get::<String>().unwrap();
-                    self.uri.set(uri);
+                    self.uri.set(
+                        html_escape::encode_text(&uri_for_display(&uri).unwrap_or(uri.into()))
+                            .to_string(),
+                    );
                 }
                 "title" => {
                     let title = value.get::<String>().unwrap();
-                    self.title.set(title);
+                    self.title.set(html_escape::encode_text(&title).to_string());
                 }
                 "favicon" => {
                     let favicon = value.get::<gdk::Texture>().unwrap();

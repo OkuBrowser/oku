@@ -140,12 +140,12 @@ impl SuggestionRow {
         let imp = self.imp();
 
         imp.title.replace(title.to_string());
-        let encoded_title = html_escape::encode_text(&self.title_property()).to_string();
+        let encoded_title = &self.title_property();
         let encoded_uri = uri_for_display(&self.uri())
             .unwrap_or(self.uri().into())
             .to_string();
         if encoded_title.trim().is_empty() {
-            self.set_title(&html_escape::encode_text(&encoded_uri));
+            self.set_title(&encoded_uri);
             self.set_subtitle(&String::new());
         } else {
             self.set_title(&encoded_title);
@@ -157,12 +157,12 @@ impl SuggestionRow {
         let imp = self.imp();
 
         imp.uri.replace(uri.to_string());
-        let encoded_title = html_escape::encode_text(&self.title_property()).to_string();
+        let encoded_title = self.title_property();
         let encoded_uri = uri_for_display(&self.uri())
             .unwrap_or(self.uri().into())
             .to_string();
         if encoded_title.trim().is_empty() {
-            self.set_title(&html_escape::encode_text(&encoded_uri));
+            self.set_title(&encoded_uri);
             self.set_subtitle(&String::new());
         } else {
             self.set_title(&encoded_title);

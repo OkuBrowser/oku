@@ -8,6 +8,7 @@ use crate::{CONFIG, DATA_DIR, HISTORY_MANAGER, MOUNT_DIR, VERSION};
 use chrono::Utc;
 use glib::clone;
 use gtk::subclass::prelude::*;
+use gtk::EventControllerFocus;
 use gtk::{gio, glib};
 use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
 use libadwaita::{prelude::*, ResponseAppearance};
@@ -36,6 +37,7 @@ pub mod imp {
         pub(crate) style_provider: RefCell<gtk::CssProvider>,
         // Navigation bar
         pub(crate) nav_entry: gtk::SearchEntry,
+        pub(crate) nav_entry_focus: RefCell<EventControllerFocus>,
         pub(crate) suggestions_store: RefCell<Option<Rc<gio::ListStore>>>,
         pub(crate) suggestions_factory: gtk::SignalListItemFactory,
         pub(crate) suggestions_model: gtk::SingleSelection,
@@ -276,6 +278,8 @@ impl Window {
         let imp = self.imp();
 
         // Navigation bar
+        imp.nav_entry
+            .add_controller(imp.nav_entry_focus.borrow().clone());
         imp.nav_entry.set_can_focus(true);
         imp.nav_entry.set_focusable(true);
         imp.nav_entry.set_focus_on_click(true);
@@ -346,7 +350,7 @@ impl Window {
         // Replica menu button
         imp.replicas_button.set_can_focus(true);
         imp.replicas_button.set_receives_default(true);
-        imp.replicas_button.set_icon_name("emblem-shared");
+        imp.replicas_button.set_icon_name("file-cabinet-symbolic");
 
         // Menu button
         imp.menu_button.set_can_focus(true);
@@ -509,6 +513,16 @@ impl Window {
                     #[weak]
                     find_controller,
                     move |_find_search_entry| find_controller.search_next()
+                ));
+                imp.find_search_entry.connect_next_match(clone!(
+                    #[weak]
+                    find_controller,
+                    move |_find_search_entry| find_controller.search_next()
+                ));
+                imp.find_search_entry.connect_previous_match(clone!(
+                    #[weak]
+                    find_controller,
+                    move |_find_search_entry| find_controller.search_previous()
                 ));
                 imp.find_search_entry.connect_stop_search(clone!(
                     #[weak]
@@ -1013,37 +1027,59 @@ impl Window {
             }
         ));
 
+        imp.nav_entry_focus.borrow().connect_enter(clone!(
+            #[weak]
+            imp,
+            move |_| {
+                imp.nav_entry.select_region(0, -1);
+            }
+        ));
+
+        imp.nav_entry_focus.borrow().connect_leave(clone!(
+            #[weak]
+            imp,
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                let suggestions_store = this.suggestions_store();
+                suggestions_store.remove_all();
+                if imp.suggestions_popover.is_visible() {
+                    imp.suggestions_popover.popdown();
+                }
+            }
+        ));
+
         imp.nav_entry.connect_search_changed(clone!(
             #[weak]
             imp,
             #[weak(rename_to = this)]
             self,
             move |_nav_entry| {
-                let favicon_database = this
-                    .get_view()
-                    .network_session()
-                    .unwrap()
-                    .website_data_manager()
-                    .unwrap()
-                    .favicon_database()
-                    .unwrap();
+                if imp.nav_entry_focus.borrow().contains_focus() {
+                    let favicon_database = this
+                        .get_view()
+                        .network_session()
+                        .unwrap()
+                        .website_data_manager()
+                        .unwrap()
+                        .favicon_database()
+                        .unwrap();
 
-                let mut suggestion_items = Vec::new();
-                if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
-                    suggestion_items = history_manager
-                        .get_suggestions(&favicon_database, imp.nav_entry.text().to_string());
-                    drop(history_manager);
-                }
-                let suggestions_store = this.suggestions_store();
-                suggestions_store.remove_all();
-                if imp.suggestions_popover.is_visible() {
-                    imp.suggestions_popover.popdown();
-                }
-                if suggestion_items.len() > 0 {
-                    for suggestion_item in suggestion_items.iter() {
-                        suggestions_store.append(suggestion_item);
+                    let mut suggestion_items = Vec::new();
+                    if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
+                        suggestion_items = history_manager
+                            .get_suggestions(&favicon_database, imp.nav_entry.text().to_string());
+                        drop(history_manager);
                     }
-                    if !imp.suggestions_popover.is_visible() {
+                    let suggestions_store = this.suggestions_store();
+                    suggestions_store.remove_all();
+                    if imp.suggestions_popover.is_visible() {
+                        imp.suggestions_popover.popdown();
+                    }
+                    if suggestion_items.len() > 0 {
+                        for suggestion_item in suggestion_items.iter() {
+                            suggestions_store.append(suggestion_item);
+                        }
                         imp.suggestions_popover.popup();
                     }
                 }
@@ -1076,7 +1112,10 @@ impl Window {
             move |suggestions_model| {
                 if let Some(item) = suggestions_model.selected_item() {
                     let suggestion_item = item.downcast_ref::<SuggestionItem>().unwrap();
-                    imp.nav_entry.set_text(&suggestion_item.uri());
+                    let encoded_uri = suggestion_item.uri();
+                    let decoded_uri = html_escape::decode_html_entities(&encoded_uri);
+                    imp.nav_entry
+                        .set_text(&uri_for_display(&decoded_uri).unwrap_or(decoded_uri.into()));
                 }
             }
         ));
@@ -1104,7 +1143,6 @@ impl Window {
         imp.suggestions_view
             .set_factory(Some(&imp.suggestions_factory));
         imp.suggestions_view.set_enable_rubberband(false);
-        imp.suggestions_view.set_show_separators(true);
         imp.suggestions_view
             .set_hscroll_policy(gtk::ScrollablePolicy::Natural);
         imp.suggestions_view
@@ -2030,25 +2068,25 @@ impl Window {
         let hue = hash % 360;
         let stylesheet = if style_manager.is_dark() {
             format!(
-                ":root {{
-                    --view-fg-color: hsl({hue}, 100%, 98%);
-                    --view-bg-color: hsl({hue}, 20%, 8%);
-                    --window-bg-color: hsl({hue}, 20%, 8%);
-                    --window-fg-color: hsl({hue}, 100%, 98%);
-                    --headerbar-bg-color: hsl({hue}, 80%, 10%);
-                    --headerbar-fg-color: hsl({hue}, 100%, 98%);
-                }}"
+                "
+                    @define-color view_bg_color hsl({hue}, 20%, 8%);
+                    @define-color view_fg_color hsl({hue}, 100%, 98%);
+                    @define-color window_bg_color hsl({hue}, 20%, 8%);
+                    @define-color window_fg_color hsl({hue}, 100%, 98%);
+                    @define-color headerbar_bg_color hsl({hue}, 80%, 10%);
+                    @define-color headerbar_fg_color hsl({hue}, 100%, 98%);
+                "
             )
         } else {
             format!(
-                ":root {{
-                    --view-bg-color: hsl({hue}, 100%, 99%);
-                    --view-fg-color: hsl({hue}, 100%, 12%);
-                    --window-bg-color: hsl({hue}, 100%, 99%);
-                    --window-fg-color: hsl({hue}, 100%, 12%);
-                    --headerbar-bg-color: hsl({hue}, 100%, 96%);
-                    --headerbar-fg-color: hsl({hue}, 100%, 12%);
-                }}"
+                "
+                    @define-color view_bg_color hsl({hue}, 100%, 99%);
+                    @define-color view_fg_color hsl({hue}, 100%, 12%);
+                    @define-color window_bg_color hsl({hue}, 100%, 99%);
+                    @define-color window_fg_color hsl({hue}, 100%, 12%);
+                    @define-color headerbar_bg_color hsl({hue}, 100%, 96%);
+                    @define-color headerbar_fg_color hsl({hue}, 100%, 12%);
+                "
             )
         };
 
