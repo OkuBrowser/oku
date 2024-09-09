@@ -17,6 +17,17 @@
         "--filesystem=xdg-download",
         "--filesystem=xdg-pictures"
     ],
+    "cleanup": [
+        "/include",
+        "/lib/pkgconfig",
+        "/man",
+        "/share/doc",
+        "/share/gtk-doc",
+        "/share/man",
+        "/share/pkgconfig",
+        "*.la",
+        "*.a"
+    ],
     "build-options" : {
         "append-path" : "/usr/lib/sdk/rust-stable/bin",
         "env" : {
@@ -25,6 +36,22 @@
         }
     },
     "modules" : [
+        {
+            "name": "libfuse",
+            "buildsystem": "meson",
+            "config-opts": [
+                "-Dexamples=false",
+                "-Dutils=false"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/libfuse/libfuse.git",
+                    "tag": "fuse-3.16.1",
+                    "commit": "1f0dfae4084577997291bb0e1b94aeff89a5e70f"
+                }
+            ]
+        },
         {
             "name" : "oku",
             "buildsystem" : "simple",
