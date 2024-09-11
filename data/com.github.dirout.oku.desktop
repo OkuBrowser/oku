@@ -1,24 +1,19 @@
 [Desktop Entry]
-Version=1.0
+Version=0.1.0
 Name=Oku
-GenericName=Hive Browser
-Comment=A hive browser written in Rust
+GenericName=Web Browser
+Comment=A Web browser with an emphasis on local-first data storage
 Type=Application
 TryExec=oku
-Exec=oku %u
+Exec=oku
 Terminal=false
 Categories=Network;WebBrowser;Core;GTK;GNOME;
 Keywords=Internet;WWW;Browser;Web;Explorer;IPFS;Hive;DWeb;Rust;Flatpak;GTK;;GNOME;
 Icon=com.github.dirout.oku
 StartupNotify=true
-MimeType=text/html;text/xml;application/xhtml_xml;image/webp;x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/ftp/https;application/x-xpinstall;application/pdf;application/json;;
-Actions=new-window;new-private-window;
+MimeType=x-scheme-handler/unknown;x-scheme-handler/about;text/html;text/xml;application/xhtml_xml;image/webp;x-scheme-handler/http;x-scheme-handler/https;application/x-xpinstall;application/pdf;application/json;
+Actions=new-window;
 
 [Desktop Action new-window]
 Name=New Window
-Exec=oku %u
-
-[Desktop Action new-private-window]
-Name=New Private Window
-Exec=oku --private %u
-MimeType=x-scheme-handler/unknown;x-scheme-handler/about;text/html;text/xml;application/xhtml_xml;image/webp;x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/ftp/https;application/x-xpinstall;application/pdf;application/json;;
+Exec=oku

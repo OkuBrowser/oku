@@ -19,18 +19,18 @@
   <metadata_license>CC0</metadata_license>
   <project_license>AGPL-3.0+</project_license>
   <name>Oku</name>
-  <summary>A hive browser written in Rust.</summary>
+  <summary>A Web browser with an emphasis on local-first data storage</summary>
   <description>
-    <p>Oku is a hive browser written in Rust.</p>
+    <p>A Web browser with an emphasis on local-first data storage</p>
   </description>
-  <url type="homepage">https://dirout.github.io/oku/oku</url>
+  <url type="homepage">https://github.com/Dirout/oku</url>
     <!--
     Open Age Rating Service
     https://hughsie.github.io/oars/index.html
     -->
-  <content_rating type="oars-1.0" />
+  <content_rating type="oars-1.1" />
   <releases>
-    <release version="0.1.0" date="2021-01-12">
+    <release version="0.1.0" date="2024-12-31">
       <description>
         <p>Initial release.</p>
       </description>
@@ -45,7 +45,9 @@
     <kudo>HiDpiIcon</kudo>
     <kudo>HighContrast</kudo>
   </kudos>
-  <developer_name>Emil Sayahi</developer_name>
+  <developer id="com.github.dirout">
+    <name>Emil Sayahi</name>
+  </developer>
   <update_contact>limesayahi@gmail.com</update_contact>
-    <launchable type="desktop-id">com.github.dirout.oku.desktop</launchable>
+  <launchable type="desktop-id">com.github.dirout.oku.desktop</launchable>
 </component>

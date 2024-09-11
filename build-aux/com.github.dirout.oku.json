@@ -15,7 +15,11 @@
         "--device=all",
         "--socket=pulseaudio",
         "--filesystem=xdg-download",
-        "--filesystem=xdg-pictures"
+        "--filesystem=xdg-pictures",
+        "--filesystem=host",
+        "--talk-name=org.freedesktop.Flatpak",
+        "--talk-name=org.freedesktop.FileManager1",
+        "--talk-name=org.freedesktop.Notifications"
     ],
     "cleanup": [
         "/include",
@@ -63,7 +67,6 @@
                 "install -Dm644 ./data/${FLATPAK_ID}.desktop -t /app/share/applications/",
                 "mkdir -p /app/share/icons/hicolor",
                 "cp -avr ./data/hicolor /app/share/icons/",
-                "chmod -R 644 /app/share/icons/hicolor",
                 "install -Dm644 ./README.md -t /app/share/doc/oku/",
                 "install -Dm644 ./COPYING -t /app/share/doc/oku/"
             ],
@@ -73,6 +76,19 @@
                     "path" : "../"
                 },
                 "cargo-sources.json"
+            ]
+        },
+        {
+            "name": "host-command-wrapper",
+            "buildsystem": "simple",
+            "build-commands": [
+              "install fusermount-wrapper.sh /app/bin/fusermount3"
+            ],
+            "sources": [
+              {
+                "type": "file",
+                "path": "./fusermount-wrapper.sh"
+              }
             ]
         }
     ]
