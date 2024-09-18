@@ -1,4 +1,4 @@
-use crate::config::ColourScheme;
+use crate::config::{ColourScheme, Palette};
 use crate::CONFIG;
 use glib::clone;
 use gtk::glib;
@@ -17,6 +17,9 @@ pub mod imp {
         pub(crate) colour_scheme_selection: gtk::SingleSelection,
         pub(crate) colour_scheme_list: gtk::StringList,
         pub(crate) domain_colour_row: libadwaita::SwitchRow,
+        pub(crate) palette_row: libadwaita::ComboRow,
+        pub(crate) palette_selection: gtk::SingleSelection,
+        pub(crate) palette_list: gtk::StringList,
     }
 
     impl Settings {}
@@ -45,7 +48,7 @@ pub fn apply_config(style_manager: &StyleManager, window: &super::window::Window
     config.save();
     drop(config);
     let web_view = window.get_view();
-    window.update_domain_color(&web_view, &style_manager);
+    window.update_color(&web_view, &style_manager);
 }
 
 impl Settings {
@@ -57,13 +60,16 @@ impl Settings {
         let config = CONFIG.lock().unwrap();
         imp.domain_colour_row.set_active(config.colour_per_domain());
         drop(config);
+
         let style_manager = app.style_manager();
+
         let config = CONFIG.lock().unwrap();
         style_manager.set_color_scheme(config.colour_scheme().to_adw_scheme());
         drop(config);
 
         this.setup_main_page(&style_manager, &window);
         this.setup_colour_scheme_signal(&style_manager, &window);
+        this.setup_palette_signal(&style_manager, &window);
 
         this.set_visible(true);
         this.present(Some(window));
@@ -94,12 +100,14 @@ impl Settings {
 
         self.setup_colour_scheme_row();
         self.setup_domain_colour_row(&style_manager, &window);
+        self.setup_palette_row();
 
         imp.appearance_group.set_title("Appearance");
         imp.appearance_group
             .set_description(Some("Preferences regarding the browser's look &amp; feel"));
         imp.appearance_group.add(&imp.colour_scheme_row);
         imp.appearance_group.add(&imp.domain_colour_row);
+        imp.appearance_group.add(&imp.palette_row);
     }
 
     pub fn setup_colour_scheme_row(&self) {
@@ -113,9 +121,9 @@ impl Settings {
         imp.colour_scheme_selection
             .set_model(Some(&imp.colour_scheme_list));
 
-        imp.colour_scheme_row.set_title("Colour Scheme");
+        imp.colour_scheme_row.set_title("Colour scheme");
         imp.colour_scheme_row
-            .set_subtitle("Select whether the browser should be light or dark");
+            .set_subtitle("Whether the browser should be light or dark");
         imp.colour_scheme_row
             .set_model(imp.colour_scheme_selection.model().as_ref());
 
@@ -168,6 +176,79 @@ impl Settings {
         ));
     }
 
+    pub fn setup_palette_row(&self) {
+        let imp = self.imp();
+
+        imp.palette_list.append("None");
+        imp.palette_list.append("Blue");
+        imp.palette_list.append("Green");
+        imp.palette_list.append("Yellow");
+        imp.palette_list.append("Orange");
+        imp.palette_list.append("Red");
+        imp.palette_list.append("Purple");
+        imp.palette_list.append("Brown");
+        imp.palette_selection.set_model(Some(&imp.palette_list));
+
+        imp.palette_row.set_title("Browser colour");
+        imp.palette_row
+            .set_subtitle("The colour of the browser window");
+        imp.palette_row
+            .set_model(imp.palette_selection.model().as_ref());
+
+        let config = CONFIG.lock().unwrap();
+        let initial_position = match config.palette() {
+            Palette::None => 0,
+            Palette::Blue => 1,
+            Palette::Green => 2,
+            Palette::Yellow => 3,
+            Palette::Orange => 4,
+            Palette::Red => 5,
+            Palette::Purple => 6,
+            Palette::Brown => 7,
+        };
+        drop(config);
+        imp.palette_row.set_selected(initial_position);
+        imp.palette_row
+            .set_sensitive(!imp.domain_colour_row.is_active());
+    }
+
+    pub fn setup_palette_signal(
+        &self,
+        style_manager: &StyleManager,
+        window: &super::window::Window,
+    ) {
+        let imp = self.imp();
+
+        imp.palette_row.connect_selected_notify(clone!(
+            #[weak(rename_to = palette_row)]
+            imp.palette_row,
+            #[weak(rename_to = palette_list)]
+            imp.palette_list,
+            #[weak]
+            style_manager,
+            #[weak]
+            window,
+            move |_| {
+                let selected_string = palette_list.string(palette_row.selected()).unwrap();
+                let selected_colour = match selected_string.as_str() {
+                    "None" => Palette::None,
+                    "Blue" => Palette::Blue,
+                    "Green" => Palette::Green,
+                    "Yellow" => Palette::Yellow,
+                    "Orange" => Palette::Orange,
+                    "Red" => Palette::Red,
+                    "Purple" => Palette::Purple,
+                    "Brown" => Palette::Brown,
+                    _ => Palette::None,
+                };
+                let config = CONFIG.lock().unwrap();
+                config.set_palette(selected_colour);
+                drop(config);
+                apply_config(&style_manager, &window);
+            }
+        ));
+    }
+
     pub fn setup_domain_colour_row(
         &self,
         style_manager: &StyleManager,
@@ -175,10 +256,12 @@ impl Settings {
     ) {
         let imp = self.imp();
 
-        imp.domain_colour_row.set_title("Colour Cycling");
+        imp.domain_colour_row.set_title("Colour cycling");
         imp.domain_colour_row
-            .set_subtitle("Enable changing the browser colour on different sites");
+            .set_subtitle("Change the browser colour for different sites");
         imp.domain_colour_row.connect_active_notify(clone!(
+            #[weak]
+            imp,
             #[weak]
             style_manager,
             #[weak]
@@ -187,6 +270,8 @@ impl Settings {
                 let config = CONFIG.lock().unwrap();
                 config.set_colour_per_domain(domain_colour_row.is_active());
                 drop(config);
+                imp.palette_row
+                    .set_sensitive(!domain_colour_row.is_active());
                 apply_config(&style_manager, &window);
             }
         ));

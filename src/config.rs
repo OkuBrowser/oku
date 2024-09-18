@@ -31,10 +31,41 @@ impl ColourScheme {
     }
 }
 
+#[derive(
+    Default, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy, Serialize, Deserialize,
+)]
+pub enum Palette {
+    #[default]
+    None,
+    Blue,
+    Green,
+    Yellow,
+    Orange,
+    Red,
+    Purple,
+    Brown,
+}
+
+impl Palette {
+    pub fn hue(&self) -> u64 {
+        match self {
+            Self::None => unreachable!(),
+            Self::Blue => 213,
+            Self::Green => 152,
+            Self::Yellow => 42,
+            Self::Orange => 21,
+            Self::Red => 353,
+            Self::Purple => 274,
+            Self::Brown => 27,
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub(crate) colour_scheme: RefCell<ColourScheme>,
     pub(crate) colour_per_domain: RefCell<bool>,
+    pub(crate) palette: RefCell<Palette>,
 }
 
 impl Config {
@@ -80,6 +111,14 @@ impl Config {
 
     pub fn set_colour_scheme(&self, colour_scheme: ColourScheme) -> ColourScheme {
         self.colour_scheme.replace(colour_scheme)
+    }
+
+    pub fn palette(&self) -> Palette {
+        self.palette.borrow().to_owned()
+    }
+
+    pub fn set_palette(&self, palette: Palette) -> Palette {
+        self.palette.replace(palette)
     }
 
     pub fn colour_per_domain(&self) -> bool {

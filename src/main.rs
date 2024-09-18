@@ -76,7 +76,7 @@ lazy_static! {
 /// The current release version number of Oku
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 
-async fn create_web_context() -> (WebContext, BackgroundSession, Ipfs) {
+async fn create_web_context() -> (WebContext, Option<BackgroundSession>, Ipfs) {
     let (node, mount_handle) = create_oku_client().await;
     let ipfs = create_ipfs_client().await;
 
@@ -114,12 +114,12 @@ async fn create_web_context() -> (WebContext, BackgroundSession, Ipfs) {
     (web_context, mount_handle, ipfs)
 }
 
-async fn create_oku_client() -> (OkuFs, BackgroundSession) {
+async fn create_oku_client() -> (OkuFs, Option<BackgroundSession>) {
     let node = OkuFs::start(&Handle::current()).await.unwrap();
     let node_clone = node.clone();
     let _ = std::fs::remove_dir_all(MOUNT_DIR.to_path_buf());
     let _ = std::fs::create_dir_all(MOUNT_DIR.to_path_buf());
-    (node_clone, node.mount(MOUNT_DIR.to_path_buf()).unwrap())
+    (node_clone, node.mount(MOUNT_DIR.to_path_buf()).ok())
 }
 
 async fn create_ipfs_client() -> Ipfs {
@@ -202,7 +202,9 @@ async fn main() {
     application.run();
 
     let _ = shutdown_recv.recv().await;
-    mount_handle.join();
+    if let Some(mount_handle) = mount_handle {
+        mount_handle.join();
+    }
     ipfs.exit_daemon().await;
     application.quit();
     std::process::exit(0)

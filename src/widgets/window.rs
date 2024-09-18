@@ -1,4 +1,5 @@
 use super::settings::apply_config;
+use crate::config::Palette;
 use crate::suggestion_item::SuggestionItem;
 use crate::window_util::{
     connect, get_title, get_view_from_page, new_webkit_settings, update_favicon, update_nav_bar,
@@ -836,6 +837,7 @@ impl Window {
                 .build()
         };
         web_view.set_vexpand(true);
+        web_view.set_background_color(&gdk::RGBA::new(1.00, 1.00, 1.00, 0.00));
         let network_session = web_view.network_session().unwrap();
         let data_manager = network_session.website_data_manager().unwrap();
         let security_manager = web_context.security_manager().unwrap();
@@ -972,7 +974,7 @@ impl Window {
                 }
                 back_button.set_sensitive(web_view.can_go_back());
                 forward_button.set_sensitive(web_view.can_go_forward());
-                this.update_domain_color(&web_view, &style_manager);
+                this.update_color(&web_view, &style_manager);
                 zoom_percentage.set_text(&format!("{:.0}%", web_view.zoom_level() * 100.0))
             }
         ));
@@ -1904,7 +1906,7 @@ impl Window {
                             update_nav_bar(&nav_entry, &w);
                             back_button.set_sensitive(w.can_go_back());
                             forward_button.set_sensitive(w.can_go_forward());
-                            this.update_domain_color(&w, &style_manager);
+                            this.update_color(&w, &style_manager);
                         }
                     }
                 ))));
@@ -2018,8 +2020,7 @@ impl Window {
         ));
     }
 
-    /// Adapted from Geopard (https://github.com/ranfdev/Geopard)
-    pub fn update_domain_color(
+    pub fn update_color(
         &self,
         web_view: &webkit2gtk::WebView,
         style_manager: &libadwaita::StyleManager,
@@ -2032,10 +2033,12 @@ impl Window {
                 Ok(config) => {
                     if !config.colour_per_domain() {
                         imp.style_provider.borrow().load_from_string("");
-                        let rgba = gdk::RGBA::new(1.00, 1.00, 1.00, 0.00);
-                        web_view.set_background_color(&rgba);
+                        if config.palette() != Palette::None {
+                            self.update_from_palette(&style_manager, &config.palette());
+                        }
                         return;
                     } else {
+                        self.update_domain_color(&web_view, &style_manager);
                         break;
                     }
                 }
@@ -2048,6 +2051,62 @@ impl Window {
                 }
             }
         }
+    }
+
+    pub fn update_from_palette(
+        &self,
+        style_manager: &libadwaita::StyleManager,
+        palette_colour: &Palette,
+    ) {
+        let imp = self.imp();
+
+        let hue = palette_colour.hue();
+        let stylesheet = if style_manager.is_dark() {
+            format!(
+                "
+                    @define-color view_bg_color hsl({hue}, 20%, 8%);
+                    @define-color view_fg_color hsl({hue}, 100%, 98%);
+                    @define-color window_bg_color hsl({hue}, 20%, 8%);
+                    @define-color window_fg_color hsl({hue}, 100%, 98%);
+                    @define-color dialog_bg_color hsl({hue}, 20%, 8%);
+                    @define-color dialog_fg_color hsl({hue}, 100%, 98%);
+                    @define-color popover_bg_color hsl({hue}, 20%, 8%);
+                    @define-color popover_fg_color hsl({hue}, 100%, 98%);
+                    @define-color card_bg_color hsl({hue}, 20%, 8%);
+                    @define-color card_fg_color hsl({hue}, 100%, 98%);
+                    @define-color headerbar_bg_color hsl({hue}, 80%, 10%);
+                    @define-color headerbar_fg_color hsl({hue}, 100%, 98%);
+                "
+            )
+        } else {
+            format!(
+                "
+                    @define-color view_bg_color hsl({hue}, 100%, 99%);
+                    @define-color view_fg_color hsl({hue}, 100%, 12%);
+                    @define-color window_bg_color hsl({hue}, 100%, 99%);
+                    @define-color window_fg_color hsl({hue}, 100%, 12%);
+                    @define-color dialog_bg_color hsl({hue}, 100%, 99%);
+                    @define-color dialog_fg_color hsl({hue}, 100%, 12%);
+                    @define-color popover_bg_color hsl({hue}, 100%, 99%);
+                    @define-color popover_fg_color hsl({hue}, 100%, 12%);
+                    @define-color card_bg_color hsl({hue}, 100%, 99%);
+                    @define-color card_fg_color hsl({hue}, 100%, 12%);
+                    @define-color headerbar_bg_color hsl({hue}, 100%, 96%);
+                    @define-color headerbar_fg_color hsl({hue}, 100%, 12%);
+                "
+            )
+        };
+
+        imp.style_provider.borrow().load_from_string(&stylesheet);
+    }
+
+    /// Adapted from Geopard (https://github.com/ranfdev/Geopard)
+    pub fn update_domain_color(
+        &self,
+        web_view: &webkit2gtk::WebView,
+        style_manager: &libadwaita::StyleManager,
+    ) {
+        let imp = self.imp();
 
         let url = web_view.uri().unwrap_or("about:blank".into());
         let parsed_url = url::Url::parse(&url);
@@ -2073,6 +2132,12 @@ impl Window {
                     @define-color view_fg_color hsl({hue}, 100%, 98%);
                     @define-color window_bg_color hsl({hue}, 20%, 8%);
                     @define-color window_fg_color hsl({hue}, 100%, 98%);
+                    @define-color dialog_bg_color hsl({hue}, 20%, 8%);
+                    @define-color dialog_fg_color hsl({hue}, 100%, 98%);
+                    @define-color popover_bg_color hsl({hue}, 20%, 8%);
+                    @define-color popover_fg_color hsl({hue}, 100%, 98%);
+                    @define-color card_bg_color hsl({hue}, 20%, 8%);
+                    @define-color card_fg_color hsl({hue}, 100%, 98%);
                     @define-color headerbar_bg_color hsl({hue}, 80%, 10%);
                     @define-color headerbar_fg_color hsl({hue}, 100%, 98%);
                 "
@@ -2084,6 +2149,12 @@ impl Window {
                     @define-color view_fg_color hsl({hue}, 100%, 12%);
                     @define-color window_bg_color hsl({hue}, 100%, 99%);
                     @define-color window_fg_color hsl({hue}, 100%, 12%);
+                    @define-color dialog_bg_color hsl({hue}, 100%, 99%);
+                    @define-color dialog_fg_color hsl({hue}, 100%, 12%);
+                    @define-color popover_bg_color hsl({hue}, 100%, 99%);
+                    @define-color popover_fg_color hsl({hue}, 100%, 12%);
+                    @define-color card_bg_color hsl({hue}, 100%, 99%);
+                    @define-color card_fg_color hsl({hue}, 100%, 12%);
                     @define-color headerbar_bg_color hsl({hue}, 100%, 96%);
                     @define-color headerbar_fg_color hsl({hue}, 100%, 12%);
                 "
@@ -2091,15 +2162,5 @@ impl Window {
         };
 
         imp.style_provider.borrow().load_from_string(&stylesheet);
-        let rgba = {
-            let hsl = if style_manager.is_dark() {
-                coolor::Hsl::new(hue as f32, 0.20, 0.08)
-            } else {
-                coolor::Hsl::new(hue as f32, 1.00, 0.99)
-            };
-            let rgb = hsl.to_rgb();
-            gdk::RGBA::new(rgb.r.into(), rgb.g.into(), rgb.b.into(), 0.00)
-        };
-        web_view.set_background_color(&rgba);
     }
 }
