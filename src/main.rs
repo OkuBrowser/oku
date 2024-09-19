@@ -23,6 +23,7 @@
 )]
 pub mod config;
 pub mod history;
+pub mod replica_item;
 pub mod suggestion_item;
 pub mod widgets;
 pub mod window_util;
@@ -42,7 +43,10 @@ use oku_fs::fs::OkuFs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::OnceLock;
 use tokio::runtime::Handle;
+use tracing::error;
+use tracing::info;
 use webkit2gtk::URISchemeRequest;
 use webkit2gtk::WebContext;
 use window_util::ipfs_scheme_handler;
@@ -73,23 +77,22 @@ lazy_static! {
     static ref HISTORY_MANAGER: Arc<Mutex<HistoryManager>> = Arc::new(Mutex::new(HistoryManager::load_sessions_or_create().unwrap()));
 }
 
+static NODE: OnceLock<OkuFs> = OnceLock::new();
+
 /// The current release version number of Oku
 const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 
 async fn create_web_context() -> (WebContext, Option<BackgroundSession>, Ipfs) {
     let (node, mount_handle) = create_oku_client().await;
+    NODE.get_or_init(|| node.clone());
     let ipfs = create_ipfs_client().await;
 
     let web_context = WebContext::builder().build();
     web_context.register_uri_scheme(
         "hive",
-        clone!(
-            #[strong]
-            node,
-            move |request: &URISchemeRequest| {
-                node_scheme_handler(&node, request);
-            }
-        ),
+        clone!(move |request: &URISchemeRequest| {
+            node_scheme_handler(request);
+        }),
     );
     web_context.register_uri_scheme(
         "ipns",
@@ -173,7 +176,7 @@ async fn main() {
         #[weak]
         web_context,
         move |_| {
-            crate::widgets::window::Window::new(&application, &web_context);
+            crate::widgets::window::Window::new(&application, &web_context, false);
             let ctx = glib::MainContext::default();
             ctx.spawn_local(clone!(
                 #[weak]
@@ -185,6 +188,34 @@ async fn main() {
             ));
         }
     ));
+    application.connect_window_added(clone!(move |_, window| {
+        if let Some(node) = NODE.get() {
+            let mut rx = node.replica_sender.subscribe();
+            let window: widgets::window::Window = window.clone().downcast().unwrap();
+            let ctx = glib::MainContext::default();
+            ctx.spawn_local_with_priority(
+                glib::source::Priority::HIGH,
+                clone!(
+                    #[weak]
+                    window,
+                    async move {
+                        loop {
+                            rx.borrow_and_update();
+                            info!("Replicas updated … ");
+                            window.replicas_updated();
+                            match rx.changed().await {
+                                Ok(_) => continue,
+                                Err(e) => {
+                                    error!("{}", e);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                ),
+            );
+        }
+    }));
     application.connect_window_removed(clone!(
         #[weak]
         application,

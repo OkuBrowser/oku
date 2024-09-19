@@ -38,3 +38,4 @@ target-old
 test.rs
 test/
 .oku
+oku.flatpak

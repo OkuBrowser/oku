@@ -1,18 +1,21 @@
 use super::settings::apply_config;
 use crate::config::Palette;
+use crate::replica_item::ReplicaItem;
 use crate::suggestion_item::SuggestionItem;
 use crate::window_util::{
-    connect, get_title, get_view_from_page, new_webkit_settings, update_favicon, update_nav_bar,
-    update_title,
+    connect, get_title, get_view_from_page, get_window_from_widget, new_webkit_settings,
+    update_favicon, update_nav_bar, update_title,
 };
-use crate::{CONFIG, DATA_DIR, HISTORY_MANAGER, MOUNT_DIR, VERSION};
+use crate::{CONFIG, DATA_DIR, HISTORY_MANAGER, MOUNT_DIR, NODE, VERSION};
 use chrono::Utc;
 use glib::clone;
+use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
 use gtk::EventControllerFocus;
 use gtk::{gio, glib};
 use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
 use libadwaita::{prelude::*, ResponseAppearance};
+use oku_fs::iroh::docs::CapabilityKind;
 use std::cell::RefCell;
 use std::cell::{Cell, Ref};
 use std::hash::{Hash, Hasher};
@@ -34,7 +37,7 @@ pub mod imp {
     #[derive(Debug, Default)]
     pub struct Window {
         // Window parameters
-        pub(crate) _is_private: Cell<bool>,
+        pub(crate) is_private: Cell<bool>,
         pub(crate) style_provider: RefCell<gtk::CssProvider>,
         // Navigation bar
         pub(crate) nav_entry: gtk::SearchEntry,
@@ -43,14 +46,15 @@ pub mod imp {
         pub(crate) suggestions_factory: gtk::SignalListItemFactory,
         pub(crate) suggestions_model: gtk::SingleSelection,
         pub(crate) suggestions_view: gtk::ListView,
-        pub(crate) suggestions_scrolled_window: gtk::ScrolledWindow,
+        pub(crate) suggestions_scrolled_window: libadwaita::ClampScrollable,
         pub(crate) suggestions_popover: gtk::Popover,
         // Left header buttons
         pub(crate) back_button: gtk::Button,
         pub(crate) forward_button: gtk::Button,
         pub(crate) navigation_buttons: gtk::Box,
-        pub(crate) add_tab_button: gtk::Button,
         pub(crate) refresh_button: gtk::Button,
+        pub(crate) add_tab_button: gtk::Button,
+        pub(crate) sidebar_button: gtk::Button,
         pub(crate) left_header_buttons: gtk::Box,
         // Right header buttons
         pub(crate) overview_button: libadwaita::TabButton,
@@ -71,6 +75,7 @@ pub mod imp {
         pub(crate) print_button: gtk::Button,
         pub(crate) screenshot_button: gtk::Button,
         pub(crate) new_window_button: gtk::Button,
+        pub(crate) new_private_window_button: gtk::Button,
         pub(crate) history_button: gtk::Button,
         pub(crate) settings_button: gtk::Button,
         pub(crate) about_button: gtk::Button,
@@ -102,6 +107,14 @@ pub mod imp {
         pub(crate) main_overlay: gtk::Overlay,
         pub(crate) main_box: gtk::Box,
         pub(crate) tab_overview: libadwaita::TabOverview,
+        pub(crate) split_view: libadwaita::OverlaySplitView,
+        // Sidebar content
+        pub(crate) side_box: gtk::Box,
+        pub(crate) add_replicas_button: gtk::Button,
+        pub(crate) replicas_store: RefCell<Option<Rc<gio::ListStore>>>,
+        pub(crate) replicas_factory: gtk::SignalListItemFactory,
+        pub(crate) replicas_view: gtk::ListView,
+        pub(crate) replicas_scrolled_window: libadwaita::ClampScrollable,
         // Miscellaneous
         pub(crate) progress_animation: RefCell<Option<libadwaita::SpringAnimation>>,
         pub(crate) progress_bar: gtk::ProgressBar,
@@ -128,20 +141,26 @@ pub mod imp {
 
 glib::wrapper! {
     pub struct Window(ObjectSubclass<imp::Window>)
-    @extends libadwaita::ApplicationWindow, gtk::Window, gtk::Widget,
+    @extends libadwaita::ApplicationWindow, gtk::ApplicationWindow, gtk::Window, gtk::Widget,
     @implements gio::ActionMap, gio::ActionGroup;
 }
 
 impl Window {
-    pub fn new(app: &libadwaita::Application, web_context: &WebContext) -> Self {
+    pub fn new(app: &libadwaita::Application, web_context: &WebContext, is_private: bool) -> Self {
         let style_manager = app.style_manager();
 
         let this: Self = glib::Object::builder::<Self>()
             .property("application", app)
             .build();
         this.set_can_focus(true);
-        this.set_title(Some("Oku"));
         this.set_icon_name(Some("com.github.dirout.oku"));
+
+        let imp = this.imp();
+        imp.is_private.set(is_private);
+        match imp.is_private.get() {
+            true => this.set_title(Some("Oku — Private")),
+            false => this.set_title(Some("Oku")),
+        }
 
         this.setup_css_providers();
         this.setup_headerbar();
@@ -156,14 +175,16 @@ impl Window {
         this.setup_replicas_button_clicked();
         this.setup_tab_indicator();
         this.setup_add_tab_button_clicked(&web_context);
+        this.setup_sidebar_button_clicked();
         this.setup_tab_signals(&web_context, &style_manager);
         this.setup_navigation_signals();
         this.setup_suggestions_popover();
         this.setup_menu_buttons_clicked(&web_context);
         this.setup_new_view_signals(&web_context, &style_manager);
 
-        let imp = this.imp();
-
+        if imp.is_private.get() {
+            this.add_css_class("devel");
+        }
         if imp.tab_view.n_pages() == 0 && app.windows().len() <= 1 {
             let initial_web_view = this.new_tab_page(&web_context, None, None).0;
             initial_web_view.load_uri("about:blank");
@@ -313,20 +334,26 @@ impl Window {
         self.setup_navigation_buttons();
         let imp = self.imp();
 
-        // Add Tab button
-        imp.add_tab_button.set_can_focus(true);
-        imp.add_tab_button.set_receives_default(true);
-        imp.add_tab_button.set_icon_name("tab-new");
-
         // Refresh button
         imp.refresh_button.set_can_focus(true);
         imp.refresh_button.set_receives_default(true);
         imp.refresh_button.set_icon_name("view-refresh");
 
+        // Add Tab button
+        imp.add_tab_button.set_can_focus(true);
+        imp.add_tab_button.set_receives_default(true);
+        imp.add_tab_button.set_icon_name("tab-new");
+
+        // Sidebar button
+        imp.sidebar_button.set_can_focus(true);
+        imp.sidebar_button.set_receives_default(true);
+        imp.sidebar_button.set_icon_name("library-symbolic");
+
         // Left header buttons
         imp.left_header_buttons.append(&imp.navigation_buttons);
         imp.left_header_buttons.append(&imp.refresh_button);
         imp.left_header_buttons.append(&imp.add_tab_button);
+        imp.left_header_buttons.append(&imp.sidebar_button);
     }
 
     fn setup_right_headerbar(&self) {
@@ -426,6 +453,12 @@ impl Window {
         imp.new_window_button.set_receives_default(true);
         imp.new_window_button.set_icon_name("window-new");
 
+        // New Private Window button
+        imp.new_private_window_button.set_can_focus(true);
+        imp.new_private_window_button.set_receives_default(true);
+        imp.new_private_window_button
+            .set_icon_name("screen-privacy7-symbolic");
+
         // History button
         imp.history_button.set_can_focus(true);
         imp.history_button.set_receives_default(true);
@@ -450,6 +483,7 @@ impl Window {
         imp.menu_box.append(&imp.print_button);
         imp.menu_box.append(&imp.screenshot_button);
         imp.menu_box.append(&imp.new_window_button);
+        imp.menu_box.append(&imp.new_private_window_button);
         imp.menu_box.append(&imp.history_button);
         imp.menu_box.append(&imp.settings_button);
         imp.menu_box.append(&imp.about_button);
@@ -758,15 +792,20 @@ impl Window {
         imp.main_overlay.add_overlay(&imp.url_status_outer_box);
 
         imp.main_box.set_orientation(gtk::Orientation::Vertical);
-        imp.main_box.set_vexpand(true);
+        imp.main_box.set_vexpand(false);
         imp.main_box.append(&imp.headerbar);
         imp.main_box.append(&imp.tab_bar_revealer);
         imp.main_box.append(&imp.main_overlay);
 
+        self.setup_replicas_sidebar();
+        imp.split_view.set_content(Some(&imp.main_box));
+        imp.split_view.set_sidebar(Some(&imp.side_box));
+        imp.split_view.set_max_sidebar_width(500.0);
+
         imp.tab_overview.set_enable_new_tab(true);
         imp.tab_overview.set_enable_search(true);
         imp.tab_overview.set_view(Some(&imp.tab_view));
-        imp.tab_overview.set_child(Some(&imp.main_box));
+        imp.tab_overview.set_child(Some(&imp.split_view));
     }
 
     fn setup_overview_button_clicked(&self) {
@@ -809,7 +848,7 @@ impl Window {
         let imp = self.imp();
 
         imp.replicas_button.connect_clicked(clone!(move |_| {
-            let _ = open::that(MOUNT_DIR.to_path_buf());
+            let _ = open::that_detached(MOUNT_DIR.to_path_buf());
         }));
     }
 
@@ -930,6 +969,20 @@ impl Window {
         ));
     }
 
+    fn setup_sidebar_button_clicked(&self) {
+        let imp = self.imp();
+
+        // Sidebar button clicked
+        imp.sidebar_button.connect_clicked(clone!(
+            #[weak]
+            imp,
+            move |_| {
+                imp.split_view
+                    .set_show_sidebar(!imp.split_view.shows_sidebar());
+            }
+        ));
+    }
+
     pub fn setup_tab_signals(
         &self,
         web_context: &WebContext,
@@ -960,12 +1013,17 @@ impl Window {
             imp.zoom_percentage,
             #[weak]
             style_manager,
+            #[weak]
+            imp,
             #[weak(rename_to = this)]
             self,
             move |_| {
                 let web_view = this.get_view();
                 update_nav_bar(&nav_entry, &web_view);
-                this.set_title(Some(&get_title(&web_view)));
+                match imp.is_private.get() {
+                    true => this.set_title(Some(&format!("{} — Private", get_title(&web_view)))),
+                    false => this.set_title(Some(&get_title(&web_view))),
+                }
                 this.update_load_progress(&web_view);
                 if web_view.is_loading() {
                     refresh_button.set_icon_name("process-stop")
@@ -1098,6 +1156,122 @@ impl Window {
         })
     }
 
+    pub fn replicas_store(&self) -> Ref<gio::ListStore> {
+        let replicas_store = self.imp().replicas_store.borrow();
+
+        Ref::map(replicas_store, |replicas_store| {
+            let replicas_store = replicas_store.as_deref().unwrap();
+            replicas_store
+        })
+    }
+
+    pub fn replicas_updated(&self) {
+        let ctx = glib::MainContext::default();
+        ctx.spawn_local_with_priority(
+            glib::source::Priority::HIGH,
+            clone!(
+                #[weak(rename_to = this)]
+                self,
+                async move {
+                    if let Some(node) = NODE.get() {
+                        if let Ok(mut replicas) = node.list_replicas().await {
+                            let replicas_store = this.replicas_store();
+                            for item_index in 0..replicas_store.n_items() {
+                                let item: ReplicaItem =
+                                    replicas_store.item(item_index).unwrap().downcast().unwrap();
+                                match replicas.iter().position(|x| x.0.to_string() == item.id()) {
+                                    Some(replica_index) => {
+                                        let (replica, capability_kind) = replicas[replica_index];
+                                        item.set_properties(&[
+                                            ("id", &replica.to_string()),
+                                            (
+                                                "writable",
+                                                &matches!(capability_kind, CapabilityKind::Write),
+                                            ),
+                                        ]);
+                                        replicas.remove(replica_index);
+                                    }
+                                    None => replicas_store.remove(item_index),
+                                }
+                            }
+                            for (replica, capability_kind) in replicas.iter() {
+                                replicas_store.append(&ReplicaItem::new(
+                                    replica.to_string(),
+                                    matches!(capability_kind, CapabilityKind::Write),
+                                ));
+                            }
+                        }
+                    }
+                }
+            ),
+        );
+    }
+
+    pub fn setup_replicas_sidebar(&self) {
+        let imp = self.imp();
+
+        imp.add_replicas_button.set_icon_name("folder-new");
+        imp.add_replicas_button.set_vexpand(false);
+        imp.add_replicas_button.set_hexpand(false);
+        imp.add_replicas_button.add_css_class("flat");
+        imp.add_replicas_button.connect_clicked(clone!(move |_| {
+            let ctx = glib::MainContext::default();
+            ctx.spawn_local_with_priority(
+                glib::source::Priority::HIGH,
+                clone!(async move {
+                    if let Some(node) = NODE.get() {
+                        match node.create_replica().await {
+                            Ok(_) => (),
+                            Err(e) => {
+                                error!("{}", e)
+                            }
+                        }
+                    }
+                }),
+            );
+        }));
+
+        let replicas_store = gio::ListStore::new::<crate::replica_item::ReplicaItem>();
+        imp.replicas_store.replace(Some(Rc::new(replicas_store)));
+
+        imp.replicas_factory.connect_setup(clone!(move |_, item| {
+            let row = super::replica_row::ReplicaRow::new();
+            let list_item = item.downcast_ref::<gtk::ListItem>().unwrap();
+            list_item.set_child(Some(&row));
+            list_item
+                .property_expression("item")
+                .chain_property::<crate::replica_item::ReplicaItem>("id")
+                .bind(&row, "id", gtk::Widget::NONE);
+            list_item
+                .property_expression("item")
+                .chain_property::<crate::replica_item::ReplicaItem>("writable")
+                .bind(&row, "writable", gtk::Widget::NONE);
+        }));
+
+        imp.replicas_view
+            .set_model(Some(&gtk::NoSelection::new(Some(
+                self.replicas_store().clone(),
+            ))));
+        imp.replicas_view.set_factory(Some(&imp.replicas_factory));
+        imp.replicas_view.set_enable_rubberband(false);
+        imp.replicas_view
+            .set_hscroll_policy(gtk::ScrollablePolicy::Natural);
+        imp.replicas_view
+            .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
+        imp.replicas_view.add_css_class("boxed-list-separate");
+        imp.replicas_view.add_css_class("navigation-sidebar");
+
+        imp.replicas_scrolled_window
+            .set_child(Some(&imp.replicas_view));
+        imp.replicas_scrolled_window
+            .set_orientation(gtk::Orientation::Horizontal);
+
+        imp.side_box.set_orientation(gtk::Orientation::Vertical);
+        imp.side_box.set_spacing(4);
+        imp.side_box.append(&imp.add_replicas_button);
+        imp.side_box.append(&imp.replicas_scrolled_window);
+    }
+
     pub fn setup_suggestions_popover(&self) {
         let imp = self.imp();
 
@@ -1149,17 +1323,19 @@ impl Window {
             .set_hscroll_policy(gtk::ScrollablePolicy::Natural);
         imp.suggestions_view
             .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
-        imp.suggestions_view.set_overflow(gtk::Overflow::Visible);
+        // imp.suggestions_view.set_overflow(gtk::Overflow::Visible);
 
         imp.suggestions_scrolled_window
             .set_child(Some(&imp.suggestions_view));
+        // imp.suggestions_scrolled_window
+        //     .set_hscrollbar_policy(gtk::PolicyType::Never);
+        // imp.suggestions_scrolled_window.set_max_content_height(400);
+        // imp.suggestions_scrolled_window
+        //     .set_propagate_natural_height(true);
+        // imp.suggestions_scrolled_window
+        //     .set_propagate_natural_width(true);
         imp.suggestions_scrolled_window
-            .set_hscrollbar_policy(gtk::PolicyType::Never);
-        imp.suggestions_scrolled_window.set_max_content_height(400);
-        imp.suggestions_scrolled_window
-            .set_propagate_natural_height(true);
-        imp.suggestions_scrolled_window
-            .set_propagate_natural_width(true);
+            .set_orientation(gtk::Orientation::Horizontal);
 
         imp.suggestions_popover
             .set_child(Some(&imp.suggestions_scrolled_window));
@@ -1217,7 +1393,7 @@ impl Window {
         web_context: &WebContext,
     ) -> std::option::Option<libadwaita::TabView> {
         let application = self.application().unwrap().downcast().unwrap();
-        let new_window = self::Window::new(&application, &web_context);
+        let new_window = self::Window::new(&application, &web_context, self.imp().is_private.get());
         Some(new_window.imp().tab_view.to_owned())
     }
 
@@ -1388,10 +1564,30 @@ impl Window {
             #[weak]
             web_context,
             move |_| {
-                self::Window::new(
+                let new_window = self::Window::new(
                     &this.application().unwrap().downcast().unwrap(),
                     &web_context,
+                    false,
                 );
+                let initial_web_view = new_window.new_tab_page(&web_context, None, None).0;
+                initial_web_view.load_uri("about:blank");
+            }
+        ));
+
+        // New Private Window button clicked
+        imp.new_private_window_button.connect_clicked(clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[weak]
+            web_context,
+            move |_| {
+                let new_window = self::Window::new(
+                    &this.application().unwrap().downcast().unwrap(),
+                    &web_context,
+                    true,
+                );
+                let initial_web_view = new_window.new_tab_page(&web_context, None, None).0;
+                initial_web_view.load_uri("about:blank");
             }
         ));
 
@@ -1454,24 +1650,26 @@ impl Window {
                                 if let Some(mut navigation_action) = navigation_policy_decision.navigation_action() {
                                     let navigation_type = navigation_action.navigation_type();
                                     if let Some(request) = navigation_action.request() {
-                                        if let Some(back_forward_list) = w.back_forward_list() {
-                                            if let Some(current_item) = back_forward_list.current_item() {
-                                                if let Some(old_uri) = current_item.original_uri() {
-                                                    if let Some(new_uri) = request.uri() {
-                                                        match navigation_type {
-                                                            NavigationType::LinkClicked => {
-                                                                if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
-                                                                    history_manager.add_navigation(old_uri.to_string(), new_uri.to_string());
-                                                                    let current_session = history_manager.get_current_session();
-                                                                    current_session.update_uri(old_uri.to_string(), current_item.uri().map(|x| x.to_string()), Some(get_title(&w)));
-                                                                    current_session.save();
-                                                                    drop(current_session);
-                                                                    drop(history_manager);
-                                                                } else {
-                                                                    warn!("Could not lock history manager while clicking link.");
-                                                                }
-                                                            },
-                                                            _ => ()
+                                        if !get_window_from_widget(w).imp().is_private.get() {
+                                            if let Some(back_forward_list) = w.back_forward_list() {
+                                                if let Some(current_item) = back_forward_list.current_item() {
+                                                    if let Some(old_uri) = current_item.original_uri() {
+                                                        if let Some(new_uri) = request.uri() {
+                                                            match navigation_type {
+                                                                NavigationType::LinkClicked => {
+                                                                    if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
+                                                                        history_manager.add_navigation(old_uri.to_string(), new_uri.to_string());
+                                                                        let current_session = history_manager.get_current_session();
+                                                                        current_session.update_uri(old_uri.to_string(), current_item.uri().map(|x| x.to_string()), Some(get_title(&w)));
+                                                                        current_session.save();
+                                                                        drop(current_session);
+                                                                        drop(history_manager);
+                                                                    } else {
+                                                                        warn!("Could not lock history manager while clicking link.");
+                                                                    }
+                                                                },
+                                                                _ => ()
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -1529,23 +1727,25 @@ impl Window {
                                 #[upgrade_or_panic] move |w, navigation_action| {
                                     let mut navigation_action = navigation_action.clone();
                                     let new_related_view = this.new_tab_page(&web_context, Some(w), navigation_action.request().as_ref()).0;
-                                    if let Some(back_forward_list) = w.back_forward_list() {
-                                        if let Some(current_item) = back_forward_list.current_item() {
-                                            if let Some(old_uri) = current_item.original_uri() {
-                                                if let Some(new_uri) = new_related_view.uri() {
-                                                    if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
-                                                        history_manager.add_navigation(old_uri.to_string(), new_uri.to_string());
-                                                        let current_session = history_manager.get_current_session();
-                                                        current_session.update_uri(
-                                                            old_uri.to_string(),
-                                                            current_item.uri().map(|x| x.to_string()),
-                                                            Some(get_title(&new_related_view)),
-                                                        );
-                                                        current_session.save();
-                                                        drop(current_session);
-                                                        drop(history_manager);
-                                                    } else {
-                                                        warn!("Could not lock history manager during new tab creation.");
+                                    if !get_window_from_widget(w).imp().is_private.get() {
+                                        if let Some(back_forward_list) = w.back_forward_list() {
+                                            if let Some(current_item) = back_forward_list.current_item() {
+                                                if let Some(old_uri) = current_item.original_uri() {
+                                                    if let Some(new_uri) = new_related_view.uri() {
+                                                        if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
+                                                            history_manager.add_navigation(old_uri.to_string(), new_uri.to_string());
+                                                            let current_session = history_manager.get_current_session();
+                                                            current_session.update_uri(
+                                                                old_uri.to_string(),
+                                                                current_item.uri().map(|x| x.to_string()),
+                                                                Some(get_title(&new_related_view)),
+                                                            );
+                                                            current_session.save();
+                                                            drop(current_session);
+                                                            drop(history_manager);
+                                                        } else {
+                                                            warn!("Could not lock history manager during new tab creation.");
+                                                        }
                                                     }
                                                 }
                                             }
@@ -1767,26 +1967,29 @@ impl Window {
                     this,
                     move |w, load_event| {
                         let title = get_title(&w);
-                        imp.obj().set_title(Some(
-                            &title
-                        ));
+                        match imp.is_private.get() {
+                            true => this.set_title(Some(&format!("{} — Private", &title))),
+                            false => this.set_title(Some(&title)),
+                        }
                         update_favicon(tab_view, &w);
                         if this.get_view() == *w {
                             back_button.set_sensitive(w.can_go_back());
                             forward_button.set_sensitive(w.can_go_forward());
                             match load_event {
                                 LoadEvent::Redirected => {
-                                    if let Some(back_forward_list) = w.back_forward_list() {
-                                        if let Some(current_item) = back_forward_list.current_item() {
-                                            if let Some(original_uri) = current_item.original_uri() {
-                                                if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
-                                                    let current_session = history_manager.get_current_session();
-                                                    current_session.update_uri(original_uri.to_string(), current_item.uri().map(|x| x.to_string()), Some(title));
-                                                    current_session.save();
-                                                    drop(current_session);
-                                                    drop(history_manager);
-                                                } else {
-                                                    warn!("Could not lock history manager during redirection.");
+                                    if !get_window_from_widget(w).imp().is_private.get() {
+                                        if let Some(back_forward_list) = w.back_forward_list() {
+                                            if let Some(current_item) = back_forward_list.current_item() {
+                                                if let Some(original_uri) = current_item.original_uri() {
+                                                    if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
+                                                        let current_session = history_manager.get_current_session();
+                                                        current_session.update_uri(original_uri.to_string(), current_item.uri().map(|x| x.to_string()), Some(title));
+                                                        current_session.save();
+                                                        drop(current_session);
+                                                        drop(history_manager);
+                                                    } else {
+                                                        warn!("Could not lock history manager during redirection.");
+                                                    }
                                                 }
                                             }
                                         }
@@ -2076,6 +2279,8 @@ impl Window {
                     @define-color card_fg_color hsl({hue}, 100%, 98%);
                     @define-color headerbar_bg_color hsl({hue}, 80%, 10%);
                     @define-color headerbar_fg_color hsl({hue}, 100%, 98%);
+                    @define-color sidebar_bg_color hsl({hue}, 80%, 10%);
+                    @define-color sidebar_fg_color hsl({hue}, 100%, 98%);
                 "
             )
         } else {
@@ -2093,6 +2298,8 @@ impl Window {
                     @define-color card_fg_color hsl({hue}, 100%, 12%);
                     @define-color headerbar_bg_color hsl({hue}, 100%, 96%);
                     @define-color headerbar_fg_color hsl({hue}, 100%, 12%);
+                    @define-color sidebar_bg_color hsl({hue}, 100%, 96%);
+                    @define-color sidebar_fg_color hsl({hue}, 100%, 12%);
                 "
             )
         };
@@ -2140,6 +2347,8 @@ impl Window {
                     @define-color card_fg_color hsl({hue}, 100%, 98%);
                     @define-color headerbar_bg_color hsl({hue}, 80%, 10%);
                     @define-color headerbar_fg_color hsl({hue}, 100%, 98%);
+                    @define-color sidebar_bg_color hsl({hue}, 80%, 10%);
+                    @define-color sidebar_fg_color hsl({hue}, 100%, 98%);
                 "
             )
         } else {
@@ -2157,6 +2366,8 @@ impl Window {
                     @define-color card_fg_color hsl({hue}, 100%, 12%);
                     @define-color headerbar_bg_color hsl({hue}, 100%, 96%);
                     @define-color headerbar_fg_color hsl({hue}, 100%, 12%);
+                    @define-color sidebar_bg_color hsl({hue}, 100%, 96%);
+                    @define-color sidebar_fg_color hsl({hue}, 100%, 12%);
                 "
             )
         };

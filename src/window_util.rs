@@ -1,11 +1,11 @@
-use crate::HISTORY_MANAGER;
+use crate::{HISTORY_MANAGER, NODE};
 use futures::pin_mut;
 use glib::object::{Cast, IsA};
 use glib_macros::clone;
 use gtk::{prelude::EditableExt, prelude::WidgetExt};
 use ipfs::Ipfs;
-use oku_fs::fs::OkuFs;
-use std::path::PathBuf;
+use oku_fs::iroh::docs::{DocTicket, NamespaceId};
+use std::{path::PathBuf, str::FromStr};
 use tokio_stream::StreamExt;
 use tracing::{error, warn};
 use webkit2gtk::{functions::uri_for_display, prelude::WebViewExt, URISchemeRequest};
@@ -282,18 +282,20 @@ pub fn ipfs_scheme_handler<'a>(ipfs: &Ipfs, request: &'a URISchemeRequest) -> &'
     }
 }
 
-pub fn node_scheme_handler<'a>(
-    node: &OkuFs,
-    request: &'a URISchemeRequest,
-) -> &'a URISchemeRequest {
+pub fn node_scheme_handler<'a>(request: &'a URISchemeRequest) -> &'a URISchemeRequest {
+    let node = NODE.get().unwrap();
     let ctx = glib::MainContext::default();
     let request_url = request.uri().unwrap().to_string();
     let decoded_url = uri_for_display(&request_url)
         .unwrap()
         .replacen("hive://", "", 1);
-    match oku_fs::fuse::parse_fuse_path(&PathBuf::from(decoded_url.clone())) {
-        Ok(parsed_path) => match parsed_path {
-            Some((namespace_id, replica_path)) => {
+    let path = PathBuf::from(decoded_url.clone());
+    let components = &mut path.components();
+    if let Some(first_component) = components.next() {
+        let first_component_string = first_component.as_os_str().to_str().unwrap_or_default();
+        let replica_path = PathBuf::from("/").join(components.as_path()).to_path_buf();
+        match DocTicket::from_str(first_component_string) {
+            Ok(ticket) => {
                 ctx.spawn_local_with_priority(
                     glib::source::Priority::HIGH,
                     clone!(
@@ -303,12 +305,7 @@ pub fn node_scheme_handler<'a>(
                         node,
                         async move {
                             match node
-                                .read_local_or_external_file(
-                                    namespace_id,
-                                    replica_path,
-                                    false,
-                                    false,
-                                )
+                                .fetch_file_with_tickets(vec![ticket], replica_path)
                                 .await
                             {
                                 Ok(file_bytes) => {
@@ -339,22 +336,73 @@ pub fn node_scheme_handler<'a>(
                 );
                 request
             }
-            None => {
-                request.finish_error(&mut glib::error::Error::new(
-                    webkit2gtk::NetworkError::Failed,
-                    &format!("{} does not contain a replica ID", decoded_url),
-                ));
-                request
+            Err(e) => {
+                error!("{}", e);
+                match NamespaceId::from_str(first_component_string) {
+                    Ok(namespace_id) => {
+                        ctx.spawn_local_with_priority(
+                            glib::source::Priority::HIGH,
+                            clone!(
+                                #[weak]
+                                request,
+                                #[strong]
+                                node,
+                                async move {
+                                    match node
+                                        .fetch_file(namespace_id, replica_path, false, false)
+                                        .await
+                                    {
+                                        Ok(file_bytes) => {
+                                            let file_vec = file_bytes.to_vec();
+                                            let byte_size = file_vec.len();
+                                            let content_type = tree_magic_mini::from_u8(&file_vec);
+                                            let mem_stream = gio::MemoryInputStream::from_bytes(
+                                                &glib::Bytes::from_owned(file_vec),
+                                            );
+                                            request.finish(
+                                                &mem_stream,
+                                                byte_size.try_into().unwrap(),
+                                                Some(content_type),
+                                            );
+                                            return;
+                                        }
+                                        Err(e) => {
+                                            error!("{}", e);
+                                            request.finish_error(&mut glib::error::Error::new(
+                                                webkit2gtk::NetworkError::Failed,
+                                                &e.to_string(),
+                                            ));
+                                            return;
+                                        }
+                                    }
+                                }
+                            ),
+                        );
+                        request
+                    }
+                    Err(e) => {
+                        error!("{}", e);
+                        request.finish_error(&mut glib::error::Error::new(
+                            webkit2gtk::NetworkError::Failed,
+                            &format!(
+                                "URI ({}) does not contain a replica ID or ticket",
+                                decoded_url
+                            ),
+                        ));
+                        request
+                    }
+                }
             }
-        },
-        Err(e) => {
-            error!("{}", e);
-            request.finish_error(&mut glib::error::Error::new(
-                webkit2gtk::NetworkError::Failed,
-                &e.to_string(),
-            ));
-            request
         }
+    } else {
+        request.finish_error(&mut glib::error::Error::new(
+            webkit2gtk::NetworkError::Failed,
+            &format!(
+                "URI ({}) does not contain a replica ID or ticket",
+                decoded_url
+            ),
+        ));
+        request
     }
 }
 

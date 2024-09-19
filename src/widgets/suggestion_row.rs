@@ -118,6 +118,8 @@ impl SuggestionRow {
     pub fn setup(&self) {
         let imp = self.imp();
         self.add_prefix(&imp.favicon);
+        self.set_title_lines(1);
+        self.set_subtitle_lines(1);
     }
 
     pub fn title_property(&self) -> String {
