@@ -44,7 +44,6 @@ pub mod imp {
         pub(crate) sync_button: gtk::Button,
         pub(crate) delete_button: gtk::Button,
         pub(crate) button_box: gtk::Box,
-        pub(crate) button_box_clamp: libadwaita::Clamp,
     }
 
     impl ReplicaRow {}
@@ -227,7 +226,8 @@ impl ReplicaRow {
             }
         ));
 
-        imp.fetch_button.set_icon_name("people-symbolic");
+        imp.fetch_button
+            .set_icon_name("arrow-pointing-at-line-down-symbolic");
         imp.fetch_button.add_css_class("linked");
         imp.fetch_button.add_css_class("warning");
         imp.fetch_button.set_vexpand(false);
@@ -267,7 +267,7 @@ impl ReplicaRow {
             }
         ));
 
-        imp.sync_button.set_icon_name("people-symbolic");
+        imp.sync_button.set_icon_name("update-symbolic");
         imp.sync_button.add_css_class("linked");
         imp.sync_button.add_css_class("warning");
         imp.sync_button.set_vexpand(false);
@@ -349,26 +349,6 @@ impl ReplicaRow {
         imp.button_box.set_valign(gtk::Align::Center);
         imp.button_box.set_halign(gtk::Align::End);
         imp.button_box.add_css_class("linked");
-
-        self.connect_has_focus_notify(clone!(
-            #[weak(rename_to = this)]
-            self,
-            move |_| {
-                println!("connect_has_focus_notify");
-                let clipboard = gdk::Display::default().unwrap().clipboard();
-                clipboard.set_text(&this.id());
-                let window = get_window_from_widget(&this);
-                let app = window.application().unwrap();
-                let notification = gio::Notification::new("Replica ID copied");
-                notification.set_body(Some(&format!(
-                    "Replica ID {} has been copied to the clipboard.",
-                    this.id()
-                )));
-                app.send_notification(None, &notification);
-            }
-        ));
-
-        // imp.button_box_clamp.set_child(Some(&imp.button_box));
 
         self.add_prefix(&imp.icon);
         self.add_suffix(&imp.button_box);

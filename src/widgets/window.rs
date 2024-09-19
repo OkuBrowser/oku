@@ -113,6 +113,7 @@ pub mod imp {
         pub(crate) add_replicas_button: gtk::Button,
         pub(crate) replicas_store: RefCell<Option<Rc<gio::ListStore>>>,
         pub(crate) replicas_factory: gtk::SignalListItemFactory,
+        pub(crate) replicas_model: gtk::SingleSelection,
         pub(crate) replicas_view: gtk::ListView,
         pub(crate) replicas_scrolled_window: libadwaita::ClampScrollable,
         // Miscellaneous
@@ -1234,6 +1235,28 @@ impl Window {
         let replicas_store = gio::ListStore::new::<crate::replica_item::ReplicaItem>();
         imp.replicas_store.replace(Some(Rc::new(replicas_store)));
 
+        imp.replicas_model
+            .set_model(Some(&self.replicas_store().clone()));
+        imp.replicas_model.set_autoselect(false);
+        imp.replicas_model.connect_selected_item_notify(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |replicas_model| {
+                if let Some(item) = replicas_model.selected_item() {
+                    let replica_item = item.downcast_ref::<ReplicaItem>().unwrap();
+                    let clipboard = gdk::Display::default().unwrap().clipboard();
+                    clipboard.set_text(&replica_item.id());
+                    let app = this.application().unwrap();
+                    let notification = gio::Notification::new("Replica ID copied");
+                    notification.set_body(Some(&format!(
+                        "Replica ID {} has been copied to the clipboard.",
+                        replica_item.id()
+                    )));
+                    app.send_notification(None, &notification);
+                }
+            }
+        ));
+
         imp.replicas_factory.connect_setup(clone!(move |_, item| {
             let row = super::replica_row::ReplicaRow::new();
             let list_item = item.downcast_ref::<gtk::ListItem>().unwrap();
@@ -1248,10 +1271,7 @@ impl Window {
                 .bind(&row, "writable", gtk::Widget::NONE);
         }));
 
-        imp.replicas_view
-            .set_model(Some(&gtk::NoSelection::new(Some(
-                self.replicas_store().clone(),
-            ))));
+        imp.replicas_view.set_model(Some(&imp.replicas_model));
         imp.replicas_view.set_factory(Some(&imp.replicas_factory));
         imp.replicas_view.set_enable_rubberband(false);
         imp.replicas_view

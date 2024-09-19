@@ -11,6 +11,7 @@ Categories=Network;WebBrowser;Core;GTK;GNOME;
 Keywords=Internet;WWW;Browser;Web;Explorer;IPFS;Hive;DWeb;Rust;Flatpak;GTK;;GNOME;
 Icon=com.github.dirout.oku
 StartupNotify=true
+X-GNOME-UsesNotifications=true
 MimeType=x-scheme-handler/unknown;x-scheme-handler/about;text/html;text/xml;application/xhtml_xml;image/webp;x-scheme-handler/http;x-scheme-handler/https;application/x-xpinstall;application/pdf;application/json;
 Actions=new-window;
 
