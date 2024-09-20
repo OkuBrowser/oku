@@ -801,7 +801,9 @@ impl Window {
         self.setup_replicas_sidebar();
         imp.split_view.set_content(Some(&imp.main_box));
         imp.split_view.set_sidebar(Some(&imp.side_box));
-        imp.split_view.set_max_sidebar_width(500.0);
+        imp.split_view.set_max_sidebar_width(400.0);
+        imp.split_view.set_collapsed(true);
+        imp.split_view.set_pin_sidebar(true);
 
         imp.tab_overview.set_enable_new_tab(true);
         imp.tab_overview.set_enable_search(true);
