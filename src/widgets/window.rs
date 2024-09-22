@@ -1,4 +1,4 @@
-use super::settings::apply_config;
+use super::settings::apply_appearance_config;
 use crate::config::Palette;
 use crate::replica_item::ReplicaItem;
 use crate::suggestion_item::SuggestionItem;
@@ -191,7 +191,7 @@ impl Window {
             initial_web_view.load_uri("about:blank");
         }
         this.set_content(Some(&imp.tab_overview));
-        apply_config(&style_manager, &this);
+        apply_appearance_config(&style_manager, &this);
         this.set_visible(true);
 
         this
@@ -1345,19 +1345,14 @@ impl Window {
             .set_hscroll_policy(gtk::ScrollablePolicy::Natural);
         imp.suggestions_view
             .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
-        // imp.suggestions_view.set_overflow(gtk::Overflow::Visible);
 
         imp.suggestions_scrolled_window
             .set_child(Some(&imp.suggestions_view));
-        // imp.suggestions_scrolled_window
-        //     .set_hscrollbar_policy(gtk::PolicyType::Never);
-        // imp.suggestions_scrolled_window.set_max_content_height(400);
-        // imp.suggestions_scrolled_window
-        //     .set_propagate_natural_height(true);
-        // imp.suggestions_scrolled_window
-        //     .set_propagate_natural_width(true);
         imp.suggestions_scrolled_window
             .set_orientation(gtk::Orientation::Horizontal);
+        imp.suggestions_scrolled_window.set_maximum_size(1000);
+        imp.suggestions_scrolled_window
+            .set_tightening_threshold(1000);
 
         imp.suggestions_popover
             .set_child(Some(&imp.suggestions_scrolled_window));
