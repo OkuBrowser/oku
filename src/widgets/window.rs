@@ -147,7 +147,12 @@ glib::wrapper! {
 }
 
 impl Window {
-    pub fn new(app: &libadwaita::Application, web_context: &WebContext, is_private: bool) -> Self {
+    pub fn new(
+        app: &libadwaita::Application,
+        style_provider: &gtk::CssProvider,
+        web_context: &WebContext,
+        is_private: bool,
+    ) -> Self {
         let style_manager = app.style_manager();
 
         let this: Self = glib::Object::builder::<Self>()
@@ -162,8 +167,8 @@ impl Window {
             true => this.set_title(Some("Oku — Private")),
             false => this.set_title(Some("Oku")),
         }
+        imp.style_provider.replace(style_provider.clone());
 
-        this.setup_css_providers();
         this.setup_headerbar();
         this.setup_menu_popover();
         this.setup_downloads_popover();
@@ -186,25 +191,15 @@ impl Window {
         if imp.is_private.get() {
             this.add_css_class("devel");
         }
-        if imp.tab_view.n_pages() == 0 && app.windows().len() <= 1 {
-            let initial_web_view = this.new_tab_page(&web_context, None, None).0;
-            initial_web_view.load_uri("about:blank");
-        }
         this.set_content(Some(&imp.tab_overview));
         apply_appearance_config(&style_manager, &this);
         this.set_visible(true);
+        if imp.tab_view.n_pages() == 0 {
+            let initial_web_view = this.new_tab_page(&web_context, None, None).0;
+            initial_web_view.load_uri("oku:home");
+        }
 
         this
-    }
-
-    fn setup_css_providers(&self) {
-        let imp = self.imp();
-
-        gtk::style_context_add_provider_for_display(
-            &gdk::Display::default().unwrap(),
-            &*imp.style_provider.borrow(),
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-        );
     }
 
     /// Adapted from Geopard (https://github.com/ranfdev/Geopard)
@@ -259,7 +254,7 @@ impl Window {
             specific_page.child().downcast().unwrap()
         } else {
             let web_view = webkit2gtk::WebView::new();
-            web_view.load_uri("about:blank");
+            web_view.load_uri("oku:home");
             web_view
         }
     }
@@ -867,17 +862,17 @@ impl Window {
         initial_request: Option<&webkit2gtk::URIRequest>,
     ) -> webkit2gtk::WebView {
         let web_settings: webkit2gtk::Settings = new_webkit_settings();
-        let web_view = if let Some(related_view) = related_view {
-            WebView::builder()
-                .settings(&web_settings)
-                .related_view(related_view)
-                .build()
-        } else {
-            WebView::builder()
-                .web_context(web_context)
-                .settings(&web_settings)
-                .build()
+        let mut web_view_builder = WebView::builder()
+            .web_context(web_context)
+            .settings(&web_settings);
+        if self.imp().is_private.get() {
+            web_view_builder =
+                web_view_builder.network_session(&webkit2gtk::NetworkSession::new_ephemeral());
         };
+        if let Some(related_view) = related_view {
+            web_view_builder = web_view_builder.related_view(related_view);
+        };
+        let web_view = web_view_builder.build();
         web_view.set_vexpand(true);
         web_view.set_background_color(&gdk::RGBA::new(1.00, 1.00, 1.00, 0.00));
         let network_session = web_view.network_session().unwrap();
@@ -891,10 +886,12 @@ impl Window {
         security_manager.register_uri_scheme_as_secure("ipns");
         security_manager.register_uri_scheme_as_secure("tor");
         security_manager.register_uri_scheme_as_secure("hive");
+        security_manager.register_uri_scheme_as_secure("oku");
         security_manager.register_uri_scheme_as_cors_enabled("ipfs");
         security_manager.register_uri_scheme_as_cors_enabled("ipns");
         security_manager.register_uri_scheme_as_cors_enabled("tor");
         security_manager.register_uri_scheme_as_cors_enabled("hive");
+        security_manager.register_uri_scheme_as_cors_enabled("oku");
 
         web_settings.set_user_agent_with_application_details(Some("Oku"), Some(VERSION.unwrap()));
         web_settings.set_enable_write_console_messages_to_stdout(true);
@@ -904,7 +901,7 @@ impl Window {
         if let Some(initial_request) = initial_request {
             web_view.load_request(initial_request)
         } else {
-            web_view.load_uri("about:blank");
+            web_view.load_uri("oku:home");
         }
         let rgba = gdk::RGBA::new(1.00, 1.00, 1.00, 0.00);
         web_view.set_background_color(&rgba);
@@ -929,7 +926,7 @@ impl Window {
         let new_view = self.new_view(&web_context, related_view, initial_request);
         let new_page = imp.tab_view.append(&new_view);
         new_page.set_title("New Tab");
-        new_page.set_icon(Some(&gio::ThemedIcon::new("content-loading-symbolic")));
+        new_page.set_icon(Some(&gio::ThemedIcon::new("globe-symbolic")));
         new_page.set_live_thumbnail(true);
         imp.tab_view.set_selected_page(&new_page);
         new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("view-pin-symbolic")));
@@ -1410,7 +1407,12 @@ impl Window {
         web_context: &WebContext,
     ) -> std::option::Option<libadwaita::TabView> {
         let application = self.application().unwrap().downcast().unwrap();
-        let new_window = self::Window::new(&application, &web_context, self.imp().is_private.get());
+        let new_window = self::Window::new(
+            &application,
+            &*self.imp().style_provider.borrow(),
+            &web_context,
+            self.imp().is_private.get(),
+        );
         Some(new_window.imp().tab_view.to_owned())
     }
 
@@ -1581,13 +1583,12 @@ impl Window {
             #[weak]
             web_context,
             move |_| {
-                let new_window = self::Window::new(
+                self::Window::new(
                     &this.application().unwrap().downcast().unwrap(),
+                    &*this.imp().style_provider.borrow(),
                     &web_context,
                     false,
                 );
-                let initial_web_view = new_window.new_tab_page(&web_context, None, None).0;
-                initial_web_view.load_uri("about:blank");
             }
         ));
 
@@ -1598,13 +1599,12 @@ impl Window {
             #[weak]
             web_context,
             move |_| {
-                let new_window = self::Window::new(
+                self::Window::new(
                     &this.application().unwrap().downcast().unwrap(),
+                    &*this.imp().style_provider.borrow(),
                     &web_context,
                     true,
                 );
-                let initial_web_view = new_window.new_tab_page(&web_context, None, None).0;
-                initial_web_view.load_uri("about:blank");
             }
         ));
 
@@ -1655,8 +1655,102 @@ impl Window {
             imp,
             move |_, new_page, _page_position| {
                 let new_view = get_view_from_page(&new_page);
-                let network_session = new_view.network_session().unwrap();
                 let find_controller = new_view.find_controller().unwrap();
+                let network_session = new_view.network_session().unwrap();
+
+                network_session.connect_download_started(clone!(
+                    #[weak]
+                    this,
+                    move |_network_session, download| {
+                        let window = match download.web_view() {
+                            Some(web_view) => get_window_from_widget(&web_view),
+                            None => this
+                        };
+                        download.connect_decide_destination(clone!(
+                            #[weak]
+                            window,
+                            #[weak]
+                            download,
+                            #[upgrade_or]
+                            false,
+                            move |_, suggested_filename| {
+                                let file_uri = download.request().unwrap().uri().unwrap();
+                                let dialog = libadwaita::AlertDialog::new(
+                                    Some("Download file?"),
+                                    Some(&format!(
+                                        "Would you like to download '{}'?",
+                                        file_uri
+                                    )),
+                                );
+                                dialog.add_responses(&[
+                                    ("cancel", "Cancel"),
+                                    ("download", "Download"),
+                                ]);
+                                dialog.set_response_appearance(
+                                    "cancel",
+                                    ResponseAppearance::Default,
+                                );
+                                dialog.set_response_appearance(
+                                    "download",
+                                    ResponseAppearance::Suggested,
+                                );
+                                dialog.set_default_response(Some("cancel"));
+                                dialog.set_close_response("cancel");
+                                let suggested_filename = suggested_filename.to_string();
+                                dialog.connect_response(
+                                    None,
+                                    clone!(
+                                        #[weak]
+                                        window,
+                                        #[weak]
+                                        download,
+                                        move |_, response| {
+                                            match response {
+                                                "cancel" => download.cancel(),
+                                                "download" => {
+                                                    download.set_allow_overwrite(true);
+                                                    let file_dialog =
+                                                        gtk::FileDialog::builder()
+                                                            .accept_label("Download")
+                                                            .initial_name(suggested_filename.clone())
+                                                            .initial_folder(&gio::File::for_path(glib::user_special_dir(glib::enums::UserDirectory::Downloads).unwrap()))
+                                                            .title(&format!(
+                                                                "Select destination for '{}'",
+                                                                suggested_filename.clone()
+                                                            ))
+                                                            .build();
+                                                    file_dialog.save(
+                                                        Some(&window),
+                                                        Some(&gio::Cancellable::new()),
+                                                        clone!(
+                                                            #[weak]
+                                                            download,
+                                                            move |destination| {
+                                                                    if let Ok(destination) = destination {
+                                                                        download.set_destination(destination.path()
+                                                                        .unwrap()
+                                                                        .to_str()
+                                                                        .unwrap())
+                                                                    } else {
+                                                                        download.cancel()
+                                                                    }
+                                                            }
+                                                        ),
+                                                    )
+                                                }
+                                                _ => {
+                                                    unreachable!()
+                                                }
+                                            }
+                                        }
+                                    ),
+                                );
+                                dialog.present(Some(&window));
+                                true
+                            }
+                        ));
+                    }
+                ));
 
                 let decide_policy = RefCell::new(Some(new_view.connect_decide_policy(clone!(
                     move |w, policy_decision, decision_type| {
@@ -1744,8 +1838,8 @@ impl Window {
                                 #[upgrade_or_panic] move |w, navigation_action| {
                                     let mut navigation_action = navigation_action.clone();
                                     let new_related_view = this.new_tab_page(&web_context, Some(w), navigation_action.request().as_ref()).0;
-                                    if !get_window_from_widget(w).imp().is_private.get() {
-                                        if let Some(back_forward_list) = w.back_forward_list() {
+                                    if !get_window_from_widget(&new_related_view).imp().is_private.get() {
+                                        if let Some(back_forward_list) = new_related_view.back_forward_list() {
                                             if let Some(current_item) = back_forward_list.current_item() {
                                                 if let Some(old_uri) = current_item.original_uri() {
                                                     if let Some(new_uri) = new_related_view.uri() {
@@ -1871,96 +1965,6 @@ impl Window {
                         }
                     ))));
 
-                let download_started =
-                    RefCell::new(Some(network_session.connect_download_started(clone!(
-                        #[weak]
-                        this,
-                        move |_w, download| {
-                            download.connect_decide_destination(clone!(
-                                #[weak]
-                                this,
-                                #[weak]
-                                download,
-                                #[upgrade_or]
-                                false,
-                                move |_, suggested_filename| {
-                                    let file_uri = download.request().unwrap().uri().unwrap();
-                                    let dialog = libadwaita::AlertDialog::new(
-                                        Some("Download file?"),
-                                        Some(&format!(
-                                            "Would you like to download '{}'?",
-                                            file_uri
-                                        )),
-                                    );
-                                    dialog.add_responses(&[
-                                        ("cancel", "Cancel"),
-                                        ("download", "Download"),
-                                    ]);
-                                    dialog.set_response_appearance(
-                                        "cancel",
-                                        ResponseAppearance::Default,
-                                    );
-                                    dialog.set_response_appearance(
-                                        "download",
-                                        ResponseAppearance::Suggested,
-                                    );
-                                    dialog.set_default_response(Some("cancel"));
-                                    dialog.set_close_response("cancel");
-                                    let suggested_filename = suggested_filename.to_string();
-                                    dialog.connect_response(
-                                        None,
-                                        clone!(
-                                            #[weak]
-                                            this,
-                                            #[weak]
-                                            download,
-                                            move |_, response| {
-                                                match response {
-                                                    "cancel" => download.cancel(),
-                                                    "download" => {
-                                                        download.set_allow_overwrite(true);
-                                                        let file_dialog =
-                                                            gtk::FileDialog::builder()
-                                                                .accept_label("Download")
-                                                                .initial_name(suggested_filename.clone())
-                                                                .initial_folder(&gio::File::for_path(glib::user_special_dir(glib::enums::UserDirectory::Downloads).unwrap()))
-                                                                .title(&format!(
-                                                                    "Select destination for '{}'",
-                                                                    suggested_filename.clone()
-                                                                ))
-                                                                .build();
-                                                        file_dialog.save(
-                                                            Some(&this),
-                                                            Some(&gio::Cancellable::new()),
-                                                            clone!(
-                                                                #[weak]
-                                                                download,
-                                                                move |destination| {
-                                                                        if let Ok(destination) = destination {
-                                                                            download.set_destination(destination.path()
-                                                                            .unwrap()
-                                                                            .to_str()
-                                                                            .unwrap())
-                                                                        } else {
-                                                                            download.cancel()
-                                                                        }
-                                                                }
-                                                            ),
-                                                        )
-                                                    }
-                                                    _ => {
-                                                        unreachable!()
-                                                    }
-                                                }
-                                            }
-                                        ),
-                                    );
-                                    dialog.present(Some(&this));
-                                    true
-                                }
-                            ));
-                        }
-                    ))));
                 let title_notify = RefCell::new(Some(new_view.connect_title_notify(clone!(
                     #[weak(rename_to = tab_view)]
                     imp.tab_view,
@@ -2176,9 +2180,15 @@ impl Window {
                         }
                     ))));
                 imp.tab_view.connect_page_detached(clone!(
+                    #[weak]
+                    new_view,
                     move |_, old_page, _page_position| {
-                        let old_view = get_view_from_page(&old_page);
-                        let old_network_session = old_view.network_session().unwrap();
+                        let old_view = get_view_from_page(old_page);
+                        if old_view != new_view {
+                            // When a page is disconnected from a window, the detached handler runs for all pages in the window.
+                            // If we don't stop here, the browser will crash as we'll be disconnecting handlers for unrelated pages that weren't detached.
+                            return;
+                        }
                         let old_find_controller = old_view.find_controller().unwrap();
                         if let Some(id) = decide_policy.take() {
                             old_view.disconnect(id);
@@ -2200,9 +2210,6 @@ impl Window {
                         }
                         if let Some(id) = permission_request.take() {
                             old_view.disconnect(id);
-                        }
-                        if let Some(id) = download_started.take() {
-                            old_network_session.disconnect(id);
                         }
                         if let Some(id) = title_notify.take() {
                             old_view.disconnect(id);

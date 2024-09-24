@@ -49,14 +49,21 @@ pub fn connect(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebView) {
         }
         // When URL is missing a scheme
         Err(url::ParseError::RelativeUrlWithoutBase) => {
-            parsed_url = url::Url::parse(&format!("http://{}", nav_text)); // Try with HTTP first
+            let nav_text_with_base = if is_hive_uri(nav_text.clone()) {
+                format!("hive://{}", nav_text)
+            } else if is_ipfs_uri(nav_text.clone()) {
+                format!("ipfs://{}", nav_text)
+            } else {
+                format!("http://{}", nav_text)
+            };
+            parsed_url = url::Url::parse(&nav_text_with_base); // Try with protocol first
             match parsed_url {
-                // If it's now valid with HTTP
+                // If it's now valid with protocol
                 Ok(nav_url) => {
                     nav_entry.set_text(nav_url.as_str());
                     connect(&nav_entry, &web_view);
                 }
-                // Still not valid, even with HTTP
+                // Still not valid, even with protocol
                 Err(e) => {
                     error!("{}", e);
                 }
@@ -67,6 +74,22 @@ pub fn connect(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebView) {
             error!("{}", e);
         }
     }
+}
+
+pub fn is_hive_uri(nav_text: String) -> bool {
+    let path = PathBuf::from(nav_text);
+    let components = &mut path.components();
+    if let Some(first_component) = components.next() {
+        let first_component_string = first_component.as_os_str().to_str().unwrap_or_default();
+        DocTicket::from_str(first_component_string).is_ok()
+            || NamespaceId::from_str(first_component_string).is_ok()
+    } else {
+        false
+    }
+}
+
+pub fn is_ipfs_uri(nav_text: String) -> bool {
+    nav_text.parse::<ipfs::IpfsPath>().is_ok()
 }
 
 /// Update the contents of the navigation bar
@@ -85,7 +108,7 @@ pub fn update_nav_bar(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebVi
     if url.starts_with(&format!("http://{}.ipfs.localhost:8080/", split_cid[0])) {
         url = cid;
     }
-    if url == "about:blank" {
+    if url == "oku:home" || url == "about:blank" {
         url = "".to_string();
     }
     nav_entry.set_text(&uri_for_display(&url).unwrap_or_default());
@@ -166,24 +189,32 @@ pub fn update_favicon(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebV
             relevant_page.set_icon(Some(favicon_texture));
         }
         None => {
-            relevant_page.set_icon(Some(&gio::ThemedIcon::new("content-loading-symbolic")));
+            relevant_page.set_icon(Some(&gio::ThemedIcon::new("globe-symbolic")));
         }
     }
 }
 
 pub fn get_title(web_view: &webkit2gtk::WebView) -> String {
-    if web_view.uri().unwrap_or_default() == "about:blank" {
-        return String::from("Oku");
-    }
+    let uri = web_view.uri().unwrap_or("about:blank".into());
     match web_view.title() {
         Some(page_title) => {
-            if page_title.as_str() == "" {
-                String::from("Untitled")
+            if page_title.trim().is_empty() {
+                if uri == "about:blank" || uri.starts_with("oku:") {
+                    String::from("Oku")
+                } else {
+                    String::from("Untitled")
+                }
             } else {
                 String::from(page_title)
             }
         }
-        None => String::from("Untitled"),
+        None => {
+            if uri == "about:blank" || uri.starts_with("oku:") {
+                String::from("Oku")
+            } else {
+                String::from("Untitled")
+            }
+        }
     }
 }
 
@@ -215,69 +246,34 @@ pub fn update_title(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebVie
     relevant_page.set_title(&title);
 }
 
-pub fn ipfs_scheme_handler<'a>(ipfs: &Ipfs, request: &'a URISchemeRequest) -> &'a URISchemeRequest {
-    let ctx = glib::MainContext::default();
+pub fn oku_scheme_handler<'a>(request: &'a URISchemeRequest) -> &'a URISchemeRequest {
     let request_url = request.uri().unwrap().to_string();
-    let decoded_url = uri_for_display(&request_url).unwrap();
-    match decoded_url
-        .replacen("ipfs://", "", 1)
-        .parse::<ipfs::IpfsPath>()
-    {
-        Ok(ipfs_path) => {
-            let ipfs_stream = ipfs.cat_unixfs(ipfs_path);
-            ctx.spawn_local_with_priority(
-                glib::source::Priority::HIGH,
-                clone!(
-                    #[weak]
-                    request,
-                    async move {
-                        let mut file_vec: Vec<u8> = vec![];
-                        pin_mut!(ipfs_stream);
-                        while let Some(result) = ipfs_stream.next().await {
-                            match result {
-                                Ok(bytes) => {
-                                    file_vec.extend(bytes);
-                                }
-                                Err(e) => {
-                                    error!("{}", e);
-                                    if file_vec.len() == 0 {
-                                        request.finish_error(&mut glib::error::Error::new(
-                                            webkit2gtk::NetworkError::FileDoesNotExist,
-                                            &e.to_string(),
-                                        ));
-                                        return;
-                                    } else {
-                                        request.finish_error(&mut glib::error::Error::new(
-                                            webkit2gtk::NetworkError::Transport,
-                                            &e.to_string(),
-                                        ));
-                                        return;
-                                    }
-                                }
-                            }
-                        }
-                        let byte_size = file_vec.len();
-                        let content_type = tree_magic_mini::from_u8(&file_vec);
-                        let mem_stream =
-                            gio::MemoryInputStream::from_bytes(&glib::Bytes::from_owned(file_vec));
-                        request.finish(
-                            &mem_stream,
-                            byte_size.try_into().unwrap(),
-                            Some(content_type),
-                        );
-                        return;
-                    }
-                ),
+    let decoded_url = uri_for_display(&request_url)
+        .unwrap()
+        .replacen("oku:", "", 1);
+    match decoded_url.as_str() {
+        "home" => {
+            let file_bytes = include_bytes!("browser_pages/output/home.html");
+            let file_vec = file_bytes.to_vec();
+            let byte_size = file_vec.len();
+            let content_type = tree_magic_mini::from_u8(&file_vec);
+            let mem_stream = gio::MemoryInputStream::from_bytes(&glib::Bytes::from_owned(file_vec));
+            request.finish(
+                &mem_stream,
+                byte_size.try_into().unwrap(),
+                Some(content_type),
             );
-            return request;
+            request
         }
-        Err(e) => {
-            error!("{}", e);
+        _ => {
             request.finish_error(&mut glib::error::Error::new(
                 webkit2gtk::NetworkError::Failed,
-                &e.to_string(),
+                &format!(
+                    "URI ({}) does not contain a replica ID or ticket",
+                    decoded_url
+                ),
             ));
-            return request;
+            request
         }
     }
 }
@@ -403,6 +399,73 @@ pub fn node_scheme_handler<'a>(request: &'a URISchemeRequest) -> &'a URISchemeRe
             ),
         ));
         request
+    }
+}
+
+pub fn ipfs_scheme_handler<'a>(ipfs: &Ipfs, request: &'a URISchemeRequest) -> &'a URISchemeRequest {
+    let ctx = glib::MainContext::default();
+    let request_url = request.uri().unwrap().to_string();
+    let decoded_url = uri_for_display(&request_url).unwrap();
+    match decoded_url
+        .replacen("ipfs://", "", 1)
+        .parse::<ipfs::IpfsPath>()
+    {
+        Ok(ipfs_path) => {
+            let ipfs_stream = ipfs.cat_unixfs(ipfs_path);
+            ctx.spawn_local_with_priority(
+                glib::source::Priority::HIGH,
+                clone!(
+                    #[weak]
+                    request,
+                    async move {
+                        let mut file_vec: Vec<u8> = vec![];
+                        pin_mut!(ipfs_stream);
+                        while let Some(result) = ipfs_stream.next().await {
+                            match result {
+                                Ok(bytes) => {
+                                    file_vec.extend(bytes);
+                                }
+                                Err(e) => {
+                                    error!("{}", e);
+                                    if file_vec.len() == 0 {
+                                        request.finish_error(&mut glib::error::Error::new(
+                                            webkit2gtk::NetworkError::FileDoesNotExist,
+                                            &e.to_string(),
+                                        ));
+                                        return;
+                                    } else {
+                                        request.finish_error(&mut glib::error::Error::new(
+                                            webkit2gtk::NetworkError::Transport,
+                                            &e.to_string(),
+                                        ));
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                        let byte_size = file_vec.len();
+                        let content_type = tree_magic_mini::from_u8(&file_vec);
+                        let mem_stream =
+                            gio::MemoryInputStream::from_bytes(&glib::Bytes::from_owned(file_vec));
+                        request.finish(
+                            &mem_stream,
+                            byte_size.try_into().unwrap(),
+                            Some(content_type),
+                        );
+                        return;
+                    }
+                ),
+            );
+            return request;
+        }
+        Err(e) => {
+            error!("{}", e);
+            request.finish_error(&mut glib::error::Error::new(
+                webkit2gtk::NetworkError::Failed,
+                &e.to_string(),
+            ));
+            return request;
+        }
     }
 }
 

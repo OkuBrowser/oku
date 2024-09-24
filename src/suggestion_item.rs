@@ -13,7 +13,6 @@ use glib::ParamSpecString;
 use glib::Value;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
-use tracing::error;
 use webkit2gtk::functions::uri_for_display;
 
 pub mod imp {
@@ -106,13 +105,8 @@ impl SuggestionItem {
                 #[weak]
                 suggestion_item,
                 move |favicon_result| {
-                    match favicon_result {
-                        Ok(favicon) => {
-                            suggestion_item.set_property("favicon", favicon);
-                        }
-                        Err(e) => {
-                            error!("{}", e);
-                        }
+                    if let Ok(favicon) = favicon_result {
+                        suggestion_item.set_property("favicon", favicon);
                     }
                 }
             ),

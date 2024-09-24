@@ -1,0 +1,18 @@
+---
+---
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        {% include head.html %}
+    </head>
+    <body>
+        <div class="container">
+            {{ layouts | map: "rendered" | first }}
+        </div>
+    </body>
+    <footer class="container">
+        <small>
+            &copy; {{ global.author }} <time datetime="{{ meta.date.rfc_2822 }}">{{ meta.date.year }}</time>
+        </small>
+    </footer>
+</html>

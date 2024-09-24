@@ -1,0 +1,6 @@
+locale = "en_US"
+title = "Oku"
+description = "Your new home on the Internet"
+author = "Emil Sayahi"
+site = "https://okubrowser.github.io"
+browser_repository = "https://github.com/Dirout/oku"

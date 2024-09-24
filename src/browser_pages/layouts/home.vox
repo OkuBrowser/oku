@@ -1,0 +1,13 @@
+---
+---
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        {% include head.html %}
+    </head>
+    <body>
+        <div class="container glass center">
+            {{ layouts | map: "rendered" | first }}
+        </div>
+    </body>
+</html>
