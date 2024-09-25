@@ -5,16 +5,21 @@ GenericName=Web Browser
 Comment=A Web browser with an emphasis on local-first data storage
 Type=Application
 TryExec=oku
-Exec=oku
+Exec=oku %U
 Terminal=false
-Categories=Network;WebBrowser;Core;GTK;GNOME;
-Keywords=Internet;WWW;Browser;Web;Explorer;IPFS;Hive;DWeb;Rust;Flatpak;GTK;;GNOME;
+Categories=Network;WebBrowser;GTK;GNOME;
+Keywords=web;dweb;hive;iroh;ipfs;internet;oku;
 Icon=com.github.dirout.oku
 StartupNotify=true
 X-GNOME-UsesNotifications=true
-MimeType=x-scheme-handler/unknown;x-scheme-handler/about;text/html;text/xml;application/xhtml_xml;image/webp;x-scheme-handler/http;x-scheme-handler/https;application/x-xpinstall;application/pdf;application/json;
-Actions=new-window;
+MimeType=x-scheme-handler/unknown;x-scheme-handler/about;text/html;text/xml;application/xhtml_xml;image/webp;x-scheme-handler/http;x-scheme-handler/https;application/x-xpinstall;application/pdf;application/json;application/xhtml+xml;multipart/related;application/x-mimearchive;message/rfc822;
+Actions=new-window;new-private-window;
+X-Purism-FormFactor=Workstation;Mobile;
 
 [Desktop Action new-window]
 Name=New Window
-Exec=oku
+Exec=oku --new-window %U
+
+[Desktop Action new-private-window]
+Name=New Window
+Exec=oku --new-private-window %U

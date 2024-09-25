@@ -1,0 +1,28 @@
+---
+permalink = "view_source.html"
+---
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>{% raw %}{{ title }}{% endraw %}</title>
+        <style>
+            {% include hljs.default.min.css %}
+        </style>
+        <script>
+            {% include highlight.min.js %}
+            {% include highlightjs-line-numbers.min.js %}
+            hljs.highlightAll();
+            hljs.initLineNumbersOnLoad();
+        </script>
+    </head>
+    <body>
+        <pre>
+            <code>
+{% raw %}
+{{ content | escape | strip }}
+{% endraw %}
+            </code>
+        </pre>
+    </body>
+</html>

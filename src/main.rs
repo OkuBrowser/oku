@@ -47,12 +47,14 @@ use std::sync::OnceLock;
 use tokio::runtime::Handle;
 use tracing::error;
 use tracing::info;
+use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::URISchemeRequest;
 use webkit2gtk::WebContext;
 use window_util::ipfs_scheme_handler;
 use window_util::ipns_scheme_handler;
 use window_util::node_scheme_handler;
 use window_util::oku_scheme_handler;
+use window_util::view_source_scheme_handler;
 
 #[macro_use]
 extern crate lazy_static;
@@ -76,12 +78,11 @@ lazy_static! {
     static ref HISTORY_DIR: PathBuf = DATA_DIR.join("history");
     static ref CONFIG: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::load_or_default()));
     static ref HISTORY_MANAGER: Arc<Mutex<HistoryManager>> = Arc::new(Mutex::new(HistoryManager::load_sessions_or_create().unwrap()));
+    /// The current release version number of Oku
+    static ref VERSION: &'static str = option_env!("CARGO_PKG_VERSION").unwrap();
 }
 
 static NODE: OnceLock<OkuFs> = OnceLock::new();
-
-/// The current release version number of Oku
-const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
 
 async fn create_web_context() -> (WebContext, Option<BackgroundSession>, Ipfs) {
     let (node, mount_handle) = create_oku_client().await;
@@ -121,6 +122,12 @@ async fn create_web_context() -> (WebContext, Option<BackgroundSession>, Ipfs) {
             }
         ),
     );
+    web_context.register_uri_scheme(
+        "view-source",
+        clone!(move |request: &URISchemeRequest| {
+            view_source_scheme_handler(request);
+        }),
+    );
     (web_context, mount_handle, ipfs)
 }
 
@@ -134,7 +141,6 @@ async fn create_oku_client() -> (OkuFs, Option<BackgroundSession>) {
 
 async fn create_ipfs_client() -> Ipfs {
     let keypair = Keypair::generate_ed25519();
-    // let local_peer_id = keypair.public().to_peer_id();
 
     // Initialize the repo and start a daemon
     let ipfs: Ipfs = UninitializedIpfs::new()
@@ -161,6 +167,9 @@ async fn create_ipfs_client() -> Ipfs {
 /// The main function of Oku
 #[tokio::main]
 async fn main() {
+    let res = gio::Resource::load("resources.gresource").unwrap();
+    gio::resources_register(&res);
+
     tracing_subscriber::fmt()
         .with_env_filter("oku=trace")
         .pretty()
@@ -174,31 +183,109 @@ async fn main() {
 
     let application = libadwaita::Application::builder()
         .application_id("com.github.dirout.oku")
+        .flags(gio::ApplicationFlags::HANDLES_OPEN)
+        .version(VERSION.to_string())
         .build();
+    application.add_main_option(
+        "new-window",
+        b'n'.into(),
+        glib::OptionFlags::NONE,
+        glib::OptionArg::String,
+        "New window",
+        None,
+    );
+    application.add_main_option(
+        "new-private-window",
+        b'p'.into(),
+        glib::OptionFlags::NONE,
+        glib::OptionArg::String,
+        "New private window",
+        None,
+    );
 
     let (web_context, mount_handle, ipfs) = create_web_context().await;
-    application.connect_activate(clone!(
-        #[weak]
-        application,
+    application.connect_activate(clone!(move |application| {
+        let ctx = glib::MainContext::default();
+        ctx.spawn_local(clone!(
+            #[weak]
+            application,
+            async move {
+                tokio::signal::ctrl_c().await.unwrap();
+                application.quit();
+            }
+        ));
+    }));
+    application.connect_handle_local_options(clone!(move |application, dict| {
+        if !(dict.contains("new-window") || dict.contains("new-private-window")) {
+            if let Ok(_) = application.register(Some(&gio::Cancellable::new())) {
+                application.open(&[], "false,true");
+            }
+            return -1;
+        }
+        match dict.lookup::<String>("new-window").unwrap() {
+            Some(initial_uri) => {
+                if let Ok(_) = application.register(Some(&gio::Cancellable::new())) {
+                    let file = gio::File::for_uri(&initial_uri);
+                    application.open(&[file], "false,false");
+                }
+            }
+            None => (),
+        };
+        match dict.lookup::<String>("new-private-window").unwrap() {
+            Some(initial_uri) => {
+                if let Ok(_) = application.register(Some(&gio::Cancellable::new())) {
+                    let file = gio::File::for_uri(&initial_uri);
+                    application.open(&[file], "true,false");
+                }
+            }
+            None => (),
+        };
+        -1
+    }));
+    application.connect_open(clone!(
         #[weak]
         web_context,
-        move |_| {
-            let style_provder = gtk::CssProvider::default();
-            crate::widgets::window::Window::new(&application, &style_provder, &web_context, false);
+        move |application, files, hint| {
+            application.activate();
+            let style_provider = gtk::CssProvider::default();
             gtk::style_context_add_provider_for_display(
                 &gdk::Display::default().unwrap(),
-                &style_provder,
+                &style_provider,
                 gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
             );
-            let ctx = glib::MainContext::default();
-            ctx.spawn_local(clone!(
-                #[weak]
-                application,
-                async move {
-                    tokio::signal::ctrl_c().await.unwrap();
-                    application.quit();
-                }
-            ));
+            let (is_private_str, no_arguments_str) =
+                hint.split_once(",").unwrap_or(("false", "true"));
+            let is_private = is_private_str.parse().unwrap_or(false);
+            let no_arguments = no_arguments_str.parse().unwrap_or(false);
+            let new_window = match no_arguments {
+                true => match application.windows().last() {
+                    Some(window) => window.clone().downcast().unwrap(),
+                    None => crate::widgets::window::Window::new(
+                        &application,
+                        &style_provider,
+                        &web_context,
+                        is_private,
+                    ),
+                },
+                false => crate::widgets::window::Window::new(
+                    &application,
+                    &style_provider,
+                    &web_context,
+                    is_private,
+                ),
+            };
+            let mut files = files.to_vec();
+            files.sort_unstable_by_key(|x| x.uri());
+            files.dedup_by_key(|x| x.uri());
+            for file_index in 0..files.len() {
+                let file = &files[file_index];
+                let new_view = if file_index == 0 {
+                    new_window.get_view()
+                } else {
+                    new_window.new_tab_page(&web_context, None, None).0
+                };
+                new_view.load_uri(&file.uri());
+            }
         }
     ));
     application.connect_window_added(clone!(move |_, window| {
@@ -243,12 +330,18 @@ async fn main() {
     application.connect_shutdown(clone!(move |_| {
         shutdown_send.send(()).unwrap();
     }));
-    application.set_accels_for_action("win.previous", &["<Alt>Left", "<Alt>KP_Left"]);
-    application.set_accels_for_action("win.next", &["<Alt>Right", "<Alt>KP_Right"]);
+    application.set_accels_for_action(
+        "win.previous",
+        &["<Alt>Left", "<Alt>KP_Left", "<Ctrl>bracketleft"],
+    );
+    application.set_accels_for_action(
+        "win.next",
+        &["<Alt>Right", "<Alt>KP_Right", "<Ctrl>bracketright"],
+    );
     application.set_accels_for_action("win.reload", &["<Ctrl>r", "F5"]);
     application.set_accels_for_action("win.new-tab", &["<Ctrl>t"]);
     application.set_accels_for_action("win.close-tab", &["<Ctrl>w"]);
-    application.set_accels_for_action("win.zoom-in", &["<Ctrl>plus"]);
+    application.set_accels_for_action("win.zoom-in", &["<Ctrl><Shift>plus"]);
     application.set_accels_for_action("win.zoom-out", &["<Ctrl>minus"]);
     application.set_accels_for_action("win.reset-zoom", &["<Ctrl>0"]);
     application.set_accels_for_action("win.find", &["<Ctrl>f"]);
@@ -257,6 +350,25 @@ async fn main() {
     application.set_accels_for_action("win.save", &["<Ctrl>s"]);
     application.set_accels_for_action("win.new", &["<Ctrl>n"]);
     application.set_accels_for_action("win.new-private", &["<Ctrl><Shift>p"]);
+    application.set_accels_for_action("win.go-home", &["<Alt>Home"]);
+    application.set_accels_for_action("win.stop-loading", &["Escape"]);
+    application.set_accels_for_action("win.reload-bypass", &["<Ctrl><Shift>r", "<Shift>F5"]);
+    application.set_accels_for_action("win.next-find", &["<Ctrl>g"]);
+    application.set_accels_for_action("win.previous-find", &["<Ctrl><Shift>g"]);
+    application.set_accels_for_action("win.screenshot", &["<Ctrl><Shift>s"]);
+    application.set_accels_for_action("win.settings", &["<Ctrl>comma"]);
+    application.set_accels_for_action("win.view-source", &["<Ctrl>u"]);
+    application.set_accels_for_action("win.shortcuts", &["<Ctrl><Shift>question"]);
+    application.set_accels_for_action("win.open-file", &["<Ctrl>o"]);
+    application.set_accels_for_action("win.inspector", &["<Ctrl><Shift>i", "F12"]);
+    application.set_accels_for_action("win.close-window", &["<Ctrl>q", "<Ctrl><Shift>w"]);
+    application.set_accels_for_action("win.library", &["<Ctrl>d"]);
+    application.set_accels_for_action("win.next-tab", &["<Ctrl>Page_Down", "<Ctrl>Tab"]);
+    application.set_accels_for_action("win.previous-tab", &["<Ctrl>Page_Up", "<Ctrl><Shift>Tab"]);
+    application.set_accels_for_action("win.current-tab-left", &["<Ctrl><Shift>Page_Up"]);
+    application.set_accels_for_action("win.current-tab-right", &["<Ctrl><Shift>Page_Down"]);
+    application.set_accels_for_action("win.duplicate-current-tab", &["<Ctrl><Shift>k"]);
+    application.set_accels_for_action("win.tab-overview", &["<Ctrl><Shift>o"]);
     application.run();
 
     let _ = shutdown_recv.recv().await;

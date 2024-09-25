@@ -108,7 +108,7 @@ pub fn update_nav_bar(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebVi
     if url.starts_with(&format!("http://{}.ipfs.localhost:8080/", split_cid[0])) {
         url = cid;
     }
-    if url == "oku:home" || url == "about:blank" {
+    if url.starts_with("oku:") || url.starts_with("about:") || url.starts_with("view-source:") {
         url = "".to_string();
     }
     nav_entry.set_text(&uri_for_display(&url).unwrap_or_default());
@@ -244,6 +244,114 @@ pub fn update_title(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebVie
         }
     }
     relevant_page.set_title(&title);
+}
+
+pub fn view_source_scheme_handler(request: &URISchemeRequest) {
+    let web_view = request.web_view().unwrap();
+    if let Some(resource) = web_view.main_resource() {
+        resource.data(
+            Some(&gio::Cancellable::new()),
+            clone!(
+                #[weak]
+                web_view,
+                #[weak]
+                request,
+                #[weak]
+                resource,
+                move |data_result| {
+                    match data_result {
+                        Ok(data) => {
+                            let liquid_parser = liquid::ParserBuilder::with_stdlib()
+                                .tag(liquid_lib::jekyll::IncludeTag)
+                                .filter(liquid_lib::jekyll::ArrayToSentenceString)
+                                .filter(liquid_lib::jekyll::Pop)
+                                .filter(liquid_lib::jekyll::Push)
+                                .filter(liquid_lib::jekyll::Shift)
+                                .filter(liquid_lib::jekyll::Slugify)
+                                .filter(liquid_lib::jekyll::Unshift)
+                                .filter(liquid_lib::jekyll::Sort)
+                                .filter(liquid_lib::shopify::Pluralize)
+                                .filter(liquid_lib::extra::DateInTz)
+                                .build()
+                                .unwrap();
+                            match std::str::from_utf8(&data) {
+                                Ok(html) => {
+                                    let uri =
+                                        webkit2gtk::functions::uri_for_display(&match web_view
+                                            .back_forward_list()
+                                        {
+                                            Some(back_forward_list) => match back_forward_list
+                                                .back_item()
+                                            {
+                                                Some(back_item) => {
+                                                    back_item.uri().unwrap_or_default().to_string()
+                                                }
+                                                None => {
+                                                    resource.uri().unwrap_or_default().to_string()
+                                                }
+                                            },
+                                            None => resource.uri().unwrap_or_default().to_string(),
+                                        })
+                                        .unwrap_or_default()
+                                        .to_string();
+                                    let title = match web_view.back_forward_list() {
+                                        Some(back_forward_list) => match back_forward_list
+                                            .back_item()
+                                        {
+                                            Some(back_item) => {
+                                                back_item.title().unwrap_or(uri.into()).to_string()
+                                            }
+                                            None => uri,
+                                        },
+                                        None => uri,
+                                    };
+                                    let liquid_objects = liquid::object!({
+                                        "content": html,
+                                        "title": title
+                                    });
+                                    let view_source_template =
+                                        include_str!("browser_pages/output/view_source.html");
+                                    let rendered = liquid_parser
+                                        .parse(&view_source_template)
+                                        .unwrap()
+                                        .render(&liquid_objects)
+                                        .unwrap();
+                                    let file_bytes = rendered.as_bytes().to_vec();
+                                    let byte_size = file_bytes.len();
+                                    let content_type = tree_magic_mini::from_u8(&file_bytes);
+                                    let mem_stream = gio::MemoryInputStream::from_bytes(
+                                        &glib::Bytes::from_owned(file_bytes),
+                                    );
+                                    request.finish(
+                                        &mem_stream,
+                                        byte_size.try_into().unwrap(),
+                                        Some(content_type),
+                                    );
+                                }
+                                Err(e) => {
+                                    request.finish_error(&mut glib::error::Error::new(
+                                        webkit2gtk::NetworkError::Failed,
+                                        &format!("{}", e),
+                                    ));
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            request.finish_error(&mut glib::error::Error::new(
+                                webkit2gtk::NetworkError::Failed,
+                                &format!("{}", e),
+                            ));
+                        }
+                    }
+                }
+            ),
+        )
+    } else {
+        request.finish_error(&mut glib::error::Error::new(
+            webkit2gtk::NetworkError::Failed,
+            &format!("No resource loaded to view source of … "),
+        ));
+    }
 }
 
 pub fn oku_scheme_handler<'a>(request: &'a URISchemeRequest) -> &'a URISchemeRequest {

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/com/github/dirout/oku/icons/scalable/actions/">
+    <file preprocess="xml-stripblanks">arrow-pointing-at-line-down-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">external-link-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">file-cabinet-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">globe-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">keyboard-shortcuts-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">library-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">people-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">screen-privacy7-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">share-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">update-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">uppercase-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">user-trash-symbolic.svg</file>
+  </gresource>
+</gresources>
