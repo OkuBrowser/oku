@@ -840,6 +840,21 @@ impl Window {
                 find_popover.popup();
             }
         ));
+        imp.find_button.set_action_name(Some("win.find"));
+        let action_find = gio::ActionEntry::builder("find")
+            .activate(clone!(
+                #[weak(rename_to = find_popover)]
+                imp.find_popover,
+                move |_window: &Self, _, _| {
+                    if !find_popover.is_visible() {
+                        find_popover.popup();
+                    } else {
+                        find_popover.popdown();
+                    }
+                }
+            ))
+            .build();
+        self.add_action_entries([action_find]);
     }
 
     fn setup_replicas_button_clicked(&self) {
@@ -967,6 +982,17 @@ impl Window {
                 this.new_tab_page(&web_context, None, None);
             }
         ));
+        imp.add_tab_button.set_action_name(Some("win.new-tab"));
+        let action_new_tab = gio::ActionEntry::builder("new-tab")
+            .activate(clone!(
+                #[weak]
+                web_context,
+                move |window: &Self, _, _| {
+                    window.new_tab_page(&web_context, None, None);
+                }
+            ))
+            .build();
+        self.add_action_entries([action_new_tab]);
     }
 
     fn setup_sidebar_button_clicked(&self) {
@@ -1050,6 +1076,14 @@ impl Window {
                 web_view.go_back()
             }
         ));
+        imp.back_button.set_action_name(Some("win.previous"));
+        let action_previous = gio::ActionEntry::builder("previous")
+            .activate(|window: &Self, _, _| {
+                let web_view = window.get_view();
+                web_view.go_back();
+            })
+            .build();
+        self.add_action_entries([action_previous]);
 
         // Forward button clicked
         imp.forward_button.connect_clicked(clone!(
@@ -1060,6 +1094,14 @@ impl Window {
                 web_view.go_forward()
             }
         ));
+        imp.forward_button.set_action_name(Some("win.next"));
+        let action_next = gio::ActionEntry::builder("next")
+            .activate(|window: &Self, _, _| {
+                let web_view = window.get_view();
+                web_view.go_forward();
+            })
+            .build();
+        self.add_action_entries([action_next]);
 
         // Refresh button clicked
         imp.refresh_button.connect_clicked(clone!(
@@ -1074,6 +1116,14 @@ impl Window {
                 }
             }
         ));
+        imp.refresh_button.set_action_name(Some("win.reload"));
+        let action_reload = gio::ActionEntry::builder("reload")
+            .activate(|window: &Self, _, _| {
+                let web_view = window.get_view();
+                web_view.reload_bypass_cache();
+            })
+            .build();
+        self.add_action_entries([action_reload]);
 
         // User hit return key in navbar, prompting navigation
         imp.nav_entry.connect_activate(clone!(
@@ -1374,6 +1424,15 @@ impl Window {
                 web_view.set_zoom_level(current_zoom_level + 0.1);
             }
         ));
+        imp.zoomin_button.set_action_name(Some("win.zoom-in"));
+        let action_zoom_in = gio::ActionEntry::builder("zoom-in")
+            .activate(move |window: &Self, _, _| {
+                let web_view = window.get_view();
+                let current_zoom_level = web_view.zoom_level();
+                web_view.set_zoom_level(current_zoom_level + 0.1);
+            })
+            .build();
+        self.add_action_entries([action_zoom_in]);
 
         // Zoom-out button clicked
         imp.zoomout_button.connect_clicked(clone!(
@@ -1385,6 +1444,15 @@ impl Window {
                 web_view.set_zoom_level(current_zoom_level - 0.1);
             }
         ));
+        imp.add_tab_button.set_action_name(Some("win.zoom-out"));
+        let action_zoom_out = gio::ActionEntry::builder("zoom-out")
+            .activate(move |window: &Self, _, _| {
+                let web_view = window.get_view();
+                let current_zoom_level = web_view.zoom_level();
+                web_view.set_zoom_level(current_zoom_level - 0.1);
+            })
+            .build();
+        self.add_action_entries([action_zoom_out]);
 
         // Reset Zoom button clicked
         imp.zoomreset_button.connect_clicked(clone!(
@@ -1395,6 +1463,14 @@ impl Window {
                 web_view.set_zoom_level(1.0);
             }
         ));
+        imp.add_tab_button.set_action_name(Some("win.reset-zoom"));
+        let action_reset_zoom = gio::ActionEntry::builder("reset-zoom")
+            .activate(move |window: &Self, _, _| {
+                let web_view = window.get_view();
+                web_view.set_zoom_level(1.0);
+            })
+            .build();
+        self.add_action_entries([action_reset_zoom]);
     }
 
     /// Create new browser window when a tab is dragged off
@@ -1466,6 +1542,37 @@ impl Window {
                 }
             }
         ));
+        imp.fullscreen_button
+            .set_action_name(Some("win.fullscreen"));
+        let action_fullscreen = gio::ActionEntry::builder("fullscreen")
+            .activate(clone!(
+                #[weak(rename_to = fullscreen_button)]
+                imp.fullscreen_button,
+                move |window: &Self, _, _| {
+                    let web_view = window.get_view();
+                    if !window.is_fullscreen() {
+                        fullscreen_button.set_icon_name("view-restore");
+                        web_view.evaluate_javascript(
+                            "document.documentElement.requestFullscreen();",
+                            None,
+                            None,
+                            Some(&gio::Cancellable::new()),
+                            move |_| {},
+                        )
+                    } else {
+                        fullscreen_button.set_icon_name("view-fullscreen");
+                        web_view.evaluate_javascript(
+                            "document.exitFullscreen();",
+                            None,
+                            None,
+                            Some(&gio::Cancellable::new()),
+                            move |_| {},
+                        )
+                    }
+                }
+            ))
+            .build();
+        self.add_action_entries([action_fullscreen]);
 
         // Print button clicked
         imp.print_button.connect_clicked(clone!(
@@ -1482,6 +1589,20 @@ impl Window {
                 )
             }
         ));
+        imp.print_button.set_action_name(Some("win.print"));
+        let action_print = gio::ActionEntry::builder("print")
+            .activate(clone!(move |window: &Self, _, _| {
+                let web_view = window.get_view();
+                web_view.evaluate_javascript(
+                    "window.print();",
+                    None,
+                    None,
+                    Some(&gio::Cancellable::new()),
+                    move |_| {},
+                )
+            }))
+            .build();
+        self.add_action_entries([action_print]);
 
         // Screenshot button clicked
         imp.screenshot_button.connect_clicked(clone!(
@@ -1591,6 +1712,22 @@ impl Window {
                 );
             }
         ));
+        imp.new_window_button.set_action_name(Some("win.new"));
+        let action_new = gio::ActionEntry::builder("new")
+            .activate(clone!(
+                #[weak]
+                web_context,
+                move |window: &Self, _, _| {
+                    self::Window::new(
+                        &window.application().unwrap().downcast().unwrap(),
+                        &*window.imp().style_provider.borrow(),
+                        &web_context,
+                        false,
+                    );
+                }
+            ))
+            .build();
+        self.add_action_entries([action_new]);
 
         // New Private Window button clicked
         imp.new_private_window_button.connect_clicked(clone!(
@@ -1607,6 +1744,23 @@ impl Window {
                 );
             }
         ));
+        imp.new_private_window_button
+            .set_action_name(Some("win.new-private"));
+        let action_new_private = gio::ActionEntry::builder("new-private")
+            .activate(clone!(
+                #[weak]
+                web_context,
+                move |window: &Self, _, _| {
+                    self::Window::new(
+                        &window.application().unwrap().downcast().unwrap(),
+                        &*window.imp().style_provider.borrow(),
+                        &web_context,
+                        true,
+                    );
+                }
+            ))
+            .build();
+        self.add_action_entries([action_new_private]);
 
         // Settings button clicked
         imp.settings_button.connect_clicked(clone!(
@@ -1654,9 +1808,107 @@ impl Window {
             #[weak]
             imp,
             move |_, new_page, _page_position| {
+                let action_close_tab = gio::ActionEntry::builder("close-tab")
+                    .activate(
+                        clone!(
+                            #[weak(rename_to = tab_view)]
+                            imp.tab_view,
+                            #[weak]
+                            new_page,
+                            move |_window: &Self, _, _| {
+                                tab_view.close_page(&new_page);
+                            }
+                        )
+                    )
+                    .build();
+                this.add_action_entries([action_close_tab]);
+
                 let new_view = get_view_from_page(&new_page);
                 let find_controller = new_view.find_controller().unwrap();
                 let network_session = new_view.network_session().unwrap();
+
+                let action_save = gio::ActionEntry::builder("save")
+                    .activate(
+                        clone!(
+                            #[weak]
+                            new_view,
+                            move |window: &Self, _, _| {
+                                let dialog = libadwaita::AlertDialog::new(
+                                    Some("Save page?"),
+                                    Some(&format!(
+                                        "Would you like to save '{}'?",
+                                        new_view.uri().unwrap_or_default()
+                                    )),
+                                );
+                                dialog.add_responses(&[
+                                    ("cancel", "Cancel"),
+                                    ("save", "Save"),
+                                ]);
+                                dialog.set_response_appearance(
+                                    "cancel",
+                                    ResponseAppearance::Default,
+                                );
+                                dialog.set_response_appearance(
+                                    "save",
+                                    ResponseAppearance::Suggested,
+                                );
+                                dialog.set_default_response(Some("cancel"));
+                                dialog.set_close_response("cancel");
+                                dialog.connect_response(
+                                    None,
+                                    clone!(
+                                        #[weak]
+                                        window,
+                                        #[weak]
+                                        new_view,
+                                        move |_, response| {
+                                            match response {
+                                                "cancel" => (),
+                                                "save" => {
+                                                    let mhtml_filter = gtk::FileFilter::new();
+                                                    mhtml_filter.add_pattern("*.mhtml");
+                                                    let filter_store = gio::ListStore::new::<gtk::FileFilter>();
+                                                    filter_store.append(&mhtml_filter);
+                                                    let file_dialog =
+                                                        gtk::FileDialog::builder()
+                                                            .accept_label("Save")
+                                                            .initial_name("page.mhtml")
+                                                            .filters(&filter_store)
+                                                            .initial_folder(&gio::File::for_path(glib::user_special_dir(glib::enums::UserDirectory::Downloads).unwrap()))
+                                                            .title(&format!(
+                                                                "Select destination for '{}'",
+                                                                new_view.uri().unwrap_or_default()
+                                                            ))
+                                                            .build();
+                                                    file_dialog.save(
+                                                        Some(&window),
+                                                        Some(&gio::Cancellable::new()),
+                                                        clone!(
+                                                            #[weak]
+                                                            new_view,
+                                                            move |destination| {
+                                                                    if let Ok(destination) = destination {
+                                                                        new_view.save_to_file(&destination, webkit2gtk::SaveMode::Mhtml, Some(&gio::Cancellable::new()), |_| {
+
+                                                                        });
+                                                                    }
+                                                            }
+                                                        ),
+                                                    )
+                                                }
+                                                _ => {
+                                                    unreachable!()
+                                                }
+                                            }
+                                        }
+                                    ),
+                                );
+                                dialog.present(Some(window));
+                            }
+                        )
+                    )
+                    .build();
+                this.add_action_entries([action_save]);
 
                 network_session.connect_download_started(clone!(
                     #[weak]

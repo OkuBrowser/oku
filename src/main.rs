@@ -243,6 +243,20 @@ async fn main() {
     application.connect_shutdown(clone!(move |_| {
         shutdown_send.send(()).unwrap();
     }));
+    application.set_accels_for_action("win.previous", &["<Alt>Left", "<Alt>KP_Left"]);
+    application.set_accels_for_action("win.next", &["<Alt>Right", "<Alt>KP_Right"]);
+    application.set_accels_for_action("win.reload", &["<Ctrl>r", "F5"]);
+    application.set_accels_for_action("win.new-tab", &["<Ctrl>t"]);
+    application.set_accels_for_action("win.close-tab", &["<Ctrl>w"]);
+    application.set_accels_for_action("win.zoom-in", &["<Ctrl>plus"]);
+    application.set_accels_for_action("win.zoom-out", &["<Ctrl>minus"]);
+    application.set_accels_for_action("win.reset-zoom", &["<Ctrl>0"]);
+    application.set_accels_for_action("win.find", &["<Ctrl>f"]);
+    application.set_accels_for_action("win.print", &["<Ctrl>p"]);
+    application.set_accels_for_action("win.fullscreen", &["F11"]);
+    application.set_accels_for_action("win.save", &["<Ctrl>s"]);
+    application.set_accels_for_action("win.new", &["<Ctrl>n"]);
+    application.set_accels_for_action("win.new-private", &["<Ctrl><Shift>p"]);
     application.run();
 
     let _ = shutdown_recv.recv().await;
