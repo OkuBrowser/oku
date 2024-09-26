@@ -107,7 +107,7 @@
 }
 
 :root {
-    --body-bg: linear-gradient(transparent, color-mix(in srgb, var(--grey) 25%, transparent));
+    --body-bg: linear-gradient(var(--light-2), color-mix(in srgb, var(--grey) 25%, var(--light-2)));
     --body-color: var(--dark-3);
     --link-color: color-mix(in srgb, var(--pink) 80%, var(--purple));
     --link-hover-color: color-mix(in srgb, color-mix(in srgb, var(--pink) 80%, var(--purple)), black 35%);
@@ -118,7 +118,7 @@
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --body-bg: linear-gradient(color-mix(in srgb, var(--grey), transparent 90%), transparent);
+        --body-bg: linear-gradient(color-mix(in srgb, var(--grey), var(--dark-4) 90%), var(--dark-4));
         --body-color: var(--light-2);
         --link-color: color-mix(in srgb, var(--orange) 80%, var(--yellow));
         --link-hover-color: color-mix(in srgb, color-mix(in srgb, var(--orange) 80%, var(--yellow)) 90%, white);
