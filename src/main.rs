@@ -18,8 +18,8 @@
 // #![feature(doc_cfg)]
 #![allow(clippy::needless_doctest_main)]
 #![doc(
-    html_logo_url = "https://github.com/Dirout/oku/raw/master/branding/logo-filled.svg",
-    html_favicon_url = "https://github.com/Dirout/oku/raw/master/branding/logo-filled.svg"
+    html_logo_url = "https://github.com/OkuBrowser/oku/raw/master/branding/logo-filled.svg",
+    html_favicon_url = "https://github.com/OkuBrowser/oku/raw/master/branding/logo-filled.svg"
 )]
 pub mod config;
 pub mod history;
@@ -31,7 +31,6 @@ pub mod window_util;
 use config::Config;
 use directories_next::ProjectDirs;
 use directories_next::UserDirs;
-use fuser::BackgroundSession;
 use gio::prelude::*;
 use glib_macros::clone;
 use gtk::prelude::GtkApplicationExt;
@@ -40,6 +39,7 @@ use ipfs::Ipfs;
 use ipfs::Keypair;
 use ipfs::UninitializedIpfsNoop as UninitializedIpfs;
 use oku_fs::fs::OkuFs;
+use oku_fs::fuser::BackgroundSession;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -62,7 +62,7 @@ extern crate lazy_static;
 lazy_static! {
     /// The platform-specific directories intended for Oku's use
     static ref PROJECT_DIRECTORIES: ProjectDirs =
-        ProjectDirs::from("com", "github.dirout", "oku").unwrap();
+        ProjectDirs::from("com", "github", "OkuBrowser").unwrap();
     /// The platform-specific directory where Oku caches data
     static ref CACHE_DIR: PathBuf = PROJECT_DIRECTORIES.cache_dir().to_path_buf();
     /// The platform-specific directory where Oku stores user data
@@ -182,7 +182,7 @@ async fn main() {
     let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::unbounded_channel();
 
     let application = libadwaita::Application::builder()
-        .application_id("com.github.dirout.oku")
+        .application_id("com.github.OkuBrowser")
         .flags(gio::ApplicationFlags::HANDLES_OPEN)
         .version(VERSION.to_string())
         .build();

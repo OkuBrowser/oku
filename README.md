@@ -6,7 +6,7 @@ A Web browser with an emphasis on local-first data storage.
 
 ### Binary
 
-Run:
+Run `./prebuild.sh`, then:
 * `cargo build` for debug builds.
 * `cargo build --release` for release builds.
 * `cargo install --path .` to install Oku.

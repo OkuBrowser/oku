@@ -724,12 +724,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
-name = "coolor"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "691defa50318376447a73ced869862baecfab35f6aabaa91a4cd726b315bfe1a"
-
-[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3132,12 +3126,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "layout-rs"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84deb28a3a6c839ca42a7341664f32281416d69e2f29deb85aec5cc0243fdea8"
-
-[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4605,15 +4593,11 @@ name = "oku"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "cairo-rs",
  "chrono",
  "cid 0.11.1",
- "coolor",
  "daggy",
  "directories-next",
- "fuser",
  "futures",
- "gdk-pixbuf",
  "gdk4",
  "gio",
  "glib",
@@ -4622,7 +4606,6 @@ dependencies = [
  "gtk4",
  "html-escape",
  "indicium",
- "layout-rs",
  "lazy_static",
  "libadwaita",
  "liquid",
@@ -4649,7 +4632,7 @@ dependencies = [
 [[package]]
 name = "oku-fs"
 version = "0.1.0"
-source = "git+https://github.com/emmyoh/oku-fs#56daff739a3c89cce6577b228f7d2035d2f7ac87"
+source = "git+https://github.com/emmyoh/oku-fs#243a977b2ffdf07c9cd8d3686a64d3b19975fd79"
 dependencies = [
  "anyhow",
  "async-recursion",

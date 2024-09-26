@@ -1,5 +1,5 @@
 {
-    "app-id" : "com.github.dirout.oku",
+    "app-id" : "com.github.OkuBrowser",
     "runtime" : "org.gnome.Platform",
     "runtime-version" : "46",
     "sdk" : "org.gnome.Sdk",

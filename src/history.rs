@@ -1,6 +1,5 @@
 use crate::suggestion_item::SuggestionItem;
 use crate::HISTORY_DIR;
-use daggy::petgraph::dot::Dot;
 use daggy::petgraph::graph::NodeIndex;
 use daggy::petgraph::stable_graph::DefaultIx;
 use daggy::petgraph::visit::IntoNodeReferences;
@@ -9,10 +8,6 @@ use glob::glob;
 use indicium::simple::Indexable;
 use indicium::simple::SearchIndex;
 use indicium::simple::SearchIndexBuilder;
-use layout::backends::svg::SVGWriter;
-use layout::gv::DotParser;
-use layout::gv::GraphBuilder;
-use layout::std_shapes::shapes::ShapeKind;
 use miette::IntoDiagnostic;
 use serde::Deserialize;
 use serde::Serialize;
@@ -20,7 +15,6 @@ use std::cell::RefCell;
 use std::cmp::Reverse;
 use std::path::PathBuf;
 use tracing::error;
-use tracing::warn;
 use uuid::Uuid;
 use webkit2gtk::FaviconDatabase;
 
@@ -108,9 +102,6 @@ impl HistorySession {
             },
             Err(e) => error!("{}", e),
         }
-        // if self.graph.borrow().node_count() > 0 {
-        //     self.visualise_dag()
-        // }
     }
 
     pub fn find_or_add_uri(&self, uri: String) -> NodeIndex<DefaultIx> {
@@ -173,49 +164,6 @@ impl HistorySession {
                     node.set_title(updated_title);
                 }
             }
-        }
-    }
-
-    pub fn visualise_dag(&self) {
-        let svg_file_path = HISTORY_DIR.to_path_buf().join(format!("{}.svg", self.id));
-        let graph = self.graph.borrow().clone();
-        let graphviz = Dot::with_attr_getters(
-            &graph,
-            &[
-                daggy::petgraph::dot::Config::NodeNoLabel,
-                daggy::petgraph::dot::Config::EdgeNoLabel,
-            ],
-            &|_graph, _edge| String::new(),
-            &|_graph, node| {
-                format!(
-                    "label = \"{}\"",
-                    if node.1.title().trim().is_empty() {
-                        node.1.uri()
-                    } else {
-                        format!("{} ({})", node.1.title(), node.1.uri())
-                    }
-                )
-            },
-        );
-        let mut parser = DotParser::new(&format!("{:?}", graphviz));
-        let tree = parser.process();
-        if let Ok(tree) = tree {
-            let mut gb = GraphBuilder::new();
-            gb.visit_graph(&tree);
-            let mut vg = gb.get();
-            let mut svg = SVGWriter::new();
-            for node_handle in vg.iter_nodes() {
-                let node = vg.element_mut(node_handle);
-                let old_shape = node.shape.clone();
-                if let ShapeKind::Circle(label) = old_shape {
-                    node.shape = ShapeKind::Box(label.clone());
-                }
-            }
-            vg.do_it(false, false, false, &mut svg);
-            let content = svg.finalize();
-            std::fs::write(svg_file_path, content).unwrap();
-        } else {
-            warn!("Unable to visualise the DAG.")
         }
     }
 }

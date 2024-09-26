@@ -160,7 +160,7 @@ impl Window {
             .property("application", app)
             .build();
         this.set_can_focus(true);
-        this.set_icon_name(Some("com.github.dirout.oku"));
+        this.set_icon_name(Some("com.github.OkuBrowser"));
 
         let imp = this.imp();
         imp.is_private.set(is_private);
@@ -1735,8 +1735,10 @@ impl Window {
             .version(VERSION.to_string())
             .application_name("Oku")
             .developer_name("Emil Sayahi")
-            .application_icon("com.github.dirout.oku")
+            .application_icon("com.github.OkuBrowser")
             .license_type(gtk::License::Agpl30)
+            .issue_url("https://github.com/OkuBrowser/oku/issues")
+            .website("https://okubrowser.github.io")
             .build();
         about_dialog.present(Some(self));
     }

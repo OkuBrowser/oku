@@ -34,4 +34,4 @@ jobs:
       uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@v5
       with:
         bundle: "oku.flatpak"
-        manifest-path: "build-aux/com.github.dirout.oku.json"
+        manifest-path: "build-aux/com.github.OkuBrowser.json"

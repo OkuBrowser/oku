@@ -9,7 +9,7 @@
 ## Reporting security problems to Oku
 
 **DO NOT CREATE AN ISSUE** to report a security problem. Instead, please
-send an email to limesayahi@gmail.com
+send an email to [mailto:limesayahi@gmail.com](limesayahi@gmail.com)
 
 <a name="contact"></a>
 ## Security Point of Contact
@@ -27,8 +27,7 @@ process to contain, respond and remediate:
 
 The first step is to find out the root cause, nature and scope of the incident.
 
-- Is still ongoing? If yes, first priority is to stop it.
-- Is the incident outside of my influence? If yes, first priority is to contain it.
+- Is the incident outside of my direct control? If yes, first priority is to contain it.
 - Find out knows about the incident and who is affected.
 - Find out what data was potentially exposed.
 
@@ -37,7 +36,7 @@ The first step is to find out the root cause, nature and scope of the incident.
 After the initial assessment and containment to my best abilities, I will
 document all actions taken in a response plan.
 
-I will create a comment in [the official "Updates" issue](https://github.com/MadeByEmil/oku/issues/3) to inform users about
+I will create a comment in [the official 'Security updates' issue](https://github.com/OkuBrowser/oku/issues/13) to inform users about
 the incident and what I actions I took to contain it.
 
 ### 3. Remediation
@@ -51,8 +50,7 @@ it from happening again.
 
 ### Keep dependencies up to date
 
-A large chunk of the code being run on your machine when you start Oku is not Oku itself, 
-but, rather, the many dependencies it relies on. Even if Oku itself is secure, one of its dependencies may
+Oku has many dependencies that it relies on, and one of its dependencies may
 have security vulnerabilities; if a dependency has a vulnerability, it will likely be patched, and it is important
 that we incorporate those patches into Oku.
 

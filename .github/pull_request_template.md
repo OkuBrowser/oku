@@ -26,7 +26,7 @@ Please describe the tests that you ran to verify your changes. Provide instructi
 
 # Checklist:
 
-- [ ] My code follows [the style guidelines of this project](https://github.com/rust-dev-tools/fmt-rfcs/blob/master/guide/guide.md)
+- [ ] My code follows [the style guidelines of this project](https://doc.rust-lang.org/nightly/style-guide/)
 - [ ] I have performed a self-review of my own code
 - [ ] I have commented my code, particularly in hard-to-understand areas
 - [ ] I have made corresponding changes to the documentation
