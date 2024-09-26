@@ -21,5 +21,5 @@ Name=New Window
 Exec=oku --new-window %U
 
 [Desktop Action new-private-window]
-Name=New Window
+Name=New Private Window
 Exec=oku --new-private-window %U
