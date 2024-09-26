@@ -2845,7 +2845,7 @@ dependencies = [
 [[package]]
 name = "iroh-mainline-content-discovery"
 version = "0.5.0"
-source = "git+https://github.com/n0-computer/iroh-experiments.git#db35083846d13d0b500b5efd33df13463fdabede"
+source = "git+https://github.com/n0-computer/iroh-experiments.git#e0bbc0d73b22e1f06ba43229900a628da7c3e420"
 dependencies = [
  "anyhow",
  "derive_more 1.0.0-beta.7",
@@ -4564,7 +4564,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 3.2.0",
+ "proc-macro-crate 2.0.0",
  "proc-macro2",
  "quote",
  "syn 2.0.77",
@@ -4632,7 +4632,7 @@ dependencies = [
 [[package]]
 name = "oku-fs"
 version = "0.1.0"
-source = "git+https://github.com/emmyoh/oku-fs#243a977b2ffdf07c9cd8d3686a64d3b19975fd79"
+source = "git+https://github.com/emmyoh/oku-fs#c60de9b85c287fc5f644b338c10b28cad46df573"
 dependencies = [
  "anyhow",
  "async-recursion",
