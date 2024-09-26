@@ -167,8 +167,9 @@ async fn create_ipfs_client() -> Ipfs {
 /// The main function of Oku
 #[tokio::main]
 async fn main() {
-    let res = gio::Resource::load("resources.gresource").unwrap();
-    gio::resources_register(&res);
+    if let Ok(res) = gio::Resource::load("resources.gresource") {
+        gio::resources_register(&res);
+    }
 
     tracing_subscriber::fmt()
         .with_env_filter("oku=trace")
