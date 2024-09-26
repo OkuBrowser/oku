@@ -4,13 +4,11 @@ A Web browser with an emphasis on local-first data storage.
 
 ## Build instructions
 
-### Binary
+As this project has not reached a stable release, pre-built packages are not publicly available.
+If you are interested in using Oku, please follow the [documented build instructions](https://github.com/OkuBrowser/oku/blob/master/BUILDING.md).
 
-Run `./prebuild.sh`, then:
-* `cargo build` for debug builds.
-* `cargo build --release` for release builds.
-* `cargo install --path .` to install Oku.
+---
 
-### Flatpak
+## License
 
-Run `./install_flatpak.sh`, assuming prerequisites are installed.
+This software is available under the [GNU Affero General Public License, Version 3](https://www.gnu.org/licenses/agpl-3.0.en.html).
