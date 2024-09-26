@@ -4632,7 +4632,7 @@ dependencies = [
 [[package]]
 name = "oku-fs"
 version = "0.1.0"
-source = "git+https://github.com/emmyoh/oku-fs#c5b9c0bf281771e9a1000e5b5d392ba63372e744"
+source = "git+https://github.com/emmyoh/oku-fs#a8e325d3239ea7cc3221dee7085d6827ef68b7b3"
 dependencies = [
  "anyhow",
  "async-recursion",

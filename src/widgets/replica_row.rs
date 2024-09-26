@@ -247,7 +247,7 @@ impl ReplicaRow {
                         async move {
                             if let Some(node) = NODE.get() {
                                 match node
-                                    .fetch_replica(
+                                    .fetch_replica_by_id(
                                         NamespaceId::from_str(&this.id()).unwrap(),
                                         None,
                                         false,
