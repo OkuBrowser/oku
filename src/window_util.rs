@@ -408,10 +408,7 @@ pub fn node_scheme_handler<'a>(request: &'a URISchemeRequest) -> &'a URISchemeRe
                         #[strong]
                         node,
                         async move {
-                            match node
-                                .fetch_file_with_tickets(vec![ticket], replica_path)
-                                .await
-                            {
+                            match node.fetch_file_with_ticket(ticket, replica_path).await {
                                 Ok(file_bytes) => {
                                     let file_vec = file_bytes.to_vec();
                                     let byte_size = file_vec.len();
