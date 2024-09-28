@@ -24,6 +24,7 @@
 pub mod config;
 pub mod history;
 pub mod replica_item;
+pub mod scheme_handlers;
 pub mod suggestion_item;
 pub mod widgets;
 pub mod window_util;
@@ -40,6 +41,9 @@ use ipfs::Keypair;
 use ipfs::UninitializedIpfsNoop as UninitializedIpfs;
 use oku_fs::fs::OkuFs;
 use oku_fs::fuser::BackgroundSession;
+use scheme_handlers::util::handle_request;
+use scheme_handlers::util::RequestScheme;
+use scheme_handlers::util::SchemeRequest;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -50,11 +54,6 @@ use tracing::info;
 use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::URISchemeRequest;
 use webkit2gtk::WebContext;
-use window_util::ipfs_scheme_handler;
-use window_util::ipns_scheme_handler;
-use window_util::node_scheme_handler;
-use window_util::oku_scheme_handler;
-use window_util::view_source_scheme_handler;
 
 #[macro_use]
 extern crate lazy_static;
@@ -92,15 +91,31 @@ async fn create_web_context() -> (WebContext, Option<BackgroundSession>, Ipfs) {
     let web_context = WebContext::builder().build();
     web_context.register_uri_scheme(
         "oku",
-        clone!(move |request: &URISchemeRequest| {
-            oku_scheme_handler(request);
-        }),
+        clone!(
+            #[strong]
+            ipfs,
+            move |request: &URISchemeRequest| {
+                handle_request(
+                    ipfs.clone(),
+                    SchemeRequest(request.clone()),
+                    RequestScheme::Oku,
+                )
+            }
+        ),
     );
     web_context.register_uri_scheme(
         "hive",
-        clone!(move |request: &URISchemeRequest| {
-            node_scheme_handler(request);
-        }),
+        clone!(
+            #[strong]
+            ipfs,
+            move |request: &URISchemeRequest| {
+                handle_request(
+                    ipfs.clone(),
+                    SchemeRequest(request.clone()),
+                    RequestScheme::Hive,
+                )
+            }
+        ),
     );
     web_context.register_uri_scheme(
         "ipns",
@@ -108,7 +123,11 @@ async fn create_web_context() -> (WebContext, Option<BackgroundSession>, Ipfs) {
             #[strong]
             ipfs,
             move |request: &URISchemeRequest| {
-                ipns_scheme_handler(&ipfs, request);
+                handle_request(
+                    ipfs.clone(),
+                    SchemeRequest(request.clone()),
+                    RequestScheme::Ipns,
+                )
             }
         ),
     );
@@ -118,15 +137,27 @@ async fn create_web_context() -> (WebContext, Option<BackgroundSession>, Ipfs) {
             #[strong]
             ipfs,
             move |request: &URISchemeRequest| {
-                ipfs_scheme_handler(&ipfs, request);
+                handle_request(
+                    ipfs.clone(),
+                    SchemeRequest(request.clone()),
+                    RequestScheme::Ipfs,
+                )
             }
         ),
     );
     web_context.register_uri_scheme(
         "view-source",
-        clone!(move |request: &URISchemeRequest| {
-            view_source_scheme_handler(request);
-        }),
+        clone!(
+            #[strong]
+            ipfs,
+            move |request: &URISchemeRequest| {
+                handle_request(
+                    ipfs.clone(),
+                    SchemeRequest(request.clone()),
+                    RequestScheme::ViewSource,
+                )
+            }
+        ),
     );
     (web_context, mount_handle, ipfs)
 }

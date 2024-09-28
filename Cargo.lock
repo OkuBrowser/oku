@@ -4593,6 +4593,7 @@ name = "oku"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "bytes",
  "chrono",
  "cid 0.11.1",
  "daggy",
