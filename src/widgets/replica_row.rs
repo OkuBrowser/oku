@@ -21,13 +21,13 @@ use gtk::subclass::prelude::*;
 use libadwaita::prelude::ActionRowExt;
 use libadwaita::prelude::PreferencesRowExt;
 use libadwaita::subclass::prelude::*;
+use log::error;
 use oku_fs::iroh::base::ticket::Ticket;
 use oku_fs::iroh::client::docs::ShareMode;
 use oku_fs::iroh::docs::NamespaceId;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::str::FromStr;
-use tracing::error;
 
 pub mod imp {
     use super::*;

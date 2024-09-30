@@ -1,8 +1,8 @@
 use crate::CONFIG_DIR;
+use log::error;
 use serde::Deserialize;
 use serde::Serialize;
 use std::cell::RefCell;
-use tracing::error;
 
 #[derive(
     Default, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy, Serialize, Deserialize,

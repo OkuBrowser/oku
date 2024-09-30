@@ -32,6 +32,7 @@ pub mod window_util;
 use config::Config;
 use directories_next::ProjectDirs;
 use directories_next::UserDirs;
+use env_logger::Builder;
 use gio::prelude::*;
 use glib_macros::clone;
 use gtk::prelude::GtkApplicationExt;
@@ -39,6 +40,8 @@ use history::HistoryManager;
 use ipfs::Ipfs;
 use ipfs::Keypair;
 use ipfs::UninitializedIpfsNoop as UninitializedIpfs;
+use log::error;
+use log::{info, LevelFilter};
 use oku_fs::fs::OkuFs;
 use oku_fs::fuser::BackgroundSession;
 use scheme_handlers::util::handle_request;
@@ -49,8 +52,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::OnceLock;
 use tokio::runtime::Handle;
-use tracing::error;
-use tracing::info;
 use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::URISchemeRequest;
 use webkit2gtk::WebContext;
@@ -202,14 +203,11 @@ async fn main() {
         gio::resources_register(&res);
     }
 
-    tracing_subscriber::fmt()
-        .with_env_filter("oku=trace")
-        .pretty()
-        .with_thread_ids(true)
-        .with_thread_names(true)
-        .with_file(true)
-        .with_line_number(true)
-        .init();
+    let mut builder = Builder::new();
+    builder.filter(Some("oku"), LevelFilter::Trace);
+    builder.filter(Some("oku_fs"), LevelFilter::Trace);
+    builder.format_module_path(true);
+    builder.init();
 
     let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::unbounded_channel();
 

@@ -6,8 +6,8 @@ use super::{
 };
 use bytes::Bytes;
 use ipfs::Ipfs;
+use log::error;
 use tokio::runtime::Handle;
-use tracing::error;
 use webkit2gtk::URISchemeRequest;
 
 pub enum RequestScheme {

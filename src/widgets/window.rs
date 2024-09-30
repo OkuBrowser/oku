@@ -15,12 +15,12 @@ use gtk::EventControllerFocus;
 use gtk::{gio, glib};
 use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
 use libadwaita::{prelude::*, ResponseAppearance};
+use log::{error, info, warn};
 use oku_fs::iroh::docs::CapabilityKind;
 use std::cell::RefCell;
 use std::cell::{Cell, Ref};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use tracing::{error, info, warn};
 use webkit2gtk::functions::{
     uri_for_display, user_media_permission_is_for_audio_device,
     user_media_permission_is_for_display_device, user_media_permission_is_for_video_device,

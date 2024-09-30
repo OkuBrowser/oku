@@ -5,8 +5,8 @@ use gtk::glib;
 use gtk::subclass::prelude::*;
 use libadwaita::subclass::{dialog::AdwDialogImpl, preferences_dialog::PreferencesDialogImpl};
 use libadwaita::{prelude::*, StyleManager};
+use log::error;
 use oku_fs::config::OkuFsRelayConnectionConfig;
-use tracing::error;
 
 pub mod imp {
     use super::*;

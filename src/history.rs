@@ -8,13 +8,13 @@ use glob::glob;
 use indicium::simple::Indexable;
 use indicium::simple::SearchIndex;
 use indicium::simple::SearchIndexBuilder;
+use log::error;
 use miette::IntoDiagnostic;
 use serde::Deserialize;
 use serde::Serialize;
 use std::cell::RefCell;
 use std::cmp::Reverse;
 use std::path::PathBuf;
-use tracing::error;
 use uuid::Uuid;
 use webkit2gtk::FaviconDatabase;
 

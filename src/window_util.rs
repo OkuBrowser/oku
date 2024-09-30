@@ -1,9 +1,9 @@
 use crate::HISTORY_MANAGER;
 use glib::object::{Cast, IsA};
 use gtk::{prelude::EditableExt, prelude::WidgetExt};
+use log::{error, warn};
 use oku_fs::iroh::docs::{DocTicket, NamespaceId};
 use std::{path::PathBuf, str::FromStr};
-use tracing::{error, warn};
 use webkit2gtk::{functions::uri_for_display, prelude::WebViewExt};
 
 /// Connect to a page using the current tab
