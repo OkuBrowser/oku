@@ -250,8 +250,6 @@ impl ReplicaRow {
                                     .fetch_replica_by_id(
                                         NamespaceId::from_str(&this.id()).unwrap(),
                                         None,
-                                        false,
-                                        false,
                                     )
                                     .await
                                 {
@@ -287,11 +285,7 @@ impl ReplicaRow {
                         async move {
                             if let Some(node) = NODE.get() {
                                 match node
-                                    .sync_replica(
-                                        NamespaceId::from_str(&this.id()).unwrap(),
-                                        false,
-                                        false,
-                                    )
+                                    .sync_replica(NamespaceId::from_str(&this.id()).unwrap())
                                     .await
                                 {
                                     Ok(_) => (),

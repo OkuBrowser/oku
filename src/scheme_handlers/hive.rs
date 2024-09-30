@@ -35,7 +35,7 @@ pub async fn node_scheme_handler(request: SchemeRequest) -> miette::Result<impl 
             .await
             .map_err(|e| miette::miette!("{}", e))
     } else if let Ok(namespace_id) = NamespaceId::from_str(first_component_string) {
-        node.fetch_file(namespace_id, replica_path, false, false)
+        node.fetch_file(namespace_id, replica_path)
             .await
             .map_err(|e| miette::miette!("{}", e))
     } else {

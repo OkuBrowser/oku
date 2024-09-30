@@ -1,12 +1,10 @@
 use crate::config::{ColourScheme, Palette};
-use crate::{CONFIG, NODE};
+use crate::CONFIG;
 use glib::clone;
 use gtk::glib;
 use gtk::subclass::prelude::*;
 use libadwaita::subclass::{dialog::AdwDialogImpl, preferences_dialog::PreferencesDialogImpl};
 use libadwaita::{prelude::*, StyleManager};
-use log::error;
-use oku_fs::config::OkuFsRelayConnectionConfig;
 
 pub mod imp {
     use super::*;
@@ -22,9 +20,6 @@ pub mod imp {
         pub(crate) palette_row: libadwaita::ComboRow,
         pub(crate) palette_selection: gtk::SingleSelection,
         pub(crate) palette_list: gtk::StringList,
-        pub(crate) node_group: libadwaita::PreferencesGroup,
-        pub(crate) node_relay_row: libadwaita::EntryRow,
-        pub(crate) node_relay_attempts_row: libadwaita::SpinRow,
     }
 
     impl Settings {}
@@ -91,156 +86,9 @@ impl Settings {
         let imp = self.imp();
 
         self.setup_appearance_group(&style_manager, &window);
-        self.setup_node_group();
 
         imp.main_page.add(&imp.appearance_group);
-        imp.main_page.add(&imp.node_group);
         self.add(&imp.main_page);
-    }
-
-    pub fn apply_node_config(&self) -> miette::Result<()> {
-        let imp = self.imp();
-
-        if let Some(node) = NODE.get() {
-            if imp.node_relay_row.text().trim().is_empty() {
-                node.config.set_relay_connection_config(None)?;
-                imp.node_relay_attempts_row.set_sensitive(false);
-            } else {
-                match node.config.relay_connection_config()? {
-                    Some(relay_connection_config) => {
-                        relay_connection_config
-                            .set_relay_address(imp.node_relay_row.text().trim().to_string())?;
-                        imp.node_relay_attempts_row.set_sensitive(true);
-                        relay_connection_config.set_relay_connection_attempts(
-                            imp.node_relay_attempts_row.value() as i64,
-                        )?;
-                    }
-                    None => {
-                        node.config.set_relay_connection_config(Some(
-                            OkuFsRelayConnectionConfig::new(
-                                imp.node_relay_row.text().trim().to_string(),
-                                imp.node_relay_attempts_row.value() as i64,
-                            ),
-                        ))?;
-                        imp.node_relay_attempts_row.set_sensitive(true);
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
-    pub fn setup_node_group(&self) {
-        let imp = self.imp();
-
-        self.setup_node_relay_row();
-        self.setup_node_relay_attempts_row();
-
-        imp.node_group.set_title("Node");
-        imp.node_group.set_description(Some(
-            "Configuration of the browser's peer-to-peer capabilities",
-        ));
-        imp.node_group.add(&imp.node_relay_row);
-        imp.node_group.add(&imp.node_relay_attempts_row);
-    }
-
-    pub fn setup_node_relay_row(&self) {
-        let imp = self.imp();
-
-        imp.node_relay_row.set_title("Relay address");
-        imp.node_relay_row.set_tooltip_text(Some(
-            "An address to a relay server to perform hole punching.",
-        ));
-        imp.node_relay_row.set_show_apply_button(true);
-        let initial_value = match NODE.get() {
-            None => String::new(),
-            Some(node) => match node.config.relay_connection_config() {
-                Ok(relay_connection_config) => match relay_connection_config {
-                    Some(relay_connection_config) => {
-                        match relay_connection_config.relay_address() {
-                            Ok(relay_address) => relay_address,
-                            Err(e) => {
-                                error!("{}", e);
-                                String::new()
-                            }
-                        }
-                    }
-                    None => String::new(),
-                },
-                Err(e) => {
-                    error!("{}", e);
-                    String::new()
-                }
-            },
-        };
-        imp.node_relay_row.set_text(&initial_value);
-        if imp.node_relay_row.text().trim().is_empty() {
-            imp.node_relay_attempts_row.set_sensitive(false)
-        } else {
-            imp.node_relay_attempts_row.set_sensitive(true)
-        }
-        imp.node_relay_row.connect_apply(clone!(
-            #[weak(rename_to = this)]
-            self,
-            move |_node_relay_row| {
-                match this.apply_node_config() {
-                    Ok(_) => (),
-                    Err(e) => error!("{}", e),
-                }
-            }
-        ));
-    }
-
-    pub fn setup_node_relay_attempts_row(&self) {
-        let imp = self.imp();
-
-        imp.node_relay_attempts_row
-            .set_title("Maximum relay connection attempts");
-        imp.node_relay_attempts_row
-            .set_subtitle("Number of times node should re-attempt connecting to relay");
-        let initial_value = match NODE.get() {
-            None => 0,
-            Some(node) => match node.config.relay_connection_config() {
-                Ok(relay_connection_config) => match relay_connection_config {
-                    Some(relay_connection_config) => {
-                        match relay_connection_config.relay_connection_attempts() {
-                            Ok(relay_connection_attempts) => relay_connection_attempts,
-                            Err(e) => {
-                                error!("{}", e);
-                                0
-                            }
-                        }
-                    }
-                    None => 0,
-                },
-                Err(e) => {
-                    error!("{}", e);
-                    0
-                }
-            },
-        };
-        imp.node_relay_attempts_row.configure(
-            Some(&gtk::Adjustment::new(
-                initial_value as f64,
-                0.0,
-                i64::MAX as f64,
-                1.0,
-                10.0,
-                0.0,
-            )),
-            1.0,
-            0,
-        );
-        imp.node_relay_attempts_row.connect_value_notify(clone!(
-            #[weak(rename_to = this)]
-            self,
-            move |_node_relay_attempts_row| {
-                match this.apply_node_config() {
-                    Ok(_) => (),
-                    Err(e) => error!("{}", e),
-                }
-            }
-        ));
     }
 
     pub fn setup_appearance_group(
