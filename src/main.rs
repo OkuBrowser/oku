@@ -39,7 +39,7 @@ use gtk::prelude::GtkApplicationExt;
 use history::HistoryManager;
 use ipfs::Ipfs;
 use ipfs::Keypair;
-use ipfs::UninitializedIpfsNoop as UninitializedIpfs;
+use ipfs::UninitializedIpfsDefault as UninitializedIpfs;
 use log::error;
 use log::{info, LevelFilter};
 use oku_fs::fs::OkuFs;
