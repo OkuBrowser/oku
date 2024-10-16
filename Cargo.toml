@@ -54,7 +54,7 @@ env_logger = "0.11.5"
 log = "0.4.22"
 toml = "0.8.19"
 serde = "1.0.210"
-uuid = { version = "1.10.0", features = ["v4", "fast-rng", "serde"] }
+uuid = { version = "1.11.0", features = ["v4", "fast-rng", "serde"] }
 miette = "7.2.0"
 glob = "0.3.1"
 liquid = "0.26.9"
