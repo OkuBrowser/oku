@@ -4,7 +4,6 @@ Name=Oku
 GenericName=Web Browser
 Comment=A Web browser with an emphasis on local-first data storage
 Type=Application
-TryExec=oku
 Exec=oku %U
 Terminal=false
 Categories=Network;WebBrowser;GTK;GNOME;

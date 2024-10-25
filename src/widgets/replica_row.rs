@@ -4,6 +4,7 @@ use crate::NODE;
 use gdk::prelude::DisplayExt;
 use gio::prelude::ApplicationExt;
 use glib::clone;
+use glib::object::CastNone;
 use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassExt;
@@ -16,6 +17,7 @@ use glib::Value;
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
 use gtk::prelude::GtkWindowExt;
+use gtk::prelude::ListBoxRowExt;
 use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::*;
 use libadwaita::prelude::ActionRowExt;
@@ -145,7 +147,7 @@ impl ReplicaRow {
             }
         ));
 
-        imp.read_ticket_button.set_icon_name("share-symbolic");
+        imp.read_ticket_button.set_icon_name("ticket-symbolic");
         imp.read_ticket_button.add_css_class("linked");
         imp.read_ticket_button.set_vexpand(false);
         imp.read_ticket_button.set_hexpand(false);
@@ -185,7 +187,8 @@ impl ReplicaRow {
             }
         ));
 
-        imp.write_ticket_button.set_icon_name("people-symbolic");
+        imp.write_ticket_button
+            .set_icon_name("ticket-special-symbolic");
         imp.write_ticket_button.add_css_class("linked");
         imp.write_ticket_button.add_css_class("destructive-action");
         imp.write_ticket_button.set_vexpand(false);
@@ -344,10 +347,14 @@ impl ReplicaRow {
         imp.button_box.set_halign(gtk::Align::End);
         imp.button_box.add_css_class("linked");
 
+        let content_box: gtk::Box = self.child().and_downcast().unwrap();
+        content_box.set_hexpand(true);
+
         self.add_prefix(&imp.icon);
         self.add_suffix(&imp.button_box);
         self.set_title_lines(1);
         self.add_css_class("caption");
+        self.add_css_class("card");
     }
 
     pub fn id(&self) -> String {

@@ -13,5 +13,9 @@
     <file preprocess="xml-stripblanks">update-symbolic.svg</file>
     <file preprocess="xml-stripblanks">uppercase-symbolic.svg</file>
     <file preprocess="xml-stripblanks">user-trash-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">hourglass-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">ticket-special-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">ticket-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">copy-symbolic.svg</file>
   </gresource>
 </gresources>

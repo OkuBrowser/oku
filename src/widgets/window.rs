@@ -1,12 +1,14 @@
 use super::settings::apply_appearance_config;
 use crate::config::Palette;
+use crate::database::{HistoryRecord, DATABASE};
+use crate::history_item::HistoryItem;
 use crate::replica_item::ReplicaItem;
 use crate::suggestion_item::SuggestionItem;
 use crate::window_util::{
-    connect, get_title, get_view_from_page, get_window_from_widget, new_webkit_settings,
-    update_favicon, update_nav_bar, update_title,
+    connect, get_title, get_view_from_page, get_view_stack_page_by_name, get_window_from_widget,
+    new_webkit_settings, update_favicon, update_nav_bar, update_title,
 };
-use crate::{CONFIG, DATA_DIR, HISTORY_MANAGER, MOUNT_DIR, NODE, VERSION};
+use crate::{CONFIG, DATA_DIR, MOUNT_DIR, NODE, VERSION};
 use chrono::Utc;
 use glib::clone;
 use gtk::prelude::GtkWindowExt;
@@ -21,15 +23,15 @@ use std::cell::RefCell;
 use std::cell::{Cell, Ref};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
+use uuid::Uuid;
 use webkit2gtk::functions::{
     uri_for_display, user_media_permission_is_for_audio_device,
     user_media_permission_is_for_display_device, user_media_permission_is_for_video_device,
 };
 use webkit2gtk::prelude::PermissionRequestExt;
-use webkit2gtk::prelude::PolicyDecisionExt;
 use webkit2gtk::prelude::WebViewExt;
-use webkit2gtk::{FindOptions, NavigationPolicyDecision, PolicyDecisionType, WebContext, WebView};
-use webkit2gtk::{LoadEvent, NavigationType};
+use webkit2gtk::LoadEvent;
+use webkit2gtk::{FindOptions, WebContext, WebView};
 
 pub mod imp {
     use super::*;
@@ -76,7 +78,6 @@ pub mod imp {
         pub(crate) screenshot_button: gtk::Button,
         pub(crate) new_window_button: gtk::Button,
         pub(crate) new_private_window_button: gtk::Button,
-        pub(crate) history_button: gtk::Button,
         pub(crate) settings_button: gtk::Button,
         pub(crate) about_button: gtk::Button,
         pub(crate) shortcuts_button: gtk::Button,
@@ -111,12 +112,21 @@ pub mod imp {
         pub(crate) split_view: libadwaita::OverlaySplitView,
         // Sidebar content
         pub(crate) side_box: gtk::Box,
-        pub(crate) add_replicas_button: gtk::Button,
+        pub(crate) side_view_stack: libadwaita::ViewStack,
+        pub(crate) side_view_switcher: libadwaita::ViewSwitcher,
+        pub(crate) replicas_box: gtk::Box,
+        pub(crate) history_box: gtk::Box,
+        pub(crate) history_store: RefCell<Option<Rc<gio::ListStore>>>,
+        pub(crate) history_factory: gtk::SignalListItemFactory,
+        pub(crate) history_model: gtk::SingleSelection,
+        pub(crate) history_view: gtk::ListView,
+        pub(crate) history_scrolled_window: gtk::ScrolledWindow,
+        pub(crate) add_replicas_button: libadwaita::ButtonRow,
         pub(crate) replicas_store: RefCell<Option<Rc<gio::ListStore>>>,
         pub(crate) replicas_factory: gtk::SignalListItemFactory,
         pub(crate) replicas_model: gtk::SingleSelection,
         pub(crate) replicas_view: gtk::ListView,
-        pub(crate) replicas_scrolled_window: libadwaita::ClampScrollable,
+        pub(crate) replicas_scrolled_window: gtk::ScrolledWindow,
         // Miscellaneous
         pub(crate) progress_animation: RefCell<Option<libadwaita::SpringAnimation>>,
         pub(crate) progress_bar: gtk::ProgressBar,
@@ -175,7 +185,7 @@ impl Window {
         this.setup_downloads_popover();
         this.setup_find_popover();
         this.setup_tabs();
-        this.setup_main_content();
+        this.setup_main_content(&web_context);
         this.setup_overview_button_clicked();
         this.setup_downloads_button_clicked();
         this.setup_find_button_clicked();
@@ -635,11 +645,6 @@ impl Window {
         imp.new_private_window_button
             .set_icon_name("screen-privacy7-symbolic");
 
-        // History button
-        imp.history_button.set_can_focus(true);
-        imp.history_button.set_receives_default(true);
-        imp.history_button.set_icon_name("document-open-recent");
-
         // Settings button
         imp.settings_button.set_can_focus(true);
         imp.settings_button.set_receives_default(true);
@@ -666,7 +671,6 @@ impl Window {
         imp.menu_box.append(&imp.screenshot_button);
         imp.menu_box.append(&imp.new_window_button);
         imp.menu_box.append(&imp.new_private_window_button);
-        imp.menu_box.append(&imp.history_button);
         imp.menu_box.append(&imp.shortcuts_button);
         imp.menu_box.append(&imp.settings_button);
         imp.menu_box.append(&imp.about_button);
@@ -979,7 +983,7 @@ impl Window {
         imp.progress_bar.set_valign(gtk::Align::Start);
     }
 
-    fn setup_main_content(&self) {
+    fn setup_main_content(&self, web_context: &WebContext) {
         let imp = self.imp();
 
         self.setup_url_status();
@@ -996,7 +1000,7 @@ impl Window {
         imp.main_box.append(&imp.tab_bar_revealer);
         imp.main_box.append(&imp.main_overlay);
 
-        self.setup_replicas_sidebar();
+        self.setup_sidebar(&web_context);
         imp.split_view.set_content(Some(&imp.main_box));
         imp.split_view.set_sidebar(Some(&imp.side_box));
         imp.split_view.set_max_sidebar_width(400.0);
@@ -1094,7 +1098,6 @@ impl Window {
         };
         let web_view = web_view_builder.build();
         web_view.set_vexpand(true);
-        web_view.set_background_color(&gdk::RGBA::new(1.00, 1.00, 1.00, 0.00));
         let network_session = web_view.network_session().unwrap();
         let data_manager = network_session.website_data_manager().unwrap();
         let security_manager = web_context.security_manager().unwrap();
@@ -1126,8 +1129,6 @@ impl Window {
         } else {
             web_view.load_uri("oku:home");
         }
-        let rgba = gdk::RGBA::new(1.00, 1.00, 1.00, 0.00);
-        web_view.set_background_color(&rgba);
         web_view.set_visible(true);
 
         web_view
@@ -1416,12 +1417,9 @@ impl Window {
                         .favicon_database()
                         .unwrap();
 
-                    let mut suggestion_items = Vec::new();
-                    if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
-                        suggestion_items = history_manager
-                            .get_suggestions(&favicon_database, imp.nav_entry.text().to_string());
-                        drop(history_manager);
-                    }
+                    let suggestion_items = DATABASE
+                        .search(imp.nav_entry.text().to_string(), &favicon_database)
+                        .unwrap_or_default();
                     let suggestions_store = this.suggestions_store();
                     suggestions_store.remove_all();
                     if imp.suggestions_popover.is_visible() {
@@ -1445,6 +1443,52 @@ impl Window {
             let suggestions_store = suggestions_store.as_deref().unwrap();
             suggestions_store
         })
+    }
+
+    pub fn history_store(&self) -> Ref<gio::ListStore> {
+        let history_store = self.imp().history_store.borrow();
+
+        Ref::map(history_store, |history_store| {
+            let history_store = history_store.as_deref().unwrap();
+            history_store
+        })
+    }
+
+    pub fn history_updated(&self) {
+        let favicon_database = self
+            .get_view()
+            .network_session()
+            .unwrap()
+            .website_data_manager()
+            .unwrap()
+            .favicon_database()
+            .unwrap();
+        let history_store = self.history_store();
+        let history_records = DATABASE.get_history_records().unwrap_or_default();
+        let items: Vec<_> = history_records
+            .into_iter()
+            .map(|x| {
+                HistoryItem::new(
+                    x.id,
+                    x.title.unwrap_or(String::new()),
+                    x.uri,
+                    x.timestamp.to_rfc2822(),
+                    &favicon_database,
+                )
+            })
+            .collect();
+        history_store.remove_all();
+        if items.len() > 0 {
+            for item in items.iter() {
+                history_store.append(item);
+            }
+        }
+
+        if let Some(history_page) =
+            get_view_stack_page_by_name("history".to_string(), &self.imp().side_view_stack)
+        {
+            history_page.set_needs_attention(true)
+        }
     }
 
     pub fn replicas_store(&self) -> Ref<gio::ListStore> {
@@ -1496,16 +1540,137 @@ impl Window {
                 }
             ),
         );
+        if let Some(replicas_page) =
+            get_view_stack_page_by_name("replicas".to_string(), &self.imp().side_view_stack)
+        {
+            replicas_page.set_needs_attention(true)
+        }
     }
 
-    pub fn setup_replicas_sidebar(&self) {
+    pub fn setup_sidebar(&self, web_context: &WebContext) {
         let imp = self.imp();
 
-        imp.add_replicas_button.set_icon_name("folder-new");
-        imp.add_replicas_button.set_vexpand(false);
-        imp.add_replicas_button.set_hexpand(false);
-        imp.add_replicas_button.add_css_class("flat");
-        imp.add_replicas_button.connect_clicked(clone!(move |_| {
+        imp.side_view_switcher.set_stack(Some(&imp.side_view_stack));
+
+        self.setup_replicas_page();
+        self.setup_history_page(&web_context);
+        imp.side_view_stack
+            .connect_visible_child_notify(clone!(move |side_view_stack| {
+                if let Some(visible_page) = get_view_stack_page_by_name(
+                    side_view_stack
+                        .visible_child_name()
+                        .unwrap_or_default()
+                        .to_string(),
+                    side_view_stack,
+                ) {
+                    visible_page.set_needs_attention(false);
+                }
+            }));
+
+        imp.side_box.set_orientation(gtk::Orientation::Vertical);
+        imp.side_box.set_spacing(8);
+        imp.side_box.set_margin_top(4);
+        imp.side_box.append(&imp.side_view_switcher);
+        imp.side_box.append(&imp.side_view_stack);
+    }
+
+    pub fn setup_history_page(&self, web_context: &WebContext) {
+        let imp = self.imp();
+
+        let history_store = gio::ListStore::new::<HistoryItem>();
+        imp.history_store.replace(Some(Rc::new(history_store)));
+
+        imp.history_model
+            .set_model(Some(&self.history_store().clone()));
+        imp.history_model.set_autoselect(false);
+        imp.history_model.set_can_unselect(true);
+        imp.history_model.connect_selected_item_notify(clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[weak]
+            imp,
+            #[weak]
+            web_context,
+            move |history_model| {
+                if let Some(item) = history_model.selected_item() {
+                    let history_item = item.downcast_ref::<HistoryItem>().unwrap();
+                    let new_view = this.new_tab_page(&web_context, None, None).0;
+                    new_view.load_uri(&history_item.uri());
+                    imp.history_model.unselect_all();
+                }
+            }
+        ));
+
+        imp.history_factory.connect_setup(clone!(move |_, item| {
+            let row = super::history_row::HistoryRow::new();
+            let list_item = item.downcast_ref::<gtk::ListItem>().unwrap();
+            list_item.set_child(Some(&row));
+            list_item
+                .property_expression("item")
+                .chain_property::<HistoryItem>("id")
+                .bind(&row, "id", gtk::Widget::NONE);
+            list_item
+                .property_expression("item")
+                .chain_property::<HistoryItem>("title")
+                .bind(&row, "title-property", gtk::Widget::NONE);
+            list_item
+                .property_expression("item")
+                .chain_property::<HistoryItem>("uri")
+                .bind(&row, "uri", gtk::Widget::NONE);
+            list_item
+                .property_expression("item")
+                .chain_property::<HistoryItem>("favicon")
+                .bind(&row, "favicon", gtk::Widget::NONE);
+            list_item
+                .property_expression("item")
+                .chain_property::<HistoryItem>("timestamp")
+                .bind(&row, "timestamp", gtk::Widget::NONE);
+        }));
+
+        imp.history_view.set_model(Some(&imp.history_model));
+        imp.history_view.set_factory(Some(&imp.history_factory));
+        imp.history_view.set_enable_rubberband(false);
+        imp.history_view
+            .set_hscroll_policy(gtk::ScrollablePolicy::Minimum);
+        imp.history_view
+            .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
+        imp.history_view.set_vexpand(true);
+        imp.history_view.add_css_class("boxed-list-separate");
+        imp.history_view.add_css_class("navigation-sidebar");
+
+        imp.history_scrolled_window
+            .set_child(Some(&imp.history_view));
+        imp.history_scrolled_window
+            .set_hscrollbar_policy(gtk::PolicyType::Never);
+        imp.history_scrolled_window
+            .set_propagate_natural_height(true);
+        imp.history_scrolled_window
+            .set_propagate_natural_width(true);
+
+        imp.history_box.set_orientation(gtk::Orientation::Vertical);
+        imp.history_box.append(&imp.history_scrolled_window);
+
+        imp.history_box.set_orientation(gtk::Orientation::Vertical);
+        imp.history_box.set_spacing(4);
+
+        imp.side_view_stack.add_titled_with_icon(
+            &imp.history_box,
+            Some("history"),
+            "History",
+            "hourglass-symbolic",
+        );
+    }
+
+    pub fn setup_replicas_page(&self) {
+        let imp = self.imp();
+
+        imp.add_replicas_button
+            .set_start_icon_name(Some("folder-new"));
+        imp.add_replicas_button.set_margin_start(4);
+        imp.add_replicas_button.set_margin_end(4);
+        imp.add_replicas_button.set_title("New replica");
+        imp.add_replicas_button.add_css_class("card");
+        imp.add_replicas_button.connect_activated(clone!(move |_| {
             let ctx = glib::MainContext::default();
             ctx.spawn_local_with_priority(
                 glib::source::Priority::HIGH,
@@ -1528,9 +1693,12 @@ impl Window {
         imp.replicas_model
             .set_model(Some(&self.replicas_store().clone()));
         imp.replicas_model.set_autoselect(false);
+        imp.replicas_model.set_can_unselect(true);
         imp.replicas_model.connect_selected_item_notify(clone!(
             #[weak(rename_to = this)]
             self,
+            #[weak]
+            imp,
             move |replicas_model| {
                 if let Some(item) = replicas_model.selected_item() {
                     let replica_item = item.downcast_ref::<ReplicaItem>().unwrap();
@@ -1543,6 +1711,7 @@ impl Window {
                         replica_item.id()
                     )));
                     app.send_notification(None, &notification);
+                    imp.replicas_model.unselect_all();
                 }
             }
         ));
@@ -1565,21 +1734,32 @@ impl Window {
         imp.replicas_view.set_factory(Some(&imp.replicas_factory));
         imp.replicas_view.set_enable_rubberband(false);
         imp.replicas_view
-            .set_hscroll_policy(gtk::ScrollablePolicy::Natural);
+            .set_hscroll_policy(gtk::ScrollablePolicy::Minimum);
         imp.replicas_view
             .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
+        imp.replicas_view.set_vexpand(true);
         imp.replicas_view.add_css_class("boxed-list-separate");
         imp.replicas_view.add_css_class("navigation-sidebar");
 
         imp.replicas_scrolled_window
             .set_child(Some(&imp.replicas_view));
         imp.replicas_scrolled_window
-            .set_orientation(gtk::Orientation::Horizontal);
+            .set_hscrollbar_policy(gtk::PolicyType::Never);
+        imp.replicas_scrolled_window
+            .set_propagate_natural_height(true);
+        imp.replicas_scrolled_window
+            .set_propagate_natural_width(true);
 
-        imp.side_box.set_orientation(gtk::Orientation::Vertical);
-        imp.side_box.set_spacing(4);
-        imp.side_box.append(&imp.add_replicas_button);
-        imp.side_box.append(&imp.replicas_scrolled_window);
+        imp.replicas_box.set_orientation(gtk::Orientation::Vertical);
+        imp.replicas_box.append(&imp.add_replicas_button);
+        imp.replicas_box.append(&imp.replicas_scrolled_window);
+
+        imp.side_view_stack.add_titled_with_icon(
+            &imp.replicas_box,
+            Some("replicas"),
+            "Replicas",
+            "people-symbolic",
+        );
     }
 
     pub fn setup_suggestions_popover(&self) {
@@ -2527,49 +2707,6 @@ impl Window {
                     }
                 ));
 
-                let decide_policy = RefCell::new(Some(new_view.connect_decide_policy(clone!(
-                    move |w, policy_decision, decision_type| {
-                        match decision_type {
-                            PolicyDecisionType::NavigationAction => {
-                                let navigation_policy_decision: NavigationPolicyDecision = policy_decision.clone().downcast().unwrap();
-                                navigation_policy_decision.use_();
-                                if let Some(mut navigation_action) = navigation_policy_decision.navigation_action() {
-                                    let navigation_type = navigation_action.navigation_type();
-                                    if let Some(request) = navigation_action.request() {
-                                        if !get_window_from_widget(w).imp().is_private.get() {
-                                            if let Some(back_forward_list) = w.back_forward_list() {
-                                                if let Some(current_item) = back_forward_list.current_item() {
-                                                    if let Some(old_uri) = current_item.original_uri() {
-                                                        if let Some(new_uri) = request.uri() {
-                                                            match navigation_type {
-                                                                NavigationType::LinkClicked => {
-                                                                    if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
-                                                                        history_manager.add_navigation(old_uri.to_string(), new_uri.to_string());
-                                                                        let current_session = history_manager.get_current_session();
-                                                                        current_session.update_uri(old_uri.to_string(), current_item.uri().map(|x| x.to_string()), Some(get_title(&w)));
-                                                                        current_session.save();
-                                                                        drop(current_session);
-                                                                        drop(history_manager);
-                                                                    } else {
-                                                                        warn!("Could not lock history manager while clicking link.");
-                                                                    }
-                                                                },
-                                                                _ => ()
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                true
-                            },
-                            _ => false
-                        }
-                    }
-                ))));
-
                 let found_text = RefCell::new(
                     Some(
                         find_controller.connect_found_text(
@@ -2613,30 +2750,6 @@ impl Window {
                                 #[upgrade_or_panic] move |w, navigation_action| {
                                     let mut navigation_action = navigation_action.clone();
                                     let new_related_view = this.new_tab_page(&web_context, Some(w), navigation_action.request().as_ref()).0;
-                                    if !get_window_from_widget(&new_related_view).imp().is_private.get() {
-                                        if let Some(back_forward_list) = new_related_view.back_forward_list() {
-                                            if let Some(current_item) = back_forward_list.current_item() {
-                                                if let Some(old_uri) = current_item.original_uri() {
-                                                    if let Some(new_uri) = new_related_view.uri() {
-                                                        if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
-                                                            history_manager.add_navigation(old_uri.to_string(), new_uri.to_string());
-                                                            let current_session = history_manager.get_current_session();
-                                                            current_session.update_uri(
-                                                                old_uri.to_string(),
-                                                                current_item.uri().map(|x| x.to_string()),
-                                                                Some(get_title(&new_related_view)),
-                                                            );
-                                                            current_session.save();
-                                                            drop(current_session);
-                                                            drop(history_manager);
-                                                        } else {
-                                                            warn!("Could not lock history manager during new tab creation.");
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
                                     new_related_view.into()
                                 }
                             )
@@ -2771,27 +2884,20 @@ impl Window {
                         if this.get_view() == *w {
                             back_button.set_sensitive(w.can_go_back());
                             forward_button.set_sensitive(w.can_go_forward());
-                            match load_event {
-                                LoadEvent::Redirected => {
-                                    if !get_window_from_widget(w).imp().is_private.get() {
-                                        if let Some(back_forward_list) = w.back_forward_list() {
-                                            if let Some(current_item) = back_forward_list.current_item() {
-                                                if let Some(original_uri) = current_item.original_uri() {
-                                                    if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
-                                                        let current_session = history_manager.get_current_session();
-                                                        current_session.update_uri(original_uri.to_string(), current_item.uri().map(|x| x.to_string()), Some(title));
-                                                        current_session.save();
-                                                        drop(current_session);
-                                                        drop(history_manager);
-                                                    } else {
-                                                        warn!("Could not lock history manager during redirection.");
-                                                    }
-                                                }
-                                            }
-                                        }
+                        }
+                        if !imp.is_private.get() && load_event == LoadEvent::Finished {
+                            if let Some(back_forward_list) = w.back_forward_list() {
+                                if let Some(current_item) = back_forward_list.current_item() {
+                                    if let Err(e) = DATABASE.upsert_history_record(HistoryRecord {
+                                        id: Uuid::now_v7(),
+                                        original_uri: current_item.original_uri().unwrap_or_default().to_string(),
+                                        uri: current_item.uri().unwrap_or_default().to_string(),
+                                        title: Some(title),
+                                        timestamp: chrono::Utc::now()
+                                    }) {
+                                        error!("{}", e)
                                     }
                                 }
-                                _ => ()
                             }
                         }
                     }
@@ -2965,9 +3071,6 @@ impl Window {
                             return;
                         }
                         let old_find_controller = old_view.find_controller().unwrap();
-                        if let Some(id) = decide_policy.take() {
-                            old_view.disconnect(id);
-                        }
                         if let Some(id) = zoom_level_notify.take() {
                             old_view.disconnect(id);
                         }
@@ -3036,7 +3139,7 @@ impl Window {
                     if !config.colour_per_domain() {
                         imp.style_provider.borrow().load_from_string("");
                         if config.palette() != Palette::None {
-                            self.update_from_palette(&style_manager, &config.palette());
+                            self.update_from_palette(&web_view, &style_manager, &config.palette());
                         }
                         return;
                     } else {
@@ -3057,13 +3160,15 @@ impl Window {
 
     pub fn update_from_palette(
         &self,
+        web_view: &webkit2gtk::WebView,
         style_manager: &libadwaita::StyleManager,
         palette_colour: &Palette,
     ) {
         let imp = self.imp();
 
         let hue = palette_colour.hue();
-        let stylesheet = if style_manager.is_dark() {
+        let is_dark = style_manager.is_dark();
+        let stylesheet = if is_dark {
             format!(
                 "
                     @define-color view_bg_color hsl({hue}, 20%, 8%);
@@ -3102,6 +3207,17 @@ impl Window {
                 "
             )
         };
+        let rgba = gdk::RGBA::parse(if is_dark {
+            format!("hsl({hue}, 20%, 8%)")
+        } else {
+            format!("hsl({hue}, 100%, 99%)")
+        })
+        .unwrap_or(if is_dark {
+            gdk::RGBA::BLACK
+        } else {
+            gdk::RGBA::WHITE
+        });
+        web_view.set_background_color(&rgba);
 
         imp.style_provider.borrow().load_from_string(&stylesheet);
     }
@@ -3131,7 +3247,8 @@ impl Window {
         };
 
         let hue = hash % 360;
-        let stylesheet = if style_manager.is_dark() {
+        let is_dark = style_manager.is_dark();
+        let stylesheet = if is_dark {
             format!(
                 "
                     @define-color view_bg_color hsl({hue}, 20%, 8%);
@@ -3170,6 +3287,17 @@ impl Window {
                 "
             )
         };
+        let rgba = gdk::RGBA::parse(if is_dark {
+            format!("hsl({hue}, 20%, 8%)")
+        } else {
+            format!("hsl({hue}, 100%, 99%)")
+        })
+        .unwrap_or(if is_dark {
+            gdk::RGBA::BLACK
+        } else {
+            gdk::RGBA::WHITE
+        });
+        web_view.set_background_color(&rgba);
 
         imp.style_provider.borrow().load_from_string(&stylesheet);
     }

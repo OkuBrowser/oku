@@ -14,12 +14,10 @@
         "--socket=wayland",
         "--device=all",
         "--socket=pulseaudio",
+        "--socket=cups",
         "--filesystem=xdg-download",
         "--filesystem=xdg-pictures",
-        "--filesystem=host",
-        "--talk-name=org.freedesktop.Flatpak",
-        "--talk-name=org.freedesktop.FileManager1",
-        "--talk-name=org.freedesktop.Notifications"
+        "--filesystem=host"
     ],
     "cleanup": [
         "/include",
@@ -63,6 +61,7 @@
                 "cargo --offline fetch --manifest-path Cargo.toml --verbose",
                 "cargo --offline build --release --verbose",
                 "install -Dm755 ./target/release/oku -t /app/bin/",
+                "install -Dm755 ./resources.gresource -t /app/bin/",
                 "install -Dm644 ./data/${FLATPAK_ID}.metainfo.xml -t /app/share/metainfo/",
                 "install -Dm644 ./data/${FLATPAK_ID}.desktop -t /app/share/applications/",
                 "mkdir -p /app/share/icons/hicolor",

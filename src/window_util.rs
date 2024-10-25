@@ -1,7 +1,6 @@
-use crate::HISTORY_MANAGER;
 use glib::object::{Cast, IsA};
 use gtk::{prelude::EditableExt, prelude::WidgetExt};
-use log::{error, warn};
+use log::error;
 use oku_fs::iroh::docs::{DocTicket, NamespaceId};
 use std::{path::PathBuf, str::FromStr};
 use webkit2gtk::{functions::uri_for_display, prelude::WebViewExt};
@@ -19,27 +18,19 @@ pub fn connect(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebView) {
     match parsed_url {
         // When URL is completely OK
         Ok(_) => {
-            if let Some(back_forward_list) = web_view.back_forward_list() {
-                if let Some(current_item) = back_forward_list.current_item() {
-                    if let Some(old_uri) = current_item.original_uri() {
-                        if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
-                            history_manager
-                                .add_navigation(old_uri.to_string(), nav_text.to_string());
-                            let current_session = history_manager.get_current_session();
-                            current_session.update_uri(
-                                old_uri.to_string(),
-                                current_item.uri().map(|x| x.to_string()),
-                                Some(get_title(&web_view)),
-                            );
-                            current_session.save();
-                            drop(current_session);
-                            drop(history_manager);
-                        } else {
-                            warn!("Could not lock history manager during navigation.");
-                        }
-                    }
-                }
-            }
+            // if let Some(back_forward_list) = web_view.back_forward_list() {
+            //     if let Some(current_item) = back_forward_list.current_item() {
+            //         if let Err(e) = DATABASE.upsert_history_record(HistoryRecord {
+            //             id: std::ptr::addr_of!(current_item) as usize as u64,
+            //             original_uri: current_item.original_uri().unwrap_or_default().to_string(),
+            //             uri: current_item.uri().unwrap_or_default().to_string(),
+            //             title: Some(get_title(&web_view)),
+            //             timestamp: chrono::Utc::now(),
+            //         }) {
+            //             error!("{}", e)
+            //         }
+            //     }
+            // }
             nav_entry.set_text(&nav_text);
             web_view.load_uri(&nav_text);
         }
@@ -170,6 +161,13 @@ pub fn get_window_from_widget(widget: &impl IsA<gtk::Widget>) -> crate::widgets:
         .unwrap()
 }
 
+pub fn get_view_stack_page_by_name(
+    name: String,
+    view_stack: &libadwaita::ViewStack,
+) -> Option<libadwaita::ViewStackPage> {
+    view_stack.child_by_name(&name).map(|x| view_stack.page(&x))
+}
+
 /// Update a tab's icon
 ///
 /// # Arguments
@@ -224,20 +222,20 @@ pub fn get_title(web_view: &webkit2gtk::WebView) -> String {
 pub fn update_title(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebView) {
     let relevant_page = tab_view.page(web_view);
     let title = get_title(web_view);
-    if let Some(back_forward_list) = web_view.back_forward_list() {
-        if let Some(current_item) = back_forward_list.current_item() {
-            if let Some(original_uri) = current_item.original_uri() {
-                if let Ok(history_manager) = HISTORY_MANAGER.try_lock() {
-                    let current_session = history_manager.get_current_session();
-                    current_session.update_uri(original_uri.to_string(), None, Some(title.clone()));
-                    current_session.save();
-                    drop(current_session);
-                    drop(history_manager);
-                } else {
-                    warn!("Could not lock history manager during page title change.");
-                }
-            }
-        }
-    }
+    // if !get_window_from_widget(web_view).imp().is_private.get() {
+    //     if let Some(back_forward_list) = web_view.back_forward_list() {
+    //         if let Some(current_item) = back_forward_list.current_item() {
+    //             if let Err(e) = DATABASE.upsert_history_record(HistoryRecord {
+    //                 id: std::ptr::addr_of!(current_item) as usize as u64,
+    //                 original_uri: current_item.original_uri().unwrap_or_default().to_string(),
+    //                 uri: current_item.uri().unwrap_or_default().to_string(),
+    //                 title: Some(get_title(&web_view)),
+    //                 timestamp: chrono::Utc::now(),
+    //             }) {
+    //                 error!("{}", e)
+    //             }
+    //         }
+    //     }
+    // }
     relevant_page.set_title(&title);
 }

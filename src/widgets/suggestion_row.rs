@@ -128,14 +128,12 @@ impl SuggestionRow {
     pub fn uri(&self) -> String {
         self.imp().uri.borrow().to_string()
     }
-    pub fn favicon(&self) -> gdk::Texture {
+    pub fn favicon(&self) -> Option<gdk::Texture> {
         self.imp()
             .favicon
-            .paintable()
-            .unwrap()
-            .downcast_ref::<gdk::Texture>()
-            .unwrap()
-            .clone()
+            .paintable()?
+            .downcast::<gdk::Texture>()
+            .ok()
     }
 
     pub fn set_title_property(&self, title: &str) {

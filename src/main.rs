@@ -22,7 +22,8 @@
     html_favicon_url = "https://github.com/OkuBrowser/oku/raw/master/branding/logo-filled.svg"
 )]
 pub mod config;
-pub mod history;
+pub mod database;
+pub mod history_item;
 pub mod replica_item;
 pub mod scheme_handlers;
 pub mod suggestion_item;
@@ -30,13 +31,13 @@ pub mod widgets;
 pub mod window_util;
 
 use config::Config;
+use database::DATABASE;
 use directories_next::ProjectDirs;
 use directories_next::UserDirs;
 use env_logger::Builder;
 use gio::prelude::*;
 use glib_macros::clone;
 use gtk::prelude::GtkApplicationExt;
-use history::HistoryManager;
 use ipfs::Ipfs;
 use ipfs::Keypair;
 use ipfs::UninitializedIpfsDefault as UninitializedIpfs;
@@ -75,9 +76,7 @@ lazy_static! {
     static ref MOUNT_DIR: PathBuf = DATA_DIR.join("mount");
     /// The platform-specific file path where Oku settings are stored
     static ref CONFIG_DIR: PathBuf = DATA_DIR.join("config.toml");
-    static ref HISTORY_DIR: PathBuf = DATA_DIR.join("history");
     static ref CONFIG: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::load_or_default()));
-    static ref HISTORY_MANAGER: Arc<Mutex<HistoryManager>> = Arc::new(Mutex::new(HistoryManager::load_sessions_or_create().unwrap()));
     /// The current release version number of Oku
     static ref VERSION: &'static str = option_env!("CARGO_PKG_VERSION").unwrap();
 }
@@ -319,10 +318,33 @@ async fn main() {
         }
     ));
     application.connect_window_added(clone!(move |_, window| {
+        let window: widgets::window::Window = window.clone().downcast().unwrap();
+        let ctx = glib::MainContext::default();
+        let mut history_rx = DATABASE.history_sender.subscribe();
+        ctx.spawn_local_with_priority(
+            glib::source::Priority::HIGH,
+            clone!(
+                #[weak]
+                window,
+                async move {
+                    loop {
+                        history_rx.borrow_and_update();
+                        info!("History updated … ");
+                        window.history_updated();
+                        match history_rx.changed().await {
+                            Ok(_) => continue,
+                            Err(e) => {
+                                error!("{}", e);
+                                break;
+                            }
+                        }
+                    }
+                }
+            ),
+        );
+
         if let Some(node) = NODE.get() {
-            let mut rx = node.replica_sender.subscribe();
-            let window: widgets::window::Window = window.clone().downcast().unwrap();
-            let ctx = glib::MainContext::default();
+            let mut replica_rx = node.replica_sender.subscribe();
             ctx.spawn_local_with_priority(
                 glib::source::Priority::HIGH,
                 clone!(
@@ -330,10 +352,10 @@ async fn main() {
                     window,
                     async move {
                         loop {
-                            rx.borrow_and_update();
+                            replica_rx.borrow_and_update();
                             info!("Replicas updated … ");
                             window.replicas_updated();
-                            match rx.changed().await {
+                            match replica_rx.changed().await {
                                 Ok(_) => continue,
                                 Err(e) => {
                                     error!("{}", e);
