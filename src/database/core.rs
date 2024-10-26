@@ -23,12 +23,18 @@ pub struct BrowserDatabase {
 
 impl BrowserDatabase {
     pub fn new() -> miette::Result<Self> {
-        Ok(Self {
+        let database = Self {
             database: native_db::Builder::new()
                 .create(&MODELS, &*DATABASE_PATH)
                 .into_diagnostic()?,
             history_sender: tokio::sync::watch::channel(()).0,
-        })
+        };
+        if database.get_history_records()?.len() as u64
+            != HISTORY_RECORD_INDEX_READER.searcher().num_docs()
+        {
+            database.rebuild_history_record_index()?;
+        }
+        Ok(database)
     }
 
     pub fn search(

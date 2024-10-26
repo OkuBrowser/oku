@@ -17,5 +17,8 @@
     <file preprocess="xml-stripblanks">ticket-special-symbolic.svg</file>
     <file preprocess="xml-stripblanks">ticket-symbolic.svg</file>
     <file preprocess="xml-stripblanks">copy-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">user-home-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">note-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">folder-remote-symbolic.svg</file>
   </gresource>
 </gresources>

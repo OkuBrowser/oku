@@ -38,7 +38,8 @@ pub mod imp {
     pub struct ReplicaRow {
         pub(crate) id: RefCell<String>,
         pub(crate) writable: RefCell<bool>,
-        pub(crate) icon: gtk::Image,
+        pub(crate) home: RefCell<bool>,
+        pub(crate) home_button: gtk::Button,
         pub(crate) open_button: gtk::Button,
         pub(crate) read_ticket_button: gtk::Button,
         pub(crate) write_ticket_button: gtk::Button,
@@ -80,6 +81,7 @@ pub mod imp {
                 vec![
                     ParamSpecString::builder("id").build(),
                     ParamSpecBoolean::builder("writable").build(),
+                    ParamSpecBoolean::builder("home").build(),
                 ]
             });
             PROPERTIES.as_ref()
@@ -95,6 +97,10 @@ pub mod imp {
                     let writable = value.get::<bool>().unwrap();
                     self.obj().set_writable(writable);
                 }
+                "home" => {
+                    let home = value.get::<bool>().unwrap();
+                    self.obj().set_home(home);
+                }
                 _ => unimplemented!(),
             }
         }
@@ -103,6 +109,7 @@ pub mod imp {
             match pspec.name() {
                 "id" => self.obj().id().to_value(),
                 "writable" => self.obj().writable().to_value(),
+                "home" => self.obj().home().to_value(),
                 _ => unimplemented!(),
             }
         }
@@ -133,7 +140,26 @@ impl ReplicaRow {
     pub fn setup(&self) {
         let imp = self.imp();
 
-        imp.icon.set_icon_name(Some("folder"));
+        imp.home_button.set_icon_name("user-home-symbolic");
+        imp.home_button.add_css_class("circular");
+        imp.home_button.set_vexpand(false);
+        imp.home_button.set_hexpand(false);
+        imp.home_button.set_valign(gtk::Align::Center);
+        imp.home_button.connect_clicked(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                if let Some(node) = NODE.get() {
+                    let new_home_replica = match this.home() {
+                        false => Some(NamespaceId::from_str(&this.id()).unwrap()),
+                        true => None,
+                    };
+                    if let Err(e) = node.set_home_replica(new_home_replica) {
+                        error!("{}", e);
+                    }
+                }
+            }
+        ));
 
         imp.open_button.set_icon_name("external-link-symbolic");
         imp.open_button.add_css_class("circular");
@@ -350,7 +376,7 @@ impl ReplicaRow {
         let content_box: gtk::Box = self.child().and_downcast().unwrap();
         content_box.set_hexpand(true);
 
-        self.add_prefix(&imp.icon);
+        self.add_prefix(&imp.home_button);
         self.add_suffix(&imp.button_box);
         self.set_title_lines(1);
         self.add_css_class("caption");
@@ -365,6 +391,10 @@ impl ReplicaRow {
         self.imp().writable.borrow().clone()
     }
 
+    pub fn home(&self) -> bool {
+        self.imp().home.borrow().clone()
+    }
+
     pub fn set_id(&self, id: &str) {
         let imp = self.imp();
 
@@ -377,5 +407,17 @@ impl ReplicaRow {
 
         imp.writable.replace(writable);
         imp.write_ticket_button.set_visible(writable);
+    }
+
+    pub fn set_home(&self, home: bool) {
+        let imp = self.imp();
+
+        imp.home.replace(home);
+        let (old_class, new_class) = match home {
+            true => ("accent", "warning"),
+            false => ("warning", "accent"),
+        };
+        imp.home_button.remove_css_class(old_class);
+        imp.home_button.add_css_class(new_class);
     }
 }

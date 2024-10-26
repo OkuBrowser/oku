@@ -147,6 +147,20 @@ impl BrowserDatabase {
             .collect())
     }
 
+    pub fn rebuild_history_record_index(&self) -> miette::Result<()> {
+        let mut index_writer = HISTORY_RECORD_INDEX_WRITER
+            .clone()
+            .try_lock_owned()
+            .into_diagnostic()?;
+        index_writer.delete_all_documents().into_diagnostic()?;
+        self.get_history_records()?
+            .into_par_iter()
+            .filter_map(|x| index_writer.add_document(x.into()).ok())
+            .collect::<Vec<_>>();
+        index_writer.commit().into_diagnostic()?;
+        Ok(())
+    }
+
     pub fn upsert_history_record(
         &self,
         history_record: HistoryRecord,

@@ -19,6 +19,7 @@ pub mod imp {
     pub struct ReplicaItem {
         pub(crate) id: RefCell<String>,
         pub(crate) writable: RefCell<bool>,
+        pub(crate) home: RefCell<bool>,
     }
 
     #[glib::object_subclass]
@@ -33,6 +34,7 @@ pub mod imp {
                 vec![
                     ParamSpecString::builder("id").readwrite().build(),
                     ParamSpecBoolean::builder("writable").readwrite().build(),
+                    ParamSpecBoolean::builder("home").readwrite().build(),
                 ]
             });
             PROPERTIES.as_ref()
@@ -48,6 +50,10 @@ pub mod imp {
                     let writable = value.get::<bool>().unwrap();
                     self.writable.set(writable);
                 }
+                "home" => {
+                    let home = value.get::<bool>().unwrap();
+                    self.home.set(home);
+                }
                 _ => unimplemented!(),
             }
         }
@@ -57,6 +63,7 @@ pub mod imp {
             match pspec.name() {
                 "id" => obj.id().to_value(),
                 "writable" => obj.writable().to_value(),
+                "home" => obj.home().to_value(),
                 _ => unimplemented!(),
             }
         }
@@ -74,10 +81,14 @@ impl ReplicaItem {
     pub fn writable(&self) -> bool {
         self.imp().writable.borrow().clone()
     }
-    pub fn new(id: String, writable: bool) -> Self {
+    pub fn home(&self) -> bool {
+        *self.imp().home.borrow()
+    }
+    pub fn new(id: String, writable: bool, home: bool) -> Self {
         let replica_item = glib::Object::builder::<Self>()
             .property("id", id)
             .property("writable", writable)
+            .property("home", home)
             .build();
 
         replica_item
