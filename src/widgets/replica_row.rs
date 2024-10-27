@@ -378,6 +378,7 @@ impl ReplicaRow {
 
         self.add_prefix(&imp.home_button);
         self.add_suffix(&imp.button_box);
+        self.set_margin_bottom(4);
         self.set_title_lines(1);
         self.add_css_class("caption");
         self.add_css_class("card");

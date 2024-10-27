@@ -21,6 +21,7 @@
     html_logo_url = "https://github.com/OkuBrowser/oku/raw/master/branding/logo-filled.svg",
     html_favicon_url = "https://github.com/OkuBrowser/oku/raw/master/branding/logo-filled.svg"
 )]
+pub mod bookmark_item;
 pub mod config;
 pub mod database;
 pub mod history_item;
@@ -320,6 +321,28 @@ async fn main() {
     application.connect_window_added(clone!(move |_, window| {
         let window: widgets::window::Window = window.clone().downcast().unwrap();
         let ctx = glib::MainContext::default();
+        let mut bookmark_rx = DATABASE.bookmark_sender.subscribe();
+        ctx.spawn_local_with_priority(
+            glib::source::Priority::HIGH,
+            clone!(
+                #[weak]
+                window,
+                async move {
+                    loop {
+                        bookmark_rx.borrow_and_update();
+                        info!("Bookmarks updated … ");
+                        window.bookmarks_updated();
+                        match bookmark_rx.changed().await {
+                            Ok(_) => continue,
+                            Err(e) => {
+                                error!("{}", e);
+                                break;
+                            }
+                        }
+                    }
+                }
+            ),
+        );
         let mut history_rx = DATABASE.history_sender.subscribe();
         ctx.spawn_local_with_priority(
             glib::source::Priority::HIGH,

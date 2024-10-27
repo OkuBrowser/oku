@@ -14,7 +14,7 @@ use tantivy::{
     collector::TopDocs,
     directory::MmapDirectory,
     query::QueryParser,
-    schema::{Field, Schema, Value, TEXT},
+    schema::{Field, Schema, Value, STORED, TEXT},
     Directory, Index, IndexReader, IndexWriter, TantivyDocument, Term,
 };
 use tokio::sync::Mutex;
@@ -24,10 +24,13 @@ pub(crate) static BOOKMARK_INDEX_PATH: LazyLock<PathBuf> =
 pub(crate) static BOOKMARK_SCHEMA: LazyLock<(Schema, HashMap<&str, Field>)> = LazyLock::new(|| {
     let mut schema_builder = Schema::builder();
     let fields = HashMap::from([
-        ("url", schema_builder.add_text_field("url", TEXT)),
-        ("title", schema_builder.add_text_field("title", TEXT)),
-        ("body", schema_builder.add_text_field("body", TEXT)),
-        ("tag", schema_builder.add_text_field("tag", TEXT)),
+        ("url", schema_builder.add_text_field("url", TEXT | STORED)),
+        (
+            "title",
+            schema_builder.add_text_field("title", TEXT | STORED),
+        ),
+        ("body", schema_builder.add_text_field("body", TEXT | STORED)),
+        ("tag", schema_builder.add_text_field("tag", TEXT | STORED)),
     ]);
     let schema = schema_builder.build();
     (schema, fields)
@@ -139,11 +142,26 @@ impl BrowserDatabase {
             .collect())
     }
 
+    pub fn rebuild_bookmark_index(&self) -> miette::Result<()> {
+        let mut index_writer = BOOKMARK_INDEX_WRITER
+            .clone()
+            .try_lock_owned()
+            .into_diagnostic()?;
+        index_writer.delete_all_documents().into_diagnostic()?;
+        self.get_bookmarks()?
+            .into_par_iter()
+            .filter_map(|x| index_writer.add_document(x.into()).ok())
+            .collect::<Vec<_>>();
+        index_writer.commit().into_diagnostic()?;
+        Ok(())
+    }
+
     pub fn upsert_bookmark(&self, bookmark: Bookmark) -> miette::Result<Option<Bookmark>> {
         let rw: transaction::RwTransaction<'_> =
             self.database.rw_transaction().into_diagnostic()?;
         let old_value: Option<Bookmark> = rw.upsert(bookmark.clone()).into_diagnostic()?;
         rw.commit().into_diagnostic()?;
+        self.bookmark_sender.send_replace(());
 
         let mut index_writer = BOOKMARK_INDEX_WRITER
             .clone()
@@ -170,6 +188,7 @@ impl BrowserDatabase {
             .filter_map(|bookmark| rw.upsert(bookmark).ok())
             .collect();
         rw.commit().into_diagnostic()?;
+        self.bookmark_sender.send_replace(());
 
         let mut index_writer = BOOKMARK_INDEX_WRITER
             .clone()
@@ -189,6 +208,7 @@ impl BrowserDatabase {
         let rw = self.database.rw_transaction().into_diagnostic()?;
         let removed_bookmark = rw.remove(bookmark).into_diagnostic()?;
         rw.commit().into_diagnostic()?;
+        self.bookmark_sender.send_replace(());
 
         let mut index_writer = BOOKMARK_INDEX_WRITER
             .clone()
@@ -207,6 +227,7 @@ impl BrowserDatabase {
             .filter_map(|bookmark| rw.remove(bookmark).ok())
             .collect();
         rw.commit().into_diagnostic()?;
+        self.bookmark_sender.send_replace(());
 
         let mut index_writer = BOOKMARK_INDEX_WRITER
             .clone()
@@ -231,8 +252,8 @@ impl BrowserDatabase {
             .into_diagnostic()?)
     }
 
-    pub fn get_bookmark(&self, original_uri: String) -> miette::Result<Option<Bookmark>> {
+    pub fn get_bookmark(&self, url: String) -> miette::Result<Option<Bookmark>> {
         let r = self.database.r_transaction().into_diagnostic()?;
-        Ok(r.get().primary(original_uri).into_diagnostic()?)
+        Ok(r.get().primary(url).into_diagnostic()?)
     }
 }

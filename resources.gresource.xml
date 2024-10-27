@@ -20,5 +20,8 @@
     <file preprocess="xml-stripblanks">user-home-symbolic.svg</file>
     <file preprocess="xml-stripblanks">note-symbolic.svg</file>
     <file preprocess="xml-stripblanks">folder-remote-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">bookmark-filled-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">pencil-and-paper-small-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">editor-symbolic.svg</file>
   </gresource>
 </gresources>

@@ -63,9 +63,6 @@ pub mod imp {
         pub(crate) shortcuts_button: gtk::Button,
         pub(crate) menu_box: gtk::Box,
         pub(crate) menu_popover: gtk::Popover,
-        // Note popover
-        pub(crate) note_box: gtk::Box,
-        pub(crate) note_popover: gtk::Popover,
         // Find popover
         pub(crate) find_box: gtk::Box,
         pub(crate) find_popover: gtk::Popover,
@@ -94,19 +91,28 @@ pub mod imp {
         pub(crate) side_box: gtk::Box,
         pub(crate) side_view_stack: libadwaita::ViewStack,
         pub(crate) side_view_switcher: libadwaita::ViewSwitcher,
-        pub(crate) replicas_box: gtk::Box,
+        pub(crate) bookmarks_box: gtk::Box,
+        pub(crate) bookmarks_store: RefCell<Option<Rc<gio::ListStore>>>,
+        pub(crate) bookmarks_factory: gtk::SignalListItemFactory,
+        pub(crate) bookmarks_model: gtk::SingleSelection,
+        pub(crate) bookmarks_view: gtk::ListView,
+        pub(crate) bookmarks_scrolled_window: gtk::ScrolledWindow,
+        pub(crate) bookmarks_label: gtk::Label,
         pub(crate) history_box: gtk::Box,
         pub(crate) history_store: RefCell<Option<Rc<gio::ListStore>>>,
         pub(crate) history_factory: gtk::SignalListItemFactory,
         pub(crate) history_model: gtk::SingleSelection,
         pub(crate) history_view: gtk::ListView,
         pub(crate) history_scrolled_window: gtk::ScrolledWindow,
+        pub(crate) history_label: gtk::Label,
         pub(crate) add_replicas_button: libadwaita::ButtonRow,
+        pub(crate) replicas_box: gtk::Box,
         pub(crate) replicas_store: RefCell<Option<Rc<gio::ListStore>>>,
         pub(crate) replicas_factory: gtk::SignalListItemFactory,
         pub(crate) replicas_model: gtk::SingleSelection,
         pub(crate) replicas_view: gtk::ListView,
         pub(crate) replicas_scrolled_window: gtk::ScrolledWindow,
+        pub(crate) replicas_label: gtk::Label,
         // Miscellaneous
         pub(crate) progress_animation: RefCell<Option<libadwaita::SpringAnimation>>,
         pub(crate) progress_bar: gtk::ProgressBar,
@@ -162,7 +168,6 @@ impl Window {
 
         this.setup_headerbar();
         this.setup_menu_popover();
-        this.setup_note_popover();
         this.setup_find_popover();
         this.setup_tabs();
         this.setup_main_content(&web_context);

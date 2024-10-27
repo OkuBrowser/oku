@@ -1,4 +1,5 @@
 use super::*;
+use crate::bookmark_item::BookmarkItem;
 use crate::database::DATABASE;
 use crate::history_item::HistoryItem;
 use crate::replica_item::ReplicaItem;
@@ -17,6 +18,44 @@ use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::WebContext;
 
 impl Window {
+    pub fn bookmarks_store(&self) -> Ref<gio::ListStore> {
+        let bookmarks_store = self.imp().bookmarks_store.borrow();
+
+        Ref::map(bookmarks_store, |bookmarks_store| {
+            let bookmarks_store = bookmarks_store.as_deref().unwrap();
+            bookmarks_store
+        })
+    }
+
+    pub fn bookmarks_updated(&self) {
+        let favicon_database = self
+            .get_view()
+            .network_session()
+            .unwrap()
+            .website_data_manager()
+            .unwrap()
+            .favicon_database()
+            .unwrap();
+        let bookmarks_store = self.bookmarks_store();
+        let bookmarks = DATABASE.get_bookmarks().unwrap_or_default();
+        let items: Vec<_> = bookmarks
+            .into_iter()
+            .map(|x| BookmarkItem::new(x.url, x.title, x.body, x.tags, &favicon_database))
+            .collect();
+        bookmarks_store.remove_all();
+        if items.len() > 0 {
+            for item in items.iter() {
+                bookmarks_store.append(item);
+            }
+        }
+
+        if let Some(bookmarks_page) =
+            get_view_stack_page_by_name("bookmarks".to_string(), &self.imp().side_view_stack)
+        {
+            bookmarks_page.set_needs_attention(true)
+        }
+    }
+
     pub fn history_store(&self) -> Ref<gio::ListStore> {
         let history_store = self.imp().history_store.borrow();
 
@@ -132,6 +171,7 @@ impl Window {
 
         self.setup_replicas_page();
         self.setup_history_page(&web_context);
+        self.setup_bookmarks_page(&web_context);
         imp.side_view_stack
             .connect_visible_child_notify(clone!(move |side_view_stack| {
                 if let Some(visible_page) = get_view_stack_page_by_name(
@@ -150,6 +190,98 @@ impl Window {
         imp.side_box.set_margin_top(4);
         imp.side_box.append(&imp.side_view_switcher);
         imp.side_box.append(&imp.side_view_stack);
+    }
+
+    pub fn setup_bookmarks_page(&self, web_context: &WebContext) {
+        let imp = self.imp();
+
+        let bookmarks_store = gio::ListStore::new::<BookmarkItem>();
+        imp.bookmarks_store.replace(Some(Rc::new(bookmarks_store)));
+
+        imp.bookmarks_model
+            .set_model(Some(&self.bookmarks_store().clone()));
+        imp.bookmarks_model.set_autoselect(false);
+        imp.bookmarks_model.set_can_unselect(true);
+        imp.bookmarks_model.connect_selected_item_notify(clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[weak]
+            imp,
+            #[weak]
+            web_context,
+            move |bookmarks_model| {
+                if let Some(item) = bookmarks_model.selected_item() {
+                    let bookmarks_item = item.downcast_ref::<BookmarkItem>().unwrap();
+                    let new_view = this.new_tab_page(&web_context, None, None).0;
+                    new_view.load_uri(&bookmarks_item.url());
+                    imp.bookmarks_model.unselect_all();
+                }
+            }
+        ));
+
+        imp.bookmarks_factory.connect_setup(clone!(move |_, item| {
+            let row = widgets::bookmark_row::BookmarkRow::new();
+            let list_item = item.downcast_ref::<gtk::ListItem>().unwrap();
+            list_item.set_child(Some(&row));
+            list_item
+                .property_expression("item")
+                .chain_property::<BookmarkItem>("url")
+                .bind(&row, "url", gtk::Widget::NONE);
+            list_item
+                .property_expression("item")
+                .chain_property::<BookmarkItem>("title")
+                .bind(&row, "title-property", gtk::Widget::NONE);
+            list_item
+                .property_expression("item")
+                .chain_property::<BookmarkItem>("body")
+                .bind(&row, "body", gtk::Widget::NONE);
+            list_item
+                .property_expression("item")
+                .chain_property::<BookmarkItem>("tags")
+                .bind(&row, "tags", gtk::Widget::NONE);
+            list_item
+                .property_expression("item")
+                .chain_property::<BookmarkItem>("favicon")
+                .bind(&row, "favicon", gtk::Widget::NONE);
+        }));
+
+        imp.bookmarks_view.set_model(Some(&imp.bookmarks_model));
+        imp.bookmarks_view.set_factory(Some(&imp.bookmarks_factory));
+        imp.bookmarks_view.set_enable_rubberband(false);
+        imp.bookmarks_view
+            .set_hscroll_policy(gtk::ScrollablePolicy::Minimum);
+        imp.bookmarks_view
+            .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
+        imp.bookmarks_view.set_vexpand(true);
+        imp.bookmarks_view.add_css_class("boxed-list-separate");
+        imp.bookmarks_view.add_css_class("navigation-sidebar");
+
+        imp.bookmarks_scrolled_window
+            .set_child(Some(&imp.bookmarks_view));
+        imp.bookmarks_scrolled_window
+            .set_hscrollbar_policy(gtk::PolicyType::Never);
+        imp.bookmarks_scrolled_window
+            .set_propagate_natural_height(true);
+        imp.bookmarks_scrolled_window
+            .set_propagate_natural_width(true);
+
+        imp.bookmarks_label.set_label("Bookmarks");
+        imp.bookmarks_label.set_margin_top(24);
+        imp.bookmarks_label.set_margin_bottom(24);
+        imp.bookmarks_label.add_css_class("title-1");
+
+        imp.bookmarks_box
+            .set_orientation(gtk::Orientation::Vertical);
+        imp.bookmarks_box.set_spacing(4);
+        imp.bookmarks_box.append(&imp.bookmarks_label);
+        imp.bookmarks_box.append(&imp.bookmarks_scrolled_window);
+
+        imp.side_view_stack.add_titled_with_icon(
+            &imp.bookmarks_box,
+            Some("bookmarks"),
+            "Bookmarks",
+            "bookmark-filled-symbolic",
+        );
     }
 
     pub fn setup_history_page(&self, web_context: &WebContext) {
@@ -225,11 +357,15 @@ impl Window {
         imp.history_scrolled_window
             .set_propagate_natural_width(true);
 
-        imp.history_box.set_orientation(gtk::Orientation::Vertical);
-        imp.history_box.append(&imp.history_scrolled_window);
+        imp.history_label.set_label("History");
+        imp.history_label.set_margin_top(24);
+        imp.history_label.set_margin_bottom(24);
+        imp.history_label.add_css_class("title-1");
 
         imp.history_box.set_orientation(gtk::Orientation::Vertical);
         imp.history_box.set_spacing(4);
+        imp.history_box.append(&imp.history_label);
+        imp.history_box.append(&imp.history_scrolled_window);
 
         imp.side_view_stack.add_titled_with_icon(
             &imp.history_box,
@@ -332,7 +468,13 @@ impl Window {
         imp.replicas_scrolled_window
             .set_propagate_natural_width(true);
 
+        imp.replicas_label.set_label("Replicas");
+        imp.replicas_label.set_margin_top(24);
+        imp.replicas_label.set_margin_bottom(24);
+        imp.replicas_label.add_css_class("title-1");
+
         imp.replicas_box.set_orientation(gtk::Orientation::Vertical);
+        imp.replicas_box.append(&imp.replicas_label);
         imp.replicas_box.append(&imp.add_replicas_button);
         imp.replicas_box.append(&imp.replicas_scrolled_window);
 

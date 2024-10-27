@@ -58,6 +58,13 @@ impl Window {
 
         imp.url_status_box.set_hexpand(false);
         imp.url_status_box.add_css_class("background");
+        imp.url_status_box.add_css_class("card");
+        imp.url_status_box.set_halign(gtk::Align::Start);
+        imp.url_status_box.set_valign(gtk::Align::End);
+        imp.url_status_box.set_margin_start(4);
+        imp.url_status_box.set_margin_top(4);
+        imp.url_status_box.set_margin_bottom(4);
+        imp.url_status_box.set_margin_end(4);
         imp.url_status_box.set_can_focus(false);
         imp.url_status_box.set_can_target(false);
         imp.url_status_box.set_focusable(false);

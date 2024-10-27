@@ -19,6 +19,7 @@ pub(crate) static MODELS: LazyLock<Models> = LazyLock::new(|| {
 pub struct BrowserDatabase {
     pub(super) database: Database<'static>,
     pub history_sender: tokio::sync::watch::Sender<()>,
+    pub bookmark_sender: tokio::sync::watch::Sender<()>,
 }
 
 impl BrowserDatabase {
@@ -28,11 +29,15 @@ impl BrowserDatabase {
                 .create(&MODELS, &*DATABASE_PATH)
                 .into_diagnostic()?,
             history_sender: tokio::sync::watch::channel(()).0,
+            bookmark_sender: tokio::sync::watch::channel(()).0,
         };
         if database.get_history_records()?.len() as u64
             != HISTORY_RECORD_INDEX_READER.searcher().num_docs()
         {
             database.rebuild_history_record_index()?;
+        }
+        if database.get_bookmarks()?.len() as u64 != BOOKMARK_INDEX_READER.searcher().num_docs() {
+            database.rebuild_bookmark_index()?;
         }
         Ok(database)
     }
