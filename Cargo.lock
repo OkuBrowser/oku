@@ -5239,7 +5239,7 @@ dependencies = [
 [[package]]
 name = "oku-fs"
 version = "0.1.0"
-source = "git+https://github.com/OkuBrowser/oku-fs#4b198a1b17a940baecea5590c02c79c49ebac1df"
+source = "git+https://github.com/OkuBrowser/oku-fs#79a6ec141546d08df75eda66691a6770088480f0"
 dependencies = [
  "anyhow",
  "async-trait",

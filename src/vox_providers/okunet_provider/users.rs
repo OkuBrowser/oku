@@ -94,8 +94,6 @@ impl OkuNetProvider {
             table,
             user.author_id.to_string()
         );
-        println!("{}:\n{}", page_path, page_contents);
-        println!("{:#?}", self.0);
         self.0.write_file(page_path, page_contents)?;
         Ok(())
     }

@@ -1,4 +1,5 @@
 use crate::database::{Bookmark, DATABASE};
+use crate::scheme_handlers::oku_path::OkuPath;
 use crate::HOME_REPLICA_SET;
 use crate::NODE;
 use glib::clone;
@@ -20,9 +21,11 @@ use libadwaita::prelude::PreferencesRowExt;
 use libadwaita::prelude::*;
 use libadwaita::subclass::dialog::AdwDialogImpl;
 use log::error;
+use oku_fs::database::OkuNote;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::sync::atomic::Ordering;
+use webkit2gtk::functions::uri_for_display;
 use webkit2gtk::prelude::WebViewExt;
 
 pub mod imp {
@@ -136,7 +139,7 @@ impl NoteEditor {
         );
         imp.title_entry.set_title("Title");
 
-        imp.tag_entry.set_title("Tags");
+        imp.tag_entry.set_title("Tag");
         imp.tag_entry.set_show_apply_button(true);
         imp.tag_entry.connect_apply(clone!(
             #[weak]
@@ -256,6 +259,56 @@ impl NoteEditor {
                 let title = view.title().unwrap_or_default().to_string();
                 imp.url_entry.set_text(&url);
                 imp.title_entry.set_text(&title);
+
+                glib::spawn_future_local(clone!(
+                    #[weak]
+                    this,
+                    #[weak]
+                    imp,
+                    async move {
+                        if let Some(node) = NODE.get() {
+                            let url = uri_for_display(&url)
+                                .map(|x| x.to_string())
+                                .unwrap_or(url)
+                                .replacen("oku:", "", 1);
+                            let post_at_url = if let Some(oku_path) =
+                                OkuPath::parse(url.clone()).ok()
+                            {
+                                match oku_path {
+                                    OkuPath::User(author_id, replica_path) => match replica_path {
+                                        Some(path) => node
+                                            .get_or_fetch_post(
+                                                author_id,
+                                                format!("{}.toml", path.to_string_lossy()).into(),
+                                            )
+                                            .await
+                                            .ok(),
+                                        None => None,
+                                    },
+                                    OkuPath::Me(replica_path) => match replica_path {
+                                        Some(path) => node
+                                            .post(format!("{}.toml", path.to_string_lossy()).into())
+                                            .await
+                                            .ok(),
+                                        None => None,
+                                    },
+                                    _ => None,
+                                }
+                            } else {
+                                None
+                            };
+                            let post_from_url = {
+                                let path = OkuNote::suggested_post_path_from_url(url);
+                                node.post(format!("{}.toml", path).into()).await.ok()
+                            };
+                            if let Some(oku_post) = post_at_url.or(post_from_url) {
+                                imp.title_entry.set_text(&oku_post.note.title);
+                                imp.body_buffer.set_text(&oku_post.note.body);
+                                this.set_tags(oku_post.note.tags);
+                            }
+                        }
+                    }
+                ));
             }
         }
 
