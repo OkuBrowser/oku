@@ -1,0 +1,13 @@
+<article class="post container">
+  <div class="post-header">
+      <a href="{{ include.post.url | prepend: global.url }}"><h1 class="post-title">{{ include.post.data.title }}</h1></a>
+      <a href="{{ include.post.data.author_id | prepend: global.url }}"><span class="post-meta">&emsp;by {{ include.post.data.author.name }}</span></a>
+  </div>
+  <a href="{{ include.post.data.note_url }}"><p class="post-meta">{{ include.post.data.note_url }}</p></a>
+  {% if include.post.data.tags[0] %}
+  <p class="post-meta"> — tagged with {% include tags.voxs tags = include.post.data.tags %}</p>
+  {% endif %}
+  <a href="{{ include.post.url | prepend: global.url }}"><time datetime="{{ include.post.date.rfc_3339 }}" class="post-date">{{ include.post.date.short_day }}, {{ include.post.date.day }} {{ include.post.date.short_month }} {{ include.post.date.year }}</time></a>
+  <hr>
+  {{- include.post.rendered | truncatewords: 56, " … " -}}
+</article>

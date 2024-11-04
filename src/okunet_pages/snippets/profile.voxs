@@ -1,0 +1,28 @@
+{% markdown %}
+# {{ page.data.title }}
+
+## Posts
+
+{% if include.posts[0] %}
+{% assign posts = include.posts | sort: "date" | reverse %}
+{% include posts.voxs posts = posts %}
+{% else %}
+
+### No posts found
+
+{% endif %}
+
+## Following
+
+{% if page.data.following[0] %}
+{% for user in page.data.following %}
+
+- [{{ user.name }}]({{ user.id | prepend: global.url }})
+
+{% endfor %}
+{% else %}
+
+### Not following anyone
+
+{% endif %}
+{% endmarkdown %}

@@ -28,6 +28,7 @@ pub mod history_item;
 pub mod replica_item;
 pub mod scheme_handlers;
 pub mod suggestion_item;
+pub mod vox_providers;
 pub mod widgets;
 pub mod window_util;
 
@@ -50,7 +51,10 @@ use scheme_handlers::util::handle_request;
 use scheme_handlers::util::RequestScheme;
 use scheme_handlers::util::SchemeRequest;
 use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::sync::OnceLock;
 use tokio::runtime::Handle;
@@ -64,7 +68,7 @@ extern crate lazy_static;
 lazy_static! {
     /// The platform-specific directories intended for Oku's use
     static ref PROJECT_DIRECTORIES: ProjectDirs =
-        ProjectDirs::from("com", "github", "OkuBrowser").unwrap();
+        ProjectDirs::from("io", "github.OkuBrowser","oku").unwrap();
     /// The platform-specific directory where Oku caches data
     static ref CACHE_DIR: PathBuf = PROJECT_DIRECTORIES.cache_dir().to_path_buf();
     /// The platform-specific directory where Oku stores user data
@@ -83,6 +87,8 @@ lazy_static! {
 }
 
 static NODE: OnceLock<OkuFs> = OnceLock::new();
+static HOME_REPLICA_SET: LazyLock<Arc<AtomicBool>> =
+    LazyLock::new(|| Arc::new(AtomicBool::new(false)));
 
 async fn create_web_context() -> (WebContext, Option<BackgroundSession>, Ipfs) {
     let (node, mount_handle) = create_oku_client().await;
@@ -199,8 +205,9 @@ async fn create_ipfs_client() -> Ipfs {
 /// The main function of Oku
 #[tokio::main]
 async fn main() {
-    if let Ok(res) = gio::Resource::load("resources.gresource") {
-        gio::resources_register(&res);
+    match gio::Resource::load("resources.gresource") {
+        Ok(res) => gio::resources_register(&res),
+        Err(e) => error!("{}", e),
     }
 
     let mut builder = Builder::new();
@@ -212,7 +219,7 @@ async fn main() {
     let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::unbounded_channel();
 
     let application = libadwaita::Application::builder()
-        .application_id("com.github.OkuBrowser")
+        .application_id("io.github.OkuBrowser.oku")
         .flags(gio::ApplicationFlags::HANDLES_OPEN)
         .version(VERSION.to_string())
         .build();
@@ -378,6 +385,8 @@ async fn main() {
                             replica_rx.borrow_and_update();
                             info!("Replicas updated … ");
                             window.replicas_updated();
+                            HOME_REPLICA_SET
+                                .store(node.home_replica().await.is_some(), Ordering::Relaxed);
                             match replica_rx.changed().await {
                                 Ok(_) => continue,
                                 Err(e) => {

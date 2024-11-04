@@ -1,0 +1,3 @@
+{% for post in include.posts %}
+{% include post.voxs post = post %}
+{% endfor %}

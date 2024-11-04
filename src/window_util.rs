@@ -95,7 +95,7 @@ pub fn update_nav_bar(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebVi
     if url.starts_with(&format!("http://{}.ipfs.localhost:8080/", split_cid[0])) {
         url = cid;
     }
-    if url.starts_with("oku:") || url.starts_with("about:") || url.starts_with("view-source:") {
+    if url.starts_with("oku:home") || url.starts_with("about:") || url.starts_with("view-source:") {
         url = "".to_string();
     }
     nav_entry.set_text(&uri_for_display(&url).unwrap_or_default());

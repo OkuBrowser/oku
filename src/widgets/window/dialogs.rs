@@ -9,7 +9,7 @@ impl Window {
             .version(VERSION.to_string())
             .application_name("Oku")
             .developer_name("Emil Sayahi")
-            .application_icon("com.github.OkuBrowser")
+            .application_icon("io.github.OkuBrowser.oku")
             .license_type(gtk::License::Agpl30)
             .issue_url("https://github.com/OkuBrowser/oku/issues")
             .website("https://okubrowser.github.io")

@@ -67,6 +67,9 @@ native_db = "0.8.1"
 native_model = "0.4.20"
 rayon = "1.10.0"
 tantivy = "0.22.0"
+# vox = { path = "/home/emil/Documents/GitHub/vox", features = ["ram_provider"] }
+vox = { git = "https://github.com/emmyoh/vox", features = ["ram_provider"] }
+bs58 = "0.5.1"
 
 [profile.release]
 codegen-units = 1

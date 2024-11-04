@@ -1,11 +1,9 @@
 ---
-permalink = "view_source.html"
 ---
-
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        <title>{% raw %}{{ title }}{% endraw %}</title>
+        <title>{{ page.data.title }}</title>
         <style>
             {% include hljs.default.min.css %}
         </style>
@@ -19,9 +17,7 @@ permalink = "view_source.html"
     <body>
         <pre>
             <code>
-{% raw %}
-{{ content | escape | strip }}
-{% endraw %}
+{{- layouts | map: "rendered" | first | escape -}}
             </code>
         </pre>
     </body>

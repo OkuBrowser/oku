@@ -9,10 +9,10 @@
         <div class="container">
             {{- layouts | map: "rendered" | first -}}
         </div>
+        <footer class="container">
+            <small>
+                &copy; {{ global.author }} <time datetime="{{ meta.date.rfc_3339 }}">{{ meta.date.year }}</time>
+            </small>
+        </footer>
     </body>
-    <footer class="container">
-        <small>
-            &copy; {{ global.author }} <time datetime="{{ meta.date.rfc_2822 }}">{{ meta.date.year }}</time>
-        </small>
-    </footer>
 </html>

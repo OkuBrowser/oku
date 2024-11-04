@@ -1,0 +1,17 @@
+---
+layout = "default"
+title = "Tags"
+permalink = "tags"
+depends = ["tag"]
+---
+{% markdown %}
+# {{ page.data.title }}
+
+{% if tag[0] %}
+{% for tag_i in tag %}
+- [{{ tag_i.data.title }}]({{ tag_i.url | prepend: global.url }})
+{% endfor %}
+{% else %}
+No tags found … 
+{% endif %}
+{% endmarkdown %}

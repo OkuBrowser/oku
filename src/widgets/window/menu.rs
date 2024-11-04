@@ -517,11 +517,14 @@ impl Window {
         imp.settings_button.connect_clicked(clone!(
             #[weak(rename_to = this)]
             self,
+            #[weak]
+            imp,
             move |_| {
                 widgets::settings::Settings::new(
                     &this.application().unwrap().downcast().unwrap(),
                     &this,
                 );
+                imp.menu_popover.popdown();
             }
         ));
         let action_settings = gio::ActionEntry::builder("settings")

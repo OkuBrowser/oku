@@ -15,7 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with Oku.  If not, see <https://www.gnu.org/licenses/>. -->
 <component type="desktop-application">
-  <id>com.github.OkuBrowser</id>
+  <id>io.github.OkuBrowser.oku</id>
   <metadata_license>CC0</metadata_license>
   <project_license>AGPL-3.0+</project_license>
   <name>Oku</name>
@@ -45,9 +45,9 @@
     <kudo>HiDpiIcon</kudo>
     <kudo>HighContrast</kudo>
   </kudos>
-  <developer id="com.github.OkuBrowser">
+  <developer id="io.github.OkuBrowser.oku">
     <name>Emil Sayahi</name>
   </developer>
   <update_contact>limesayahi@gmail.com</update_contact>
-  <launchable type="desktop-id">com.github.OkuBrowser.desktop</launchable>
+  <launchable type="desktop-id">io.github.OkuBrowser.oku.desktop</launchable>
 </component>

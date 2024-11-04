@@ -7,7 +7,7 @@
     </head>
     <body>
         <div class="container glass center">
-            {{ layouts | map: "rendered" | first }}
+            {{- layouts | map: "rendered" | first -}}
         </div>
     </body>
 </html>

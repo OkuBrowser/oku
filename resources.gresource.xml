@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
-  <gresource prefix="/com/github/OkuBrowser/icons/scalable/actions/">
+  <gresource prefix="/io/github/OkuBrowser/oku/icons/scalable/actions/">
     <file preprocess="xml-stripblanks">arrow-pointing-at-line-down-symbolic.svg</file>
     <file preprocess="xml-stripblanks">external-link-symbolic.svg</file>
     <file preprocess="xml-stripblanks">file-cabinet-symbolic.svg</file>

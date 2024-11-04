@@ -193,6 +193,7 @@ impl BrowserDatabase {
     ) -> miette::Result<Vec<Option<HistoryRecord>>> {
         let rw = self.database.rw_transaction().into_diagnostic()?;
         let old_history_records: Vec<_> = history_records
+            .clone()
             .into_iter()
             .filter_map(|history_record| rw.upsert(history_record).ok())
             .collect();
@@ -210,6 +211,9 @@ impl BrowserDatabase {
                     index_writer.delete_term(old_history_record.index_term());
                 }
             });
+        history_records.par_iter().for_each(|history_record| {
+            let _ = index_writer.add_document(history_record.clone().into());
+        });
         index_writer.commit().into_diagnostic()?;
 
         Ok(old_history_records)

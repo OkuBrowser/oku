@@ -65,7 +65,7 @@ pub async fn handle_request_tokio(
 ) {
     match request_scheme {
         RequestScheme::Hive => node_scheme(request).await,
-        RequestScheme::Oku => oku_scheme(request),
+        RequestScheme::Oku => oku_scheme(request).await,
         RequestScheme::Ipfs => ipfs_scheme(ipfs, request).await,
         RequestScheme::Ipns => ipns_scheme(ipfs, request).await,
         RequestScheme::ViewSource => view_source_scheme(request).await,

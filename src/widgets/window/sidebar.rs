@@ -187,7 +187,7 @@ impl Window {
 
         imp.side_box.set_orientation(gtk::Orientation::Vertical);
         imp.side_box.set_spacing(8);
-        imp.side_box.set_margin_top(4);
+        imp.side_box.add_css_class("toolbar");
         imp.side_box.append(&imp.side_view_switcher);
         imp.side_box.append(&imp.side_view_stack);
     }

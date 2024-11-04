@@ -1,10 +1,14 @@
+use std::sync::atomic::Ordering;
+
 use crate::config::{ColourScheme, Palette};
-use crate::CONFIG;
+use crate::window_util::get_window_from_widget;
+use crate::{CONFIG, HOME_REPLICA_SET, NODE};
 use glib::clone;
 use gtk::glib;
 use gtk::subclass::prelude::*;
 use libadwaita::subclass::{dialog::AdwDialogImpl, preferences_dialog::PreferencesDialogImpl};
 use libadwaita::{prelude::*, StyleManager};
+use log::error;
 
 pub mod imp {
     use super::*;
@@ -20,6 +24,10 @@ pub mod imp {
         pub(crate) palette_row: libadwaita::ComboRow,
         pub(crate) palette_selection: gtk::SingleSelection,
         pub(crate) palette_list: gtk::StringList,
+        pub(crate) okunet_group: libadwaita::PreferencesGroup,
+        pub(crate) author_row: libadwaita::ActionRow,
+        pub(crate) copy_author_button: gtk::Button,
+        pub(crate) display_name_row: libadwaita::EntryRow,
     }
 
     impl Settings {}
@@ -86,9 +94,97 @@ impl Settings {
         let imp = self.imp();
 
         self.setup_appearance_group(&style_manager, &window);
+        self.setup_okunet_group();
 
         imp.main_page.add(&imp.appearance_group);
+        imp.main_page.add(&imp.okunet_group);
         self.add(&imp.main_page);
+    }
+
+    pub fn setup_okunet_group(&self) {
+        let imp = self.imp();
+
+        imp.display_name_row.set_title("Display name");
+        imp.display_name_row.set_show_apply_button(true);
+
+        imp.copy_author_button.set_icon_name("copy-symbolic");
+        imp.copy_author_button.add_css_class("circular");
+        imp.copy_author_button.set_valign(gtk::Align::Center);
+        imp.copy_author_button.connect_clicked(clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[weak]
+            imp,
+            move |_| {
+                let clipboard = gdk::Display::default().unwrap().clipboard();
+                let author_id = imp.author_row.subtitle().unwrap_or_default();
+                clipboard.set_text(&author_id);
+                let window = get_window_from_widget(&this);
+                let app = window.application().unwrap();
+                let notification = gio::Notification::new("Author ID copied");
+                notification.set_body(Some(&format!(
+                    "Author ID ({}) has been copied to the clipboard.",
+                    author_id
+                )));
+                app.send_notification(None, &notification);
+            }
+        ));
+
+        imp.author_row.set_title("Author ID");
+        imp.author_row.add_css_class("property");
+        imp.author_row.add_css_class("monospace");
+        imp.author_row.add_suffix(&imp.copy_author_button);
+
+        imp.okunet_group.set_title("OkuNet");
+        imp.okunet_group
+            .set_description(Some("Settings affecting the use of OkuNet"));
+        imp.okunet_group.add(&imp.author_row);
+        imp.okunet_group.add(&imp.display_name_row);
+
+        if let Some(node) = NODE.get() {
+            let ctx = glib::MainContext::default();
+            ctx.spawn_local(clone!(
+                #[weak]
+                imp,
+                async move {
+                    match node.default_author().await {
+                        Ok(author_id) => imp.author_row.set_subtitle(&author_id.to_string()),
+                        Err(e) => error!("{}", e),
+                    }
+                }
+            ));
+            match HOME_REPLICA_SET.load(Ordering::Relaxed) {
+                true => {
+                    ctx.spawn_local(clone!(
+                        #[weak]
+                        imp,
+                        async move {
+                            if let Some(current_identity) = node.identity().await {
+                                imp.display_name_row.set_text(&current_identity.name);
+                            }
+                        }
+                    ));
+                    imp.display_name_row
+                        .connect_apply(clone!(move |display_name_row| {
+                            ctx.spawn_local(clone!(
+                                #[weak]
+                                display_name_row,
+                                async move {
+                                    if let Err(e) = node
+                                        .set_display_name(display_name_row.text().to_string())
+                                        .await
+                                    {
+                                        error!("{}", e);
+                                    }
+                                }
+                            ));
+                        }));
+                }
+                false => {
+                    imp.okunet_group.set_sensitive(false);
+                }
+            }
+        }
     }
 
     pub fn setup_appearance_group(

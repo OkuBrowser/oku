@@ -184,6 +184,7 @@ impl BrowserDatabase {
     ) -> miette::Result<Vec<Option<Bookmark>>> {
         let rw = self.database.rw_transaction().into_diagnostic()?;
         let old_bookmarks: Vec<_> = bookmarks
+            .clone()
             .into_iter()
             .filter_map(|bookmark| rw.upsert(bookmark).ok())
             .collect();
@@ -198,6 +199,9 @@ impl BrowserDatabase {
             if let Some(old_bookmark) = old_bookmark {
                 index_writer.delete_term(old_bookmark.index_term());
             }
+        });
+        bookmarks.par_iter().for_each(|bookmark| {
+            let _ = index_writer.add_document(bookmark.clone().into());
         });
         index_writer.commit().into_diagnostic()?;
 

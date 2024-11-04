@@ -1,4 +1,5 @@
 use super::util::SchemeRequest;
+use crate::vox_providers::oku_provider::core::OkuProvider;
 use bytes::Bytes;
 use miette::IntoDiagnostic;
 use std::future::Future;
@@ -39,22 +40,11 @@ pub async fn view_source_scheme_handler(
             .main_resource()
             .ok_or(miette::miette!("No resource loaded to view source of … "))?,
     );
-    let liquid_parser = liquid::ParserBuilder::with_stdlib()
-        .build()
-        .into_diagnostic()?;
     let data = glib::spawn_future(resource.data().await)
         .await
         .map_err(|e| miette::miette!("{}", e))?
         .map_err(|e| miette::miette!("{}", e))?;
-    let html = std::str::from_utf8(&data).into_diagnostic()?;
-    let liquid_objects = liquid::object!({
-        "content": html,
-        "title": request.uri().unwrap_or_default()
-    });
-    let view_source_template = include_str!("../browser_pages/output/view_source.html");
-    liquid_parser
-        .parse(&view_source_template)
-        .into_diagnostic()?
-        .render(&liquid_objects)
-        .map_err(|e| miette::miette!("{}", e))
+    let html = std::str::from_utf8(&data).into_diagnostic()?.to_string();
+    let uri = request.uri().unwrap_or_default();
+    OkuProvider::new().view_source(html, uri)
 }

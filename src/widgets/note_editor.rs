@@ -1,46 +1,28 @@
-use crate::config::{ColourScheme, Palette};
 use crate::database::{Bookmark, DATABASE};
-use crate::window_util::get_window_from_widget;
-use crate::CONFIG;
-use crate::MOUNT_DIR;
+use crate::HOME_REPLICA_SET;
 use crate::NODE;
-use gdk::prelude::DisplayExt;
-use gio::prelude::ApplicationExt;
 use glib::clone;
-use glib::object::CastNone;
 use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassExt;
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::value::ToValue;
 use glib::ParamSpec;
-use glib::ParamSpecBoolean;
-use glib::ParamSpecObject;
+use glib::ParamSpecBoxed;
 use glib::ParamSpecString;
 use glib::Value;
-use glib::{ParamSpecBoxed, ParamSpecValueArray};
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
-use gtk::prelude::GtkWindowExt;
-use gtk::prelude::ListBoxRowExt;
 use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::*;
-use gtk::subclass::prelude::*;
-use gtk::StringList;
 use gtk::{glib, StringObject};
-use libadwaita::prelude::ActionRowExt;
 use libadwaita::prelude::PreferencesRowExt;
+use libadwaita::prelude::*;
 use libadwaita::subclass::dialog::AdwDialogImpl;
-use libadwaita::subclass::prelude::*;
-use libadwaita::{prelude::*, StyleManager};
 use log::error;
-use oku_fs::iroh::base::ticket::Ticket;
-use oku_fs::iroh::client::docs::ShareMode;
-use oku_fs::iroh::docs::NamespaceId;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
-use std::rc::Rc;
-use std::str::FromStr;
+use std::sync::atomic::Ordering;
 use webkit2gtk::prelude::WebViewExt;
 
 pub mod imp {
@@ -277,6 +259,58 @@ impl NoteEditor {
             }
         }
 
+        match HOME_REPLICA_SET.load(Ordering::Relaxed) {
+            true => {
+                imp.save_post_button.connect_clicked(clone!(
+                    #[weak]
+                    this,
+                    move |_| {
+                        let ctx = glib::MainContext::default();
+                        ctx.spawn_local_with_priority(
+                            glib::source::Priority::HIGH,
+                            clone!(
+                                #[weak]
+                                this,
+                                async move {
+                                    if let Some(node) = NODE.get() {
+                                        match url::Url::parse(&this.url()) {
+                                            Ok(parsed_url) => {
+                                                match node
+                                                    .create_or_modify_post(
+                                                        None,
+                                                        parsed_url,
+                                                        this.title_property(),
+                                                        this.body(),
+                                                        this.tags(),
+                                                    )
+                                                    .await
+                                                {
+                                                    Ok(_) => {
+                                                        this.close();
+                                                    }
+                                                    Err(e) => {
+                                                        error!("{}", e);
+                                                    }
+                                                }
+                                            }
+                                            Err(e) => {
+                                                error!("{}", e);
+                                            }
+                                        }
+                                    }
+                                }
+                            ),
+                        );
+                    }
+                ));
+            }
+            false => {
+                imp.save_post_button.set_sensitive(false);
+                imp.save_post_button
+                    .set_tooltip_text(Some("A home replica is required to post to OkuNet."));
+            }
+        }
+
         this.set_follows_content_size(true);
         this.set_visible(true);
         this.present(window);
@@ -311,9 +345,12 @@ impl NoteEditor {
         imp.body.replace(body);
     }
     pub fn set_tags(&self, tags: Vec<String>) {
-        let imp = self.imp();
-
-        imp.tags.replace(tags);
+        for tag in self.tags() {
+            self.delete_tag(tag);
+        }
+        for tag in tags {
+            self.append_tag(tag);
+        }
     }
     pub fn append_tag(&self, tag: String) {
         let imp = self.imp();

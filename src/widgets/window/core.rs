@@ -156,7 +156,7 @@ impl Window {
             .property("application", app)
             .build();
         this.set_can_focus(true);
-        this.set_icon_name(Some("com.github.OkuBrowser"));
+        this.set_icon_name(Some("io.github.OkuBrowser.oku"));
 
         let imp = this.imp();
         imp.is_private.set(is_private);

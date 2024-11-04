@@ -1,0 +1,16 @@
+---
+layout = "default"
+---
+<article class="post">
+  <div class="post-header">
+      <a href="{{ page.data.note_url }}"><h1 class="post-title">{{ page.data.title }}</h1></a>
+      <a href="{{ page.data.author_id | prepend: global.url }}"><span class="post-meta">&emsp;by {{ page.data.author.name }}</span></a>
+  </div>
+  <a href="{{ page.data.note_url }}"><p class="post-meta">{{ page.data.note_url }}</p></a>
+  {% if page.data.tags[0] %}
+  <p class="post-meta"> — tagged with {% include tags.voxs tags = page.data.tags %}</p>
+  {% endif %}
+  <a href="{{ page.data.note_url }}"><time datetime="{{ page.date.rfc_3339 }}" class="post-date">{{ page.date.short_day }}, {{ page.date.day }} {{ page.date.short_month }} {{ page.date.year }}</time></a>
+  <hr>
+  {{- page.rendered -}}
+</article>
