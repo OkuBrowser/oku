@@ -144,9 +144,9 @@ impl Window {
                 }
                 this.update_load_progress(&web_view);
                 if web_view.is_loading() {
-                    refresh_button.set_icon_name("process-stop")
+                    refresh_button.set_icon_name("cross-large-symbolic")
                 } else {
-                    refresh_button.set_icon_name("view-refresh")
+                    refresh_button.set_icon_name("arrow-circular-top-right-symbolic")
                 }
                 back_button.set_sensitive(web_view.can_go_back());
                 forward_button.set_sensitive(web_view.can_go_forward());

@@ -264,6 +264,7 @@ impl Window {
             .modal(true)
             .build();
         shortcuts_window.add_section(&main_section);
+        shortcuts_window.set_transient_for(Some(self));
         shortcuts_window.present();
     }
 }

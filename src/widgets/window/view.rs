@@ -102,8 +102,6 @@ impl Window {
             .set_user_agent_with_application_details(Some("Oku"), Some(&VERSION.to_string()));
         web_settings.set_enable_write_console_messages_to_stdout(true);
         web_context.set_web_process_extensions_directory(&extensions_path);
-        web_view.set_width_request(1024);
-        web_view.set_height_request(640);
         if let Some(initial_request) = initial_request {
             web_view.load_request(initial_request)
         } else {
@@ -568,9 +566,9 @@ impl Window {
                             if this.get_view() == *w {
                                 this.update_load_progress(&w);
                                 if current_page.is_loading() {
-                                    refresh_button.set_icon_name("process-stop")
+                                    refresh_button.set_icon_name("cross-large-symbolic")
                                 } else {
-                                    refresh_button.set_icon_name("view-refresh")
+                                    refresh_button.set_icon_name("arrow-circular-top-right-symbolic")
                                 }
                             }
                         }
@@ -591,10 +589,10 @@ impl Window {
                             current_page.set_loading(w.is_loading());
                             if this.get_view() == *w {
                                 if current_page.is_loading() {
-                                    refresh_button.set_icon_name("process-stop");
+                                    refresh_button.set_icon_name("cross-large-symbolic");
                                     progress_bar.pulse()
                                 } else {
-                                    refresh_button.set_icon_name("view-refresh")
+                                    refresh_button.set_icon_name("arrow-circular-top-right-symbolic")
                                 }
                             }
                         }

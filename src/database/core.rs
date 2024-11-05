@@ -6,7 +6,8 @@ use oku_fs::database::OkuDatabase;
 use std::{path::PathBuf, sync::LazyLock};
 use webkit2gtk::FaviconDatabase;
 
-pub(crate) static DATABASE_PATH: LazyLock<PathBuf> = LazyLock::new(|| DATA_DIR.join("database"));
+pub(crate) static DATABASE_PATH: LazyLock<PathBuf> =
+    LazyLock::new(|| DATA_DIR.join("OKU_DATABASE"));
 pub(crate) static DATABASE: LazyLock<BrowserDatabase> =
     LazyLock::new(|| BrowserDatabase::new().unwrap());
 pub(crate) static MODELS: LazyLock<Models> = LazyLock::new(|| {

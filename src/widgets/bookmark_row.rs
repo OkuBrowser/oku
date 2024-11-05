@@ -22,10 +22,12 @@ use libadwaita::subclass::prelude::*;
 use log::error;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
+use std::collections::HashSet;
 use webkit2gtk::functions::uri_for_display;
 
 use crate::database::Bookmark;
 use crate::database::DATABASE;
+use crate::window_util::get_window_from_widget;
 
 pub mod imp {
     use super::*;
@@ -155,12 +157,12 @@ impl BookmarkRow {
             self,
             move |_| {
                 crate::widgets::note_editor::NoteEditor::new(
-                    None,
+                    Some(&get_window_from_widget(&this)),
                     Some(Bookmark {
                         url: this.url(),
                         title: this.title_property(),
                         body: this.body(),
-                        tags: this.tags(),
+                        tags: HashSet::from_iter(this.tags().into_iter()),
                     }),
                 );
             }

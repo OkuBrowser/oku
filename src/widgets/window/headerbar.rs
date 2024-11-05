@@ -13,12 +13,13 @@ impl Window {
         // Refresh button
         imp.refresh_button.set_can_focus(true);
         imp.refresh_button.set_receives_default(true);
-        imp.refresh_button.set_icon_name("view-refresh");
+        imp.refresh_button
+            .set_icon_name("arrow-circular-top-right-symbolic");
 
         // Add Tab button
         imp.add_tab_button.set_can_focus(true);
         imp.add_tab_button.set_receives_default(true);
-        imp.add_tab_button.set_icon_name("tab-new");
+        imp.add_tab_button.set_icon_name("tab-new-symbolic");
 
         // Sidebar button
         imp.sidebar_button.set_can_focus(true);
@@ -48,7 +49,7 @@ impl Window {
         // Find button
         imp.find_button.set_can_focus(true);
         imp.find_button.set_receives_default(true);
-        imp.find_button.set_icon_name("edit-find");
+        imp.find_button.set_icon_name("edit-find-symbolic");
 
         // Replica menu button
         imp.replicas_button.set_can_focus(true);
@@ -58,7 +59,7 @@ impl Window {
         // Menu button
         imp.menu_button.set_can_focus(true);
         imp.menu_button.set_receives_default(true);
-        imp.menu_button.set_icon_name("document-properties");
+        imp.menu_button.set_icon_name("menu-symbolic");
 
         imp.right_header_buttons.append(&imp.overview_button);
         imp.right_header_buttons.append(&imp.note_button);

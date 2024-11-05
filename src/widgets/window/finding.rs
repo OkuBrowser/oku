@@ -145,11 +145,11 @@ impl Window {
                     imp,
                     move |find_backwards| {
                         if find_backwards.is_active() {
-                            imp.next_find_button.set_icon_name("go-up");
-                            imp.previous_find_button.set_icon_name("go-down");
+                            imp.next_find_button.set_icon_name("up-symbolic");
+                            imp.previous_find_button.set_icon_name("down-symbolic");
                         } else {
-                            imp.next_find_button.set_icon_name("go-down");
-                            imp.previous_find_button.set_icon_name("go-up");
+                            imp.next_find_button.set_icon_name("down-symbolic");
+                            imp.previous_find_button.set_icon_name("up-symbolic");
                         }
                         imp.total_matches_label.set_text("");
                         find_controller.search_finish()
@@ -194,12 +194,12 @@ impl Window {
 
         imp.previous_find_button.set_can_focus(true);
         imp.previous_find_button.set_receives_default(true);
-        imp.previous_find_button.set_icon_name("go-up");
+        imp.previous_find_button.set_icon_name("up-symbolic");
         imp.previous_find_button.add_css_class("linked");
 
         imp.next_find_button.set_can_focus(true);
         imp.next_find_button.set_receives_default(true);
-        imp.next_find_button.set_icon_name("go-down");
+        imp.next_find_button.set_icon_name("down-symbolic");
         imp.next_find_button.add_css_class("linked");
 
         imp.find_buttons.append(&imp.previous_find_button);
@@ -211,14 +211,14 @@ impl Window {
         imp.find_case_insensitive.set_can_focus(true);
         imp.find_case_insensitive.set_receives_default(true);
         imp.find_case_insensitive
-            .set_icon_name("format-text-strikethrough");
+            .set_icon_name("text-strikethrough-symbolic");
         imp.find_case_insensitive.add_css_class("linked");
         imp.find_case_insensitive
             .set_tooltip_text(Some("Ignore case when searching"));
 
         imp.find_at_word_starts.set_can_focus(true);
         imp.find_at_word_starts.set_receives_default(true);
-        imp.find_at_word_starts.set_icon_name("go-first");
+        imp.find_at_word_starts.set_icon_name("first-symbolic");
         imp.find_at_word_starts.add_css_class("linked");
         imp.find_at_word_starts
             .set_tooltip_text(Some("Search text only at the start of words"));
@@ -228,7 +228,7 @@ impl Window {
         imp.find_treat_medial_capital_as_word_start
             .set_receives_default(true);
         imp.find_treat_medial_capital_as_word_start
-            .set_icon_name("format-text-underline");
+            .set_icon_name("text-underline-symbolic");
         imp.find_treat_medial_capital_as_word_start
             .add_css_class("linked");
         imp.find_treat_medial_capital_as_word_start
@@ -240,14 +240,14 @@ impl Window {
 
         imp.find_backwards.set_can_focus(true);
         imp.find_backwards.set_receives_default(true);
-        imp.find_backwards.set_icon_name("media-seek-backward");
+        imp.find_backwards.set_icon_name("seek-backward-symbolic");
         imp.find_backwards.add_css_class("linked");
         imp.find_backwards
             .set_tooltip_text(Some("Search backwards"));
 
         imp.find_wrap_around.set_can_focus(true);
         imp.find_wrap_around.set_receives_default(true);
-        imp.find_wrap_around.set_icon_name("media-playlist-repeat");
+        imp.find_wrap_around.set_icon_name("loop-arrow-symbolic");
         imp.find_wrap_around.add_css_class("linked");
         imp.find_wrap_around
             .set_tooltip_text(Some("Wrap around the document when searching"));

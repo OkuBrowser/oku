@@ -90,7 +90,7 @@ impl From<HistoryRecord> for TantivyDocument {
         }
         doc.add_date(
             HISTORY_RECORD_SCHEMA.1["timestamp"],
-            tantivy::DateTime::from_timestamp_micros(value.timestamp.timestamp_micros()),
+            tantivy::DateTime::from_timestamp_millis(value.timestamp.timestamp_millis()),
         );
         doc
     }

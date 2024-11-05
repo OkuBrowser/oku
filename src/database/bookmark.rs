@@ -6,7 +6,7 @@ use oku_fs::{database::OkuNote, fs::FS_PATH};
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::PathBuf,
     sync::{Arc, LazyLock},
 };
@@ -54,7 +54,7 @@ pub struct Bookmark {
     pub url: String,
     pub title: String,
     pub body: String,
-    pub tags: Vec<String>,
+    pub tags: HashSet<String>,
 }
 
 impl Bookmark {

@@ -29,7 +29,9 @@ pub async fn node_scheme_handler(request: SchemeRequest) -> miette::Result<impl 
     ))?;
     let first_component_string = first_component.as_os_str().to_str().unwrap_or_default();
     let replica_path = PathBuf::from("/").join(components.as_path()).to_path_buf();
-    let node = NODE.get().ok_or(miette::miette!(""))?;
+    let node = NODE
+        .get()
+        .ok_or(miette::miette!("Oku node has not yet started … "))?;
     if let Ok(ticket) = DocTicket::from_str(first_component_string) {
         node.fetch_file_with_ticket(ticket, replica_path)
             .await

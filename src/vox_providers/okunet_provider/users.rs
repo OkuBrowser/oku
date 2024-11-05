@@ -12,12 +12,6 @@ impl OkuNetProvider {
         user: &OkuUser,
         posts: Vec<OkuPost>,
     ) -> miette::Result<toml::Table> {
-        let mut user_post_frontmatter: Vec<toml::Table> = Vec::new();
-        for post in posts.iter() {
-            if let Ok(post_frontmatter) = self.get_post_frontmatter(user, post).await {
-                user_post_frontmatter.push(post_frontmatter);
-            }
-        }
         let user_name = match &user.identity {
             Some(identity) => identity.name.clone(),
             None => user.author_id.to_string(),
@@ -65,8 +59,11 @@ impl OkuNetProvider {
             format!("{}.html", user.author_id.to_string()).into(),
         );
         table.insert("title".into(), user_name.into());
-        table.insert("depends".into(), vec![user.author_id.to_string()].into());
-        table.insert("posts".into(), user_post_frontmatter.into());
+        if posts.len() > 0 {
+            table.insert("depends".into(), vec![user.author_id.to_string()].into());
+        } else {
+            table.insert("empty".into(), Vec::<String>::new().into());
+        }
         table.insert("following".into(), following.into());
         Ok(table)
     }
@@ -84,6 +81,11 @@ impl OkuNetProvider {
             self.create_post_page(user, post, None).await?;
         }
         let page_path = format!("{}.vox", user.author_id);
+        let include_argument = if user_posts.len() > 0 {
+            user.author_id.to_string()
+        } else {
+            "empty".into()
+        };
         let table = self.get_user_frontmatter(user, user_posts).await?;
         let page_contents = format!(
             "---
@@ -91,8 +93,7 @@ impl OkuNetProvider {
 ---
 {{% include profile.voxs posts = {} %}}
 ",
-            table,
-            user.author_id.to_string()
+            table, include_argument
         );
         self.0.write_file(page_path, page_contents)?;
         Ok(())

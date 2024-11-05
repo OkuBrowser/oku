@@ -24,6 +24,7 @@ use log::error;
 use oku_fs::database::OkuNote;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::sync::atomic::Ordering;
 use webkit2gtk::functions::uri_for_display;
 use webkit2gtk::prelude::WebViewExt;
@@ -212,7 +213,7 @@ impl NoteEditor {
                     url: this.url(),
                     title: this.title_property(),
                     body: this.body(),
-                    tags: this.tags(),
+                    tags: HashSet::from_iter(this.tags().into_iter()),
                 }) {
                     error!("{}", e)
                 }
@@ -220,7 +221,6 @@ impl NoteEditor {
             }
         ));
 
-        imp.save_post_button.set_icon_name("people-symbolic");
         imp.save_post_button.add_css_class("linked");
         imp.save_post_button.set_label("Save post");
 
@@ -251,7 +251,7 @@ impl NoteEditor {
             imp.url_entry.set_text(&bookmark.url);
             imp.title_entry.set_text(&bookmark.title);
             imp.body_buffer.set_text(&bookmark.body);
-            this.set_tags(bookmark.tags);
+            this.set_tags(bookmark.tags.into_iter().collect());
         } else {
             if let Some(window) = window {
                 let view = window.get_view();
@@ -276,13 +276,19 @@ impl NoteEditor {
                             {
                                 match oku_path {
                                     OkuPath::User(author_id, replica_path) => match replica_path {
-                                        Some(path) => node
-                                            .get_or_fetch_post(
-                                                author_id,
-                                                format!("{}.toml", path.to_string_lossy()).into(),
-                                            )
-                                            .await
-                                            .ok(),
+                                        Some(path) => {
+                                            if matches!(node.default_author().await.ok(), Some(x) if x == author_id)
+                                            {
+                                                node.post(
+                                                    format!("{}.toml", path.to_string_lossy())
+                                                        .into(),
+                                                )
+                                                .await
+                                                .ok()
+                                            } else {
+                                                None
+                                            }
+                                        }
                                         None => None,
                                     },
                                     OkuPath::Me(replica_path) => match replica_path {
@@ -302,9 +308,10 @@ impl NoteEditor {
                                 node.post(format!("{}.toml", path).into()).await.ok()
                             };
                             if let Some(oku_post) = post_at_url.or(post_from_url) {
+                                imp.url_entry.set_text(&oku_post.note.url.to_string());
                                 imp.title_entry.set_text(&oku_post.note.title);
                                 imp.body_buffer.set_text(&oku_post.note.body);
-                                this.set_tags(oku_post.note.tags);
+                                this.set_tags(oku_post.note.tags.into_iter().collect());
                             }
                         }
                     }
@@ -334,7 +341,7 @@ impl NoteEditor {
                                                         parsed_url,
                                                         this.title_property(),
                                                         this.body(),
-                                                        this.tags(),
+                                                        HashSet::from_iter(this.tags().into_iter()),
                                                     )
                                                     .await
                                                 {

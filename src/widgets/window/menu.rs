@@ -17,13 +17,13 @@ impl Window {
         // Zoom out button
         imp.zoomout_button.set_can_focus(true);
         imp.zoomout_button.set_receives_default(true);
-        imp.zoomout_button.set_icon_name("zoom-out");
+        imp.zoomout_button.set_icon_name("zoom-out-symbolic");
         imp.zoomout_button.add_css_class("linked");
 
         // Zoom in button
         imp.zoomin_button.set_can_focus(true);
         imp.zoomin_button.set_receives_default(true);
-        imp.zoomin_button.set_icon_name("zoom-in");
+        imp.zoomin_button.set_icon_name("zoom-in-symbolic");
         imp.zoomin_button.add_css_class("linked");
 
         // Both zoom buttons
@@ -39,27 +39,29 @@ impl Window {
         // Zoom reset button
         imp.zoomreset_button.set_can_focus(true);
         imp.zoomreset_button.set_receives_default(true);
-        imp.zoomreset_button.set_icon_name("zoom-original");
+        imp.zoomreset_button.set_icon_name("zoom-original-symbolic");
 
         // Fullscreen button
         imp.fullscreen_button.set_can_focus(true);
         imp.fullscreen_button.set_receives_default(true);
-        imp.fullscreen_button.set_icon_name("view-fullscreen");
+        imp.fullscreen_button
+            .set_icon_name("fullscreen-rectangular-symbolic");
 
         // Print button
         imp.print_button.set_can_focus(true);
         imp.print_button.set_receives_default(true);
-        imp.print_button.set_icon_name("document-print");
+        imp.print_button.set_icon_name("printer-symbolic");
 
         // Screenshot button
         imp.screenshot_button.set_can_focus(true);
         imp.screenshot_button.set_receives_default(true);
-        imp.screenshot_button.set_icon_name("camera-photo");
+        imp.screenshot_button
+            .set_icon_name("screenshot-recorded-symbolic");
 
         // New Window button
         imp.new_window_button.set_can_focus(true);
         imp.new_window_button.set_receives_default(true);
-        imp.new_window_button.set_icon_name("window-new");
+        imp.new_window_button.set_icon_name("window-new-symbolic");
 
         // New Private Window button
         imp.new_private_window_button.set_can_focus(true);
@@ -70,12 +72,12 @@ impl Window {
         // Settings button
         imp.settings_button.set_can_focus(true);
         imp.settings_button.set_receives_default(true);
-        imp.settings_button.set_icon_name("preferences-system");
+        imp.settings_button.set_icon_name("settings-symbolic");
 
         // About button
         imp.about_button.set_can_focus(true);
         imp.about_button.set_receives_default(true);
-        imp.about_button.set_icon_name("help-about");
+        imp.about_button.set_icon_name("info-outline-symbolic");
 
         // Shortcuts button
         imp.shortcuts_button.set_can_focus(true);
@@ -181,7 +183,7 @@ impl Window {
             move |fullscreen_button| {
                 let web_view = this.get_view();
                 if !this.is_fullscreen() {
-                    fullscreen_button.set_icon_name("view-restore");
+                    fullscreen_button.set_icon_name("unfullscreen-rectangular-symbolic");
                     web_view.evaluate_javascript(
                         "document.documentElement.requestFullscreen();",
                         None,
@@ -190,7 +192,7 @@ impl Window {
                         move |_| {},
                     )
                 } else {
-                    fullscreen_button.set_icon_name("view-fullscreen");
+                    fullscreen_button.set_icon_name("fullscreen-rectangular-symbolic");
                     web_view.evaluate_javascript(
                         "document.exitFullscreen();",
                         None,
@@ -208,7 +210,7 @@ impl Window {
                 move |window: &Self, _, _| {
                     let web_view = window.get_view();
                     if !window.is_fullscreen() {
-                        fullscreen_button.set_icon_name("view-restore");
+                        fullscreen_button.set_icon_name("unfullscreen-rectangular-symbolic");
                         web_view.evaluate_javascript(
                             "document.documentElement.requestFullscreen();",
                             None,
@@ -217,7 +219,7 @@ impl Window {
                             move |_| {},
                         )
                     } else {
-                        fullscreen_button.set_icon_name("view-fullscreen");
+                        fullscreen_button.set_icon_name("fullscreen-rectangular-symbolic");
                         web_view.evaluate_javascript(
                             "document.exitFullscreen();",
                             None,
@@ -541,14 +543,24 @@ impl Window {
         imp.about_button.connect_clicked(clone!(
             #[weak(rename_to = this)]
             self,
-            move |_| this.about_dialog()
+            #[weak]
+            imp,
+            move |_| {
+                this.about_dialog();
+                imp.menu_popover.popdown();
+            }
         ));
 
         // Shortcuts button clicked
         imp.shortcuts_button.connect_clicked(clone!(
             #[weak(rename_to = this)]
             self,
-            move |_| this.shortcuts_window()
+            #[weak]
+            imp,
+            move |_| {
+                this.shortcuts_window();
+                imp.menu_popover.popdown();
+            }
         ));
         let action_shortcuts = gio::ActionEntry::builder("shortcuts")
             .activate(|window: &Self, _, _| window.shortcuts_window())

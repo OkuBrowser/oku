@@ -23,5 +23,32 @@
     <file preprocess="xml-stripblanks">bookmark-filled-symbolic.svg</file>
     <file preprocess="xml-stripblanks">pencil-and-paper-small-symbolic.svg</file>
     <file preprocess="xml-stripblanks">editor-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">window-close-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">user-info-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">system-switch-user-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">text-strikethrough-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">up-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">down-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">first-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">text-underline-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">seek-backward-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">loop-arrow-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">arrow-circular-top-right-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">tab-new-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">edit-find-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">menu-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">zoom-in-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">zoom-out-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">zoom-original-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">fullscreen-rectangular-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">unfullscreen-rectangular-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">printer-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">screenshot-recorded-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">window-new-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">settings-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">info-outline-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">left-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">right-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">cross-large-symbolic.svg</file>
   </gresource>
 </gresources>

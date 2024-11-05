@@ -150,6 +150,9 @@ h6 {
   font-weight: 700;
   line-height: 1.25;
   color: var(--heading-color);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 h1 {

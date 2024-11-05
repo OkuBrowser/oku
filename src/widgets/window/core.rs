@@ -183,22 +183,32 @@ impl Window {
         this.setup_suggestions_popover();
         this.setup_menu_buttons_clicked(&web_context);
         this.setup_new_view_signals(&web_context, &style_manager);
+        this.setup_actions(&web_context);
 
         if imp.is_private.get() {
             this.add_css_class("devel");
         }
         this.set_content(Some(&imp.tab_overview));
         apply_appearance_config(&style_manager, &this);
-        this.set_visible(true);
         if imp.tab_view.n_pages() == 0 {
             let initial_web_view = this.new_tab_page(&web_context, None, None).0;
             initial_web_view.load_uri("oku:home");
         }
 
+        let (previous_width, previous_height) = this.default_size();
+        if previous_width == 0 || previous_height == 0 {
+            this.set_default_size(768, 576);
+        }
+        this.present();
+
+        this
+    }
+
+    fn setup_actions(&self, web_context: &WebContext) {
         let action_close_window = gio::ActionEntry::builder("close-window")
             .activate(clone!(move |window: &Self, _, _| window.close()))
             .build();
-        this.add_action_entries([action_close_window]);
+        self.add_action_entries([action_close_window]);
 
         let action_inspector = gio::ActionEntry::builder("inspector")
             .activate(clone!(move |window: &Self, _, _| {
@@ -211,7 +221,7 @@ impl Window {
                 }
             }))
             .build();
-        this.add_action_entries([action_inspector]);
+        self.add_action_entries([action_inspector]);
 
         let action_open_file = gio::ActionEntry::builder("open-file")
             .activate(clone!(
@@ -241,7 +251,7 @@ impl Window {
                 }
             ))
             .build();
-        this.add_action_entries([action_open_file]);
+        self.add_action_entries([action_open_file]);
 
         let action_save = gio::ActionEntry::builder("save")
             .activate(clone!(move |window: &Self, _, _| {
@@ -320,7 +330,7 @@ impl Window {
                 dialog.present(Some(window));
             }))
             .build();
-        this.add_action_entries([action_save]);
+        self.add_action_entries([action_save]);
 
         let action_next_tab = gio::ActionEntry::builder("next-tab")
             .activate(clone!(move |window: &Self, _, _| {
@@ -328,14 +338,14 @@ impl Window {
                 tab_view.select_next_page();
             }))
             .build();
-        this.add_action_entries([action_next_tab]);
+        self.add_action_entries([action_next_tab]);
         let action_previous_tab = gio::ActionEntry::builder("previous-tab")
             .activate(clone!(move |window: &Self, _, _| {
                 let tab_view = &window.imp().tab_view;
                 tab_view.select_previous_page();
             }))
             .build();
-        this.add_action_entries([action_previous_tab]);
+        self.add_action_entries([action_previous_tab]);
         let action_current_tab_left = gio::ActionEntry::builder("current-tab-left")
             .activate(clone!(move |window: &Self, _, _| {
                 let tab_view = &window.imp().tab_view;
@@ -344,7 +354,7 @@ impl Window {
                 }
             }))
             .build();
-        this.add_action_entries([action_current_tab_left]);
+        self.add_action_entries([action_current_tab_left]);
         let action_current_tab_right = gio::ActionEntry::builder("current-tab-right")
             .activate(clone!(move |window: &Self, _, _| {
                 let tab_view = &window.imp().tab_view;
@@ -353,7 +363,7 @@ impl Window {
                 }
             }))
             .build();
-        this.add_action_entries([action_current_tab_right]);
+        self.add_action_entries([action_current_tab_right]);
         let action_duplicate_current_tab = gio::ActionEntry::builder("duplicate-current-tab")
             .activate(clone!(
                 #[weak]
@@ -365,16 +375,14 @@ impl Window {
                 }
             ))
             .build();
-        this.add_action_entries([action_duplicate_current_tab]);
+        self.add_action_entries([action_duplicate_current_tab]);
         let action_tab_overview = gio::ActionEntry::builder("tab-overview")
             .activate(clone!(move |window: &Self, _, _| {
                 let tab_overview = &window.imp().tab_overview;
                 tab_overview.set_open(!tab_overview.is_open())
             }))
             .build();
-        this.add_action_entries([action_tab_overview]);
-
-        this
+        self.add_action_entries([action_tab_overview]);
     }
 
     fn setup_main_content(&self, web_context: &WebContext) {

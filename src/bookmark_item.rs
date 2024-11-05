@@ -13,6 +13,7 @@ use glib::ParamSpecString;
 use glib::Value;
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
+use std::collections::HashSet;
 use webkit2gtk::functions::uri_for_display;
 
 pub mod imp {
@@ -122,14 +123,14 @@ impl BookmarkItem {
         url: String,
         title: String,
         body: String,
-        tags: Vec<String>,
+        tags: HashSet<String>,
         favicon_database: &webkit2gtk::FaviconDatabase,
     ) -> Self {
         let bookmark_item = glib::Object::builder::<Self>()
             .property("url", url.clone())
             .property("title", title)
             .property("body", body)
-            .property("tags", tags.clone())
+            .property("tags", tags.into_iter().collect::<Vec<_>>())
             .build();
 
         favicon_database.favicon(

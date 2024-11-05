@@ -100,13 +100,13 @@ impl Window {
         // Back button
         imp.back_button.set_can_focus(true);
         imp.back_button.set_receives_default(true);
-        imp.back_button.set_icon_name("go-previous");
+        imp.back_button.set_icon_name("left-symbolic");
         imp.back_button.add_css_class("linked");
 
         // Forward button
         imp.forward_button.set_can_focus(true);
         imp.forward_button.set_receives_default(true);
-        imp.forward_button.set_icon_name("go-next");
+        imp.forward_button.set_icon_name("right-symbolic");
         imp.forward_button.add_css_class("linked");
 
         // All navigation buttons

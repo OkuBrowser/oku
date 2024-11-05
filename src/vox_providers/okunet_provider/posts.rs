@@ -6,7 +6,7 @@ use oku_fs::{
     fs::entry_key_to_path,
     iroh::docs::AuthorId,
 };
-use std::{path::PathBuf, str::FromStr};
+use std::{collections::HashSet, path::PathBuf, str::FromStr};
 use vox::provider::VoxProvider;
 
 impl OkuNetProvider {
@@ -62,8 +62,8 @@ impl OkuNetProvider {
         } else {
             OkuIdentity {
                 name: user.author_id.to_string(),
-                following: Vec::new(),
-                blocked: Vec::new(),
+                following: HashSet::new(),
+                blocked: HashSet::new(),
             }
         };
         let mut table = toml::Table::new();
@@ -72,7 +72,15 @@ impl OkuNetProvider {
         table.insert("date".into(), post_date.into());
         table.insert("note_url".into(), post.note.url.to_string().into());
         table.insert("title".into(), post.note.title.clone().into());
-        table.insert("tags".into(), post.note.tags.clone().into());
+        table.insert(
+            "tags".into(),
+            post.note
+                .tags
+                .clone()
+                .into_iter()
+                .collect::<Vec<_>>()
+                .into(),
+        );
         table.insert("author_id".into(), user.author_id.to_string().into());
         table.insert(
             "author".into(),
