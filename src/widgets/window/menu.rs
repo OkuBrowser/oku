@@ -522,7 +522,7 @@ impl Window {
             #[weak]
             imp,
             move |_| {
-                widgets::settings::Settings::new(
+                widgets::settings::core::Settings::new(
                     &this.application().unwrap().downcast().unwrap(),
                     &this,
                 );
@@ -531,7 +531,7 @@ impl Window {
         ));
         let action_settings = gio::ActionEntry::builder("settings")
             .activate(|window: &Self, _, _| {
-                widgets::settings::Settings::new(
+                widgets::settings::core::Settings::new(
                     &window.application().unwrap().downcast().unwrap(),
                     &window,
                 );

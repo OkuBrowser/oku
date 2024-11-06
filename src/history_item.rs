@@ -1,4 +1,5 @@
 use glib::clone;
+use glib::object::ObjectExt;
 use glib::property::PropertySet;
 use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
@@ -134,7 +135,7 @@ impl HistoryItem {
                 #[weak]
                 history_item,
                 move |favicon_result| {
-                    history_item.imp().favicon.set(favicon_result.ok());
+                    history_item.set_property("favicon", favicon_result.ok());
                 }
             ),
         );

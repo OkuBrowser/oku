@@ -1,8 +1,6 @@
 use super::*;
-use crate::config::Palette;
-use crate::CONFIG;
+use crate::config::enums::Palette;
 use gtk::subclass::prelude::*;
-use log::error;
 use std::hash::{Hash, Hasher};
 use webkit2gtk::prelude::WebViewExt;
 
@@ -14,29 +12,14 @@ impl Window {
     ) {
         let imp = self.imp();
 
-        let mut failed_attempts = 0;
-        loop {
-            match CONFIG.try_lock() {
-                Ok(config) => {
-                    if !config.colour_per_domain() {
-                        imp.style_provider.borrow().load_from_string("");
-                        if config.palette() != Palette::None {
-                            self.update_from_palette(&web_view, &style_manager, &config.palette());
-                        }
-                        return;
-                    } else {
-                        self.update_domain_color(&web_view, &style_manager);
-                        break;
-                    }
-                }
-                Err(e) => {
-                    failed_attempts += 1;
-                    error!("{}", e);
-                    if failed_attempts == 10 {
-                        return;
-                    }
-                }
+        let config = imp.config.imp();
+        if !config.colour_per_domain() {
+            imp.style_provider.borrow().load_from_string("");
+            if config.palette() != Palette::None {
+                self.update_from_palette(&web_view, &style_manager, &config.palette());
             }
+        } else {
+            self.update_domain_color(&web_view, &style_manager);
         }
     }
 

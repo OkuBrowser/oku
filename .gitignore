@@ -37,3 +37,4 @@ test/
 oku.flatpak
 resources.gresource
 src/browser_pages/output/
+*_old.rs

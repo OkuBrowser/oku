@@ -32,7 +32,6 @@ pub mod vox_providers;
 pub mod widgets;
 pub mod window_util;
 
-use config::Config;
 use database::DATABASE;
 use directories_next::ProjectDirs;
 use directories_next::UserDirs;
@@ -55,7 +54,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::LazyLock;
-use std::sync::Mutex;
 use std::sync::OnceLock;
 use tokio::runtime::Handle;
 use webkit2gtk::prelude::WebViewExt;
@@ -80,8 +78,7 @@ lazy_static! {
     /// The platform-specific directory where the Oku file system is mounted
     static ref MOUNT_DIR: PathBuf = DATA_DIR.join("mount");
     /// The platform-specific file path where Oku settings are stored
-    static ref CONFIG_DIR: PathBuf = DATA_DIR.join("config.toml");
-    static ref CONFIG: Arc<Mutex<Config>> = Arc::new(Mutex::new(Config::load_or_default()));
+    static ref CONFIG_DIR: PathBuf = DATA_DIR.join("browser_config.toml");
     /// The current release version number of Oku
     static ref VERSION: &'static str = option_env!("CARGO_PKG_VERSION").unwrap();
 }
@@ -89,6 +86,8 @@ lazy_static! {
 static NODE: OnceLock<OkuFs> = OnceLock::new();
 static HOME_REPLICA_SET: LazyLock<Arc<AtomicBool>> =
     LazyLock::new(|| Arc::new(AtomicBool::new(false)));
+
+pub const APP_ID: &'static str = "io.github.OkuBrowser.oku";
 
 async fn create_web_context() -> (WebContext, Option<BackgroundSession>, Ipfs) {
     let (node, mount_handle) = create_oku_client().await;
@@ -219,7 +218,7 @@ async fn main() {
     let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::unbounded_channel();
 
     let application = libadwaita::Application::builder()
-        .application_id("io.github.OkuBrowser.oku")
+        .application_id(APP_ID)
         .flags(gio::ApplicationFlags::HANDLES_OPEN)
         .version(VERSION.to_string())
         .build();

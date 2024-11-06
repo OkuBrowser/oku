@@ -1,4 +1,6 @@
-use crate::widgets;
+use crate::config::Config;
+use crate::widgets::settings::core::apply_appearance_config;
+use crate::APP_ID;
 use glib::clone;
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
@@ -11,13 +13,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::WebContext;
-use widgets::settings::apply_appearance_config;
 
 pub mod imp {
     use super::*;
 
     #[derive(Debug, Default)]
     pub struct Window {
+        pub(crate) config: Config,
         // Window parameters
         pub(crate) is_private: Cell<bool>,
         pub(crate) style_provider: RefCell<gtk::CssProvider>,
@@ -156,7 +158,7 @@ impl Window {
             .property("application", app)
             .build();
         this.set_can_focus(true);
-        this.set_icon_name(Some("io.github.OkuBrowser.oku"));
+        this.set_icon_name(Some(APP_ID));
 
         let imp = this.imp();
         imp.is_private.set(is_private);
@@ -184,24 +186,92 @@ impl Window {
         this.setup_menu_buttons_clicked(&web_context);
         this.setup_new_view_signals(&web_context, &style_manager);
         this.setup_actions(&web_context);
+        this.setup_config(&style_manager);
 
         if imp.is_private.get() {
             this.add_css_class("devel");
         }
-        this.set_content(Some(&imp.tab_overview));
-        apply_appearance_config(&style_manager, &this);
+
         if imp.tab_view.n_pages() == 0 {
             let initial_web_view = this.new_tab_page(&web_context, None, None).0;
             initial_web_view.load_uri("oku:home");
         }
 
-        let (previous_width, previous_height) = this.default_size();
-        if previous_width == 0 || previous_height == 0 {
-            this.set_default_size(768, 576);
-        }
         this.present();
 
         this
+    }
+
+    fn setup_config(&self, style_manager: &libadwaita::StyleManager) {
+        let imp = self.imp();
+
+        // Window appearance
+        apply_appearance_config(&style_manager, self);
+        imp.config.connect_notify_local(
+            Some("colour-per-domain"),
+            clone!(
+                #[weak]
+                style_manager,
+                #[weak(rename_to = this)]
+                self,
+                move |_, _| {
+                    apply_appearance_config(&style_manager, &this);
+                }
+            ),
+        );
+        imp.config.connect_notify_local(
+            Some("colour-scheme"),
+            clone!(
+                #[weak]
+                style_manager,
+                #[weak(rename_to = this)]
+                self,
+                move |_, _| {
+                    apply_appearance_config(&style_manager, &this);
+                }
+            ),
+        );
+        imp.config.connect_notify_local(
+            Some("palette"),
+            clone!(
+                #[weak]
+                style_manager,
+                #[weak(rename_to = this)]
+                self,
+                move |_, _| {
+                    apply_appearance_config(&style_manager, &this);
+                }
+            ),
+        );
+
+        // Window properties
+        let config = imp.config.imp();
+        let (mut previous_width, mut previous_height) = (config.width(), config.height());
+        if previous_width == 0 && previous_height == 0 {
+            (previous_width, previous_height) = (768, 576);
+        }
+        config.set_width(previous_width);
+        config.set_height(previous_height);
+
+        self.set_properties(&[
+            ("default-width", &config.width()),
+            ("default-height", &config.height()),
+            ("maximized", &config.is_maximised()),
+            ("fullscreened", &config.is_fullscreen()),
+        ]);
+
+        self.bind_property("default-width", &imp.config, "width")
+            .bidirectional()
+            .build();
+        self.bind_property("default-height", &imp.config, "height")
+            .bidirectional()
+            .build();
+        self.bind_property("maximized", &imp.config, "is-maximised")
+            .bidirectional()
+            .build();
+        self.bind_property("fullscreened", &imp.config, "is-fullscreen")
+            .bidirectional()
+            .build();
     }
 
     fn setup_actions(&self, web_context: &WebContext) {
@@ -413,5 +483,7 @@ impl Window {
         imp.tab_overview.set_enable_search(true);
         imp.tab_overview.set_view(Some(&imp.tab_view));
         imp.tab_overview.set_child(Some(&imp.split_view));
+
+        self.set_content(Some(&imp.tab_overview));
     }
 }

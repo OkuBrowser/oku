@@ -33,7 +33,7 @@ pub async fn node_scheme_handler(request: SchemeRequest) -> miette::Result<impl 
         .get()
         .ok_or(miette::miette!("Oku node has not yet started … "))?;
     if let Ok(ticket) = DocTicket::from_str(first_component_string) {
-        node.fetch_file_with_ticket(ticket, replica_path)
+        node.fetch_file_with_ticket(&ticket, replica_path)
             .await
             .map_err(|e| miette::miette!("{}", e))
     } else if let Ok(namespace_id) = NamespaceId::from_str(first_component_string) {

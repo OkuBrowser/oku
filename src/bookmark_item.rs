@@ -1,4 +1,5 @@
 use glib::clone;
+use glib::object::ObjectExt;
 use glib::property::PropertySet;
 use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
@@ -140,7 +141,7 @@ impl BookmarkItem {
                 #[weak]
                 bookmark_item,
                 move |favicon_result| {
-                    bookmark_item.imp().favicon.set(favicon_result.ok());
+                    bookmark_item.set_property("favicon", favicon_result.ok());
                 }
             ),
         );

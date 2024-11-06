@@ -1,5 +1,5 @@
 use super::*;
-use crate::VERSION;
+use crate::{APP_ID, VERSION};
 use gtk::prelude::GtkWindowExt;
 use libadwaita::prelude::*;
 
@@ -9,7 +9,7 @@ impl Window {
             .version(VERSION.to_string())
             .application_name("Oku")
             .developer_name("Emil Sayahi")
-            .application_icon("io.github.OkuBrowser.oku")
+            .application_icon(APP_ID)
             .license_type(gtk::License::Agpl30)
             .issue_url("https://github.com/OkuBrowser/oku/issues")
             .website("https://okubrowser.github.io")
