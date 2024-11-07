@@ -1,6 +1,5 @@
 use super::enums::*;
 use super::*;
-use glib::{ParamSpecEnum, ParamSpecInt};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
@@ -101,7 +100,7 @@ impl ObjectSubclass for Config {
 }
 impl ObjectImpl for Config {
     fn properties() -> &'static [ParamSpec] {
-        static PROPERTIES: Lazy<Vec<ParamSpec>> = Lazy::new(|| {
+        static PROPERTIES: LazyLock<Vec<ParamSpec>> = LazyLock::new(|| {
             vec![
                 ParamSpecEnum::builder::<ColourScheme>("colour-scheme")
                     .readwrite()

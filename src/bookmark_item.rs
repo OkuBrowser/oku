@@ -12,9 +12,9 @@ use glib::ParamSpecBuilderExt;
 use glib::ParamSpecObject;
 use glib::ParamSpecString;
 use glib::Value;
-use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::collections::HashSet;
+use std::sync::LazyLock;
 use webkit2gtk::functions::uri_for_display;
 
 pub mod imp {
@@ -37,7 +37,7 @@ pub mod imp {
 
     impl ObjectImpl for BookmarkItem {
         fn properties() -> &'static [ParamSpec] {
-            static PROPERTIES: Lazy<Vec<ParamSpec>> = Lazy::new(|| {
+            static PROPERTIES: LazyLock<Vec<ParamSpec>> = LazyLock::new(|| {
                 vec![
                     ParamSpecString::builder("url").readwrite().build(),
                     ParamSpecString::builder("title").readwrite().build(),

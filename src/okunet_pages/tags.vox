@@ -9,7 +9,7 @@ depends = ["tag"]
 
 {% if tag[0] %}
 {% for tag_i in tag %}
-- [{{ tag_i.data.title }}]({{ tag_i.url | prepend: global.url }})
+- [#{{ tag_i.data.title }}]({{ tag_i.url | prepend: global.url }})
 {% endfor %}
 {% else %}
 No tags found … 

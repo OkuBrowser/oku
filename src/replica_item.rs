@@ -9,8 +9,8 @@ use glib::ParamSpecBoolean;
 use glib::ParamSpecBuilderExt;
 use glib::ParamSpecString;
 use glib::Value;
-use once_cell::sync::Lazy;
 use std::cell::RefCell;
+use std::sync::LazyLock;
 
 pub mod imp {
     use super::*;
@@ -30,7 +30,7 @@ pub mod imp {
 
     impl ObjectImpl for ReplicaItem {
         fn properties() -> &'static [ParamSpec] {
-            static PROPERTIES: Lazy<Vec<ParamSpec>> = Lazy::new(|| {
+            static PROPERTIES: LazyLock<Vec<ParamSpec>> = LazyLock::new(|| {
                 vec![
                     ParamSpecString::builder("id").readwrite().build(),
                     ParamSpecBoolean::builder("writable").readwrite().build(),

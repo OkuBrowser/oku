@@ -108,7 +108,6 @@
 }
 
 :root {
-  /* --body-bg: linear-gradient(color-mix(in srgb, var(--grey), transparent 90%), transparent); */
   --body-bg: color-mix(in srgb, var(--grey), transparent 66%);
   --body-color: var(--dark-3);
   --link-color: color-mix(in srgb, var(--pink) 80%, var(--purple));
@@ -120,7 +119,6 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-      /* --body-bg: linear-gradient(color-mix(in srgb, var(--grey), transparent 90%), transparent); */
       --body-bg: color-mix(in srgb, var(--grey), transparent 90%);
       --body-color: var(--light-2);
       --link-color: color-mix(in srgb, var(--orange) 80%, var(--yellow));
@@ -306,6 +304,23 @@ pre {
 .post-header {
   display: flex;
   align-items: center;
+}
+
+button {
+  border: none;
+  border-radius: 8px;
+  background-color: var(--container-bg);
+  color: var(--body-color)
+}
+
+.destructive {
+  color: var(--pink)
+}
+
+.follow-block-button {
+  font-size: large;
+  min-width: 4rem;
+  margin: auto 0.25rem;
 }
 
 .related {

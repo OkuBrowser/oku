@@ -1,0 +1,17 @@
+<button class="follow-block-button{%- if page.data.is_followed %} destructive {% endif -%}" onclick="toggleFollow()">
+{%- if page.data.is_followed -%}
+Unfollow
+{%- else -%}
+Follow
+{%- endif -%}
+</button>
+
+<script>
+    function toggleFollow() {
+        window.fetch('{{ global.url }}follow/{{ page.data.author_id }}', {
+            method: 'POST',
+        }).then((response) => {
+            location.reload();
+        });
+    }
+</script>

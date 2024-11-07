@@ -12,8 +12,8 @@ use gtk::prelude::GObjectPropertyExpressionExt;
 use gtk::prelude::OrientableExt;
 use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::*;
-use once_cell::sync::Lazy;
 use std::cell::RefCell;
+use std::sync::LazyLock;
 
 pub mod imp {
     use super::*;
@@ -53,8 +53,8 @@ pub mod imp {
         }
 
         fn properties() -> &'static [ParamSpec] {
-            static PROPERTIES: Lazy<Vec<ParamSpec>> =
-                Lazy::new(|| vec![ParamSpecString::builder("text").build()]);
+            static PROPERTIES: LazyLock<Vec<ParamSpec>> =
+                LazyLock::new(|| vec![ParamSpecString::builder("text").build()]);
             PROPERTIES.as_ref()
         }
 

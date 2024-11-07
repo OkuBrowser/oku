@@ -5402,7 +5402,6 @@ dependencies = [
 name = "oku"
 version = "0.1.0"
 dependencies = [
- "bincode",
  "bs58",
  "bytes",
  "chrono",
@@ -5414,20 +5413,15 @@ dependencies = [
  "gio",
  "glib",
  "glib-macros",
- "glob",
  "gtk4",
  "html-escape",
  "lazy_static",
  "libadwaita",
- "liquid",
- "liquid-core",
- "liquid-lib",
  "log",
  "miette",
  "native_db",
  "native_model",
  "oku-fs",
- "once_cell",
  "open",
  "pango",
  "rayon",
@@ -5447,7 +5441,7 @@ dependencies = [
 [[package]]
 name = "oku-fs"
 version = "0.1.0"
-source = "git+https://github.com/OkuBrowser/oku-fs#9262d0fbccd8b2f9edc0982aad33e0dbd44cd6f5"
+source = "git+https://github.com/OkuBrowser/oku-fs#7e64b61ed263a4b5fb8fa8a9aa64e08bbcae9986"
 dependencies = [
  "anyhow",
  "async-trait",

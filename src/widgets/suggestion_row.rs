@@ -13,8 +13,8 @@ use gtk::subclass::prelude::*;
 use libadwaita::prelude::ActionRowExt;
 use libadwaita::prelude::PreferencesRowExt;
 use libadwaita::subclass::prelude::*;
-use once_cell::sync::Lazy;
 use std::cell::RefCell;
+use std::sync::LazyLock;
 use webkit2gtk::functions::uri_for_display;
 
 pub mod imp {
@@ -55,7 +55,7 @@ pub mod imp {
         }
 
         fn properties() -> &'static [ParamSpec] {
-            static PROPERTIES: Lazy<Vec<ParamSpec>> = Lazy::new(|| {
+            static PROPERTIES: LazyLock<Vec<ParamSpec>> = LazyLock::new(|| {
                 vec![
                     ParamSpecString::builder("title-property").build(),
                     ParamSpecString::builder("uri").build(),

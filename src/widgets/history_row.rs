@@ -1,3 +1,5 @@
+use crate::database::DATABASE;
+use crate::window_util::get_window_from_widget;
 use gdk::prelude::DisplayExt;
 use gio::prelude::ApplicationExt;
 use glib::clone;
@@ -22,18 +24,12 @@ use libadwaita::prelude::ActionRowExt;
 use libadwaita::prelude::PreferencesRowExt;
 use libadwaita::subclass::prelude::*;
 use log::error;
-use once_cell::sync::Lazy;
 use std::cell::RefCell;
+use std::sync::LazyLock;
 use uuid::Uuid;
 use webkit2gtk::functions::uri_for_display;
 
-use crate::database::DATABASE;
-use crate::window_util::get_window_from_widget;
-
 pub mod imp {
-
-    use uuid::Uuid;
-
     use super::*;
 
     #[derive(Debug, Default)]
@@ -76,7 +72,7 @@ pub mod imp {
         }
 
         fn properties() -> &'static [ParamSpec] {
-            static PROPERTIES: Lazy<Vec<ParamSpec>> = Lazy::new(|| {
+            static PROPERTIES: LazyLock<Vec<ParamSpec>> = LazyLock::new(|| {
                 vec![
                     ParamSpecString::builder("id").build(),
                     ParamSpecString::builder("title-property").build(),

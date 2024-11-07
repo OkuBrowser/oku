@@ -59,6 +59,16 @@ impl OkuNetProvider {
             format!("{}.html", user.author_id.to_string()).into(),
         );
         table.insert("title".into(), user_name.into());
+        table.insert("author_id".into(), user.author_id.to_string().into());
+        table.insert(
+            "is_followed".into(),
+            node.is_followed(&user.author_id).await.into(),
+        );
+        table.insert(
+            "is_blocked".into(),
+            node.is_blocked(&user.author_id).await.into(),
+        );
+        table.insert("is_me".into(), node.is_me(&user.author_id).await.into());
         if posts.len() > 0 {
             table.insert("depends".into(), vec![user.author_id.to_string()].into());
         } else {

@@ -52,6 +52,18 @@ pub static OKUNET_VOX_FILES: LazyLock<HashMap<PathBuf, String>> = LazyLock::new(
             include_str!("../../okunet_pages/snippets/tags.voxs").into(),
         ),
         (
+            "snippets/follow_button.html".into(),
+            include_str!("../../okunet_pages/snippets/follow_button.html").into(),
+        ),
+        (
+            "snippets/block_button.html".into(),
+            include_str!("../../okunet_pages/snippets/block_button.html").into(),
+        ),
+        (
+            "snippets/user_header.html".into(),
+            include_str!("../../okunet_pages/snippets/user_header.html").into(),
+        ),
+        (
             "tags.vox".into(),
             include_str!("../../okunet_pages/tags.vox").into(),
         ),

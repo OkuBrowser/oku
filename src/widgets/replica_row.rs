@@ -27,9 +27,9 @@ use log::error;
 use oku_fs::iroh::base::ticket::Ticket;
 use oku_fs::iroh::client::docs::ShareMode;
 use oku_fs::iroh::docs::NamespaceId;
-use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 pub mod imp {
     use super::*;
@@ -77,7 +77,7 @@ pub mod imp {
         }
 
         fn properties() -> &'static [ParamSpec] {
-            static PROPERTIES: Lazy<Vec<ParamSpec>> = Lazy::new(|| {
+            static PROPERTIES: LazyLock<Vec<ParamSpec>> = LazyLock::new(|| {
                 vec![
                     ParamSpecString::builder("id").build(),
                     ParamSpecBoolean::builder("writable").build(),

@@ -22,10 +22,10 @@ use libadwaita::prelude::*;
 use libadwaita::subclass::dialog::AdwDialogImpl;
 use log::error;
 use oku_fs::database::OkuNote;
-use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::atomic::Ordering;
+use std::sync::LazyLock;
 use webkit2gtk::functions::uri_for_display;
 use webkit2gtk::prelude::WebViewExt;
 
@@ -71,7 +71,7 @@ pub mod imp {
 
     impl ObjectImpl for NoteEditor {
         fn properties() -> &'static [ParamSpec] {
-            static PROPERTIES: Lazy<Vec<ParamSpec>> = Lazy::new(|| {
+            static PROPERTIES: LazyLock<Vec<ParamSpec>> = LazyLock::new(|| {
                 vec![
                     ParamSpecString::builder("url").build(),
                     ParamSpecString::builder("title-property").build(),
@@ -277,8 +277,7 @@ impl NoteEditor {
                                 match oku_path {
                                     OkuPath::User(author_id, replica_path) => match replica_path {
                                         Some(path) => {
-                                            if matches!(node.default_author().await.ok(), Some(x) if x == author_id)
-                                            {
+                                            if node.is_me(&author_id).await {
                                                 node.post(
                                                     format!("{}.toml", path.to_string_lossy())
                                                         .into(),

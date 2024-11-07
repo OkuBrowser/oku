@@ -1,5 +1,5 @@
 {% markdown %}
-# {{ page.data.title }}
+{% include user_header.html %}
 
 ## Posts
 

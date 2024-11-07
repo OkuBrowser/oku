@@ -6,11 +6,12 @@ use glib::ParamSpec;
 use glib::ParamSpecBoolean;
 use glib::ParamSpecBuilderExt;
 use glib::Value;
+use glib::{ParamSpecEnum, ParamSpecInt};
 use log::error;
-use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde::Serialize;
 use std::cell::RefCell;
+use std::sync::LazyLock;
 
 pub mod enums;
 pub mod imp;

@@ -8,7 +8,7 @@ layout = "default"
   </div>
   <a href="{{ page.data.note_url }}"><p class="post-meta">{{ page.data.note_url }}</p></a>
   {% if page.data.tags[0] %}
-  <p class="post-meta"> — tagged with {% include tags.voxs tags = page.data.tags %}</p>
+  <p class="post-meta"> — {% include tags.voxs tags = page.data.tags %}</p>
   {% endif %}
   <a href="{{ page.data.note_url }}"><time datetime="{{ page.date.rfc_3339 }}" class="post-date">{{ page.date.short_day }}, {{ page.date.day }} {{ page.date.short_month }} {{ page.date.year }}</time></a>
   <hr>

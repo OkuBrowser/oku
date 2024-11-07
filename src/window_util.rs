@@ -18,19 +18,6 @@ pub fn connect(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebView) {
     match parsed_url {
         // When URL is completely OK
         Ok(_) => {
-            // if let Some(back_forward_list) = web_view.back_forward_list() {
-            //     if let Some(current_item) = back_forward_list.current_item() {
-            //         if let Err(e) = DATABASE.upsert_history_record(HistoryRecord {
-            //             id: std::ptr::addr_of!(current_item) as usize as u64,
-            //             original_uri: current_item.original_uri().unwrap_or_default().to_string(),
-            //             uri: current_item.uri().unwrap_or_default().to_string(),
-            //             title: Some(get_title(&web_view)),
-            //             timestamp: chrono::Utc::now(),
-            //         }) {
-            //             error!("{}", e)
-            //         }
-            //     }
-            // }
             nav_entry.set_text(&nav_text);
             web_view.load_uri(&nav_text);
         }
@@ -222,20 +209,5 @@ pub fn get_title(web_view: &webkit2gtk::WebView) -> String {
 pub fn update_title(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebView) {
     let relevant_page = tab_view.page(web_view);
     let title = get_title(web_view);
-    // if !get_window_from_widget(web_view).imp().is_private.get() {
-    //     if let Some(back_forward_list) = web_view.back_forward_list() {
-    //         if let Some(current_item) = back_forward_list.current_item() {
-    //             if let Err(e) = DATABASE.upsert_history_record(HistoryRecord {
-    //                 id: std::ptr::addr_of!(current_item) as usize as u64,
-    //                 original_uri: current_item.original_uri().unwrap_or_default().to_string(),
-    //                 uri: current_item.uri().unwrap_or_default().to_string(),
-    //                 title: Some(get_title(&web_view)),
-    //                 timestamp: chrono::Utc::now(),
-    //             }) {
-    //                 error!("{}", e)
-    //             }
-    //         }
-    //     }
-    // }
     relevant_page.set_title(&title);
 }

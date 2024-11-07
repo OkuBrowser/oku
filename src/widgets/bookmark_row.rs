@@ -1,3 +1,6 @@
+use crate::database::Bookmark;
+use crate::database::DATABASE;
+use crate::window_util::get_window_from_widget;
 use glib::clone;
 use glib::object::Cast;
 use glib::object::CastNone;
@@ -20,14 +23,10 @@ use libadwaita::prelude::ActionRowExt;
 use libadwaita::prelude::PreferencesRowExt;
 use libadwaita::subclass::prelude::*;
 use log::error;
-use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::collections::HashSet;
+use std::sync::LazyLock;
 use webkit2gtk::functions::uri_for_display;
-
-use crate::database::Bookmark;
-use crate::database::DATABASE;
-use crate::window_util::get_window_from_widget;
 
 pub mod imp {
     use super::*;
@@ -72,7 +71,7 @@ pub mod imp {
         }
 
         fn properties() -> &'static [ParamSpec] {
-            static PROPERTIES: Lazy<Vec<ParamSpec>> = Lazy::new(|| {
+            static PROPERTIES: LazyLock<Vec<ParamSpec>> = LazyLock::new(|| {
                 vec![
                     ParamSpecString::builder("url").build(),
                     ParamSpecString::builder("title-property").build(),

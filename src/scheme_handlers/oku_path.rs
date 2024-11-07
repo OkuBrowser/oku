@@ -8,6 +8,8 @@ pub enum OkuPath {
     Tag(String),
     Tags,
     User(AuthorId, Option<PathBuf>),
+    ToggleFollow(AuthorId),
+    ToggleBlock(AuthorId),
 }
 
 impl OkuPath {
@@ -39,6 +41,28 @@ impl OkuPath {
                     .map(|x| OkuPath::Tag(x.to_string_lossy().to_string()))
                     .unwrap_or(OkuPath::Tags),
                 "me" => OkuPath::Me(replica_path),
+                "follow" => OkuPath::ToggleFollow(
+                    AuthorId::from_str(
+                        second_component
+                            .ok_or(miette::miette!("Missing author ID … "))?
+                            .as_os_str()
+                            .to_string_lossy()
+                            .to_string()
+                            .as_str(),
+                    )
+                    .map_err(|e| miette::miette!("{}", e))?,
+                ),
+                "block" => OkuPath::ToggleBlock(
+                    AuthorId::from_str(
+                        second_component
+                            .ok_or(miette::miette!("Missing author ID … "))?
+                            .as_os_str()
+                            .to_string_lossy()
+                            .to_string()
+                            .as_str(),
+                    )
+                    .map_err(|e| miette::miette!("{}", e))?,
+                ),
                 _ => OkuPath::User(
                     AuthorId::from_str(
                         first_component

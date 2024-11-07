@@ -26,6 +26,11 @@ impl SchemeRequest {
     pub fn uri(&self) -> Option<String> {
         self.0.uri().map(|uri| uri.to_string())
     }
+    pub fn http_method(&self) -> Option<String> {
+        self.0
+            .http_method()
+            .map(|http_method| http_method.to_string())
+    }
     pub fn finish(&self, bytes_result: miette::Result<impl Into<Bytes>>) {
         match bytes_result {
             Ok(bytes) => {

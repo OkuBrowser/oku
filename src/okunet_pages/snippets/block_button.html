@@ -1,0 +1,17 @@
+<button class="follow-block-button{%- if page.data.is_blocked %} destructive {% endif -%}" onclick="toggleBlock()">
+{%- if page.data.is_blocked -%}
+Unblock
+{%- else -%}
+Block
+{%- endif -%}
+</button>
+    
+<script>
+    function toggleBlock() {
+        window.fetch('{{ global.url }}block/{{ page.data.author_id }}', {
+            method: 'POST',
+        }).then((response) => {
+            location.reload();
+        });
+    }
+</script>

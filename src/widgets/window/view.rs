@@ -422,7 +422,7 @@ impl Window {
                             back_button.set_sensitive(w.can_go_back());
                             forward_button.set_sensitive(w.can_go_forward());
                         }
-                        if !imp.is_private.get() && load_event == LoadEvent::Finished {
+                        if !matches!(w.uri(), Some(x) if x == "oku:home") && !imp.is_private.get() && load_event == LoadEvent::Finished {
                             if let Some(back_forward_list) = w.back_forward_list() {
                                 if let Some(current_item) = back_forward_list.current_item() {
                                     if let Err(e) = DATABASE.upsert_history_record(HistoryRecord {

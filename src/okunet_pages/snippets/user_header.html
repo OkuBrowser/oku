@@ -1,0 +1,7 @@
+<h1 class="post-header">
+{{- page.data.title -}}&ensp;
+{%- unless page.data.is_me -%}
+{%- include follow_button.html -%}
+{%- include block_button.html -%}
+{%- endunless -%}
+</h1>

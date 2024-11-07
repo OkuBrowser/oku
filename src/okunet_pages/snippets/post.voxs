@@ -5,7 +5,7 @@
   </div>
   <a href="{{ include.post.data.note_url }}"><p class="post-meta">{{ include.post.data.note_url }}</p></a>
   {% if include.post.data.tags[0] %}
-  <p class="post-meta"> — tagged with {% include tags.voxs tags = include.post.data.tags %}</p>
+  <p class="post-meta"> — {% include tags.voxs tags = include.post.data.tags %}</p>
   {% endif %}
   <a href="{{ include.post.url | prepend: global.url }}"><time datetime="{{ include.post.date.rfc_3339 }}" class="post-date">{{ include.post.date.short_day }}, {{ include.post.date.day }} {{ include.post.date.short_month }} {{ include.post.date.year }}</time></a>
   <hr>
