@@ -60,12 +60,24 @@ pub static OKUNET_VOX_FILES: LazyLock<HashMap<PathBuf, String>> = LazyLock::new(
             include_str!("../../okunet_pages/snippets/block_button.html").into(),
         ),
         (
+            "snippets/delete_button.html".into(),
+            include_str!("../../okunet_pages/snippets/delete_button.html").into(),
+        ),
+        (
             "snippets/user_header.html".into(),
             include_str!("../../okunet_pages/snippets/user_header.html").into(),
         ),
         (
+            "snippets/tab_pages.html".into(),
+            include_str!("../../okunet_pages/snippets/tab_pages.html").into(),
+        ),
+        (
             "tags.vox".into(),
             include_str!("../../okunet_pages/tags.vox").into(),
+        ),
+        (
+            "snippets/user-trash-symbolic.svg".into(),
+            include_str!("../../../data/hicolor/scalable/actions/user-trash-symbolic.svg").into(),
         ),
     ])
 });

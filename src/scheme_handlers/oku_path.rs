@@ -10,6 +10,7 @@ pub enum OkuPath {
     User(AuthorId, Option<PathBuf>),
     ToggleFollow(AuthorId),
     ToggleBlock(AuthorId),
+    Delete(PathBuf),
 }
 
 impl OkuPath {
@@ -63,6 +64,9 @@ impl OkuPath {
                     )
                     .map_err(|e| miette::miette!("{}", e))?,
                 ),
+                "delete" => {
+                    OkuPath::Delete(replica_path.ok_or(miette::miette!("Missing post path … "))?)
+                }
                 _ => OkuPath::User(
                     AuthorId::from_str(
                         first_component

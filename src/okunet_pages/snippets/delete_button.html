@@ -1,0 +1,15 @@
+{%- if include.post.data.by_me -%}
+{%- assign path = include.post.url | split: "/" -%}
+<button class="container-button delete-button destructive" onclick="deletePost()">
+<span>{%- include user-trash-symbolic.svg -%}</span>
+</button>
+    
+<script>
+    function deletePost() {
+        window.fetch('{{ global.url }}delete/{{ path | slice: 1, path.size | join: "/" }}.toml', {
+            method: 'POST',
+        }).then((response) => {
+        });
+    }
+</script>
+{%- endif -%}

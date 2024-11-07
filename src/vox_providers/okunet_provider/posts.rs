@@ -48,6 +48,9 @@ impl OkuNetProvider {
         user: &OkuUser,
         post: &OkuPost,
     ) -> miette::Result<toml::Table> {
+        let node = NODE
+            .get()
+            .ok_or(miette::miette!("No running Oku node … "))?;
         let page_permalink = self.get_post_permalink(post).await?;
         let post_date = toml::value::Datetime::from_str(
             &chrono::DateTime::from_timestamp_micros(
@@ -82,6 +85,7 @@ impl OkuNetProvider {
                 .into(),
         );
         table.insert("author_id".into(), user.author_id.to_string().into());
+        table.insert("by_me".into(), node.is_me(&user.author_id).await.into());
         table.insert(
             "author".into(),
             toml::Table::try_from(author_identity)

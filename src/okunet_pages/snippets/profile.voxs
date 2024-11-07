@@ -1,17 +1,25 @@
-{% markdown %}
 {% include user_header.html %}
+<h5 class="post-meta">{{ page.data.author_id }}</h5>
 
-## Posts
+<div>
+    <button class="tablink destructive" id="Posts-button" onclick="openPage('Posts')">Posts</button>
+    <button class="tablink" id="Following-button" onclick="openPage('Following')">Following</button>
+</div>
 
+<div id="Posts" class="page">
+<h2>Posts</h2>
 {% if include.posts[0] %}
 {% assign posts = include.posts | sort: "date" | reverse %}
 {% include posts.voxs posts = posts %}
 {% else %}
 
-### No posts found
+<h3>No posts found</h3>
 
 {% endif %}
+</div>
 
+<div id="Following" class="page" style="display:none">
+{% markdown %}
 ## Following
 
 {% if page.data.following[0] %}
@@ -26,3 +34,6 @@
 
 {% endif %}
 {% endmarkdown %}
+</div>
+
+{%- include tab_pages.html -%}

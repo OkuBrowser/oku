@@ -1,5 +1,5 @@
-<button class="follow-block-button{%- if page.data.is_followed %} destructive {% endif -%}" onclick="toggleFollow()">
-{%- if page.data.is_followed -%}
+<button class="follow-block-button{%- if include.is_followed %} destructive {% endif -%}" onclick="toggleFollow()">
+{%- if include.is_followed -%}
 Unfollow
 {%- else -%}
 Follow
@@ -8,7 +8,7 @@ Follow
 
 <script>
     function toggleFollow() {
-        window.fetch('{{ global.url }}follow/{{ page.data.author_id }}', {
+        window.fetch('{{ global.url }}follow/{{ include.author_id }}', {
             method: 'POST',
         }).then((response) => {
             location.reload();

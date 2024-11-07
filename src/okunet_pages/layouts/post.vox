@@ -3,6 +3,7 @@ layout = "default"
 ---
 <article class="post">
   <div class="post-header">
+      {%- include delete_button.html post = page -%}
       <a href="{{ page.data.note_url }}"><h1 class="post-title">{{ page.data.title }}</h1></a>
       <a href="{{ page.data.author_id | prepend: global.url }}"><span class="post-meta">&emsp;by {{ page.data.author.name }}</span></a>
   </div>

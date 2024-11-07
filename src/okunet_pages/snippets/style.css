@@ -304,13 +304,25 @@ pre {
 .post-header {
   display: flex;
   align-items: center;
+  position: relative;
 }
 
 button {
   border: none;
   border-radius: 8px;
   background-color: var(--container-bg);
-  color: var(--body-color)
+  color: var(--body-color);
+  cursor: pointer;
+}
+
+.container-button {
+  background-color: var(--body-bg);
+}
+
+.delete-button {
+  top: 0;
+  right: 0;
+  position: absolute;
 }
 
 .destructive {
