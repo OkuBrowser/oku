@@ -36,7 +36,7 @@ gdk = { version = "*", package = "gdk4", features = ["v4_14"] }
 gio = { version = "*", features = ["v2_80"] }
 glib = { version = "*", features = ["v2_80"] }
 glib-macros = { version = "*" }
-gtk = { version = "*", package = "gtk4", features = ["gnome_46"], default-features = false }
+gtk = { version = "*", package = "gtk4", features = ["gnome_47"], default-features = false }
 ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", branch = "libp2p-next", package = "rust-ipfs"}
 lazy_static = "1.5.0"
 libadwaita = { version = "*", features = ["v1_6", "gio_v2_80"] }

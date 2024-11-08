@@ -257,7 +257,7 @@ dependencies = [
  "cfg-if",
  "concurrent-queue",
  "futures-io",
- "futures-lite 2.4.0",
+ "futures-lite 2.5.0",
  "parking",
  "polling",
  "rustix",
@@ -399,7 +399,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1f7a89a8ee5889d2593ae422ce6e1bb03e48a0e8a16e4fa0882dfcbe7e182ef"
 dependencies = [
  "bytes",
- "futures-lite 2.4.0",
+ "futures-lite 2.5.0",
  "genawaiter",
  "iroh-blake3",
  "iroh-io",
@@ -690,9 +690,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.1.36"
+version = "1.1.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baee610e9452a8f6f0a1b6194ec09ff9e2d85dea54432acdae41aa0761c95d70"
+checksum = "40545c26d092346d8a8dab71ee48e7685a7a9cba76e634790c215b41a4a7b4cf"
 dependencies = [
  "jobserver",
  "libc",
@@ -1674,9 +1674,9 @@ dependencies = [
 
 [[package]]
 name = "fastrand"
-version = "2.1.1"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8c02a5121d4ea3eb16a80748c74f5549a5665e4c21333c6098f283870fbdea6"
+checksum = "486f806e73c5707928240ddc295403b1b93c96a02038563881c4a2fd84b81ac4"
 
 [[package]]
 name = "ff"
@@ -1921,11 +1921,11 @@ dependencies = [
 
 [[package]]
 name = "futures-lite"
-version = "2.4.0"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f1fa2f9765705486b33fd2acf1577f8ec449c2ba1f318ae5447697b7c08d210"
+checksum = "cef40d21ae2c515b51041df9ed313ed21e572df340ea58a922a0aefe7e8891a1"
 dependencies = [
- "fastrand 2.1.1",
+ "fastrand 2.2.0",
  "futures-core",
  "futures-io",
  "parking",
@@ -3215,7 +3215,7 @@ dependencies = [
  "bytes",
  "derive_more",
  "futures-buffered",
- "futures-lite 2.4.0",
+ "futures-lite 2.5.0",
  "futures-util",
  "genawaiter",
  "hex",
@@ -3304,7 +3304,7 @@ dependencies = [
  "chrono",
  "derive_more",
  "futures-buffered",
- "futures-lite 2.4.0",
+ "futures-lite 2.5.0",
  "genawaiter",
  "hashlink",
  "hex",
@@ -3348,7 +3348,7 @@ dependencies = [
  "derive_more",
  "ed25519-dalek",
  "futures-buffered",
- "futures-lite 2.4.0",
+ "futures-lite 2.5.0",
  "futures-util",
  "hex",
  "iroh-base",
@@ -3388,7 +3388,7 @@ dependencies = [
  "derive_more",
  "ed25519-dalek",
  "futures-concurrency",
- "futures-lite 2.4.0",
+ "futures-lite 2.5.0",
  "futures-util",
  "indexmap",
  "iroh-base",
@@ -3417,7 +3417,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17e302c5ad649c6a7aa9ae8468e1c4dc2469321af0c6de7341c1be1bdaab434b"
 dependencies = [
  "bytes",
- "futures-lite 2.4.0",
+ "futures-lite 2.5.0",
  "pin-project",
  "smallvec",
  "tokio",
@@ -3459,7 +3459,7 @@ dependencies = [
  "duct",
  "futures-buffered",
  "futures-concurrency",
- "futures-lite 2.4.0",
+ "futures-lite 2.5.0",
  "futures-sink",
  "futures-util",
  "genawaiter",
@@ -3581,7 +3581,7 @@ checksum = "c1fd18ec6325dd3f01625f12c01acff50a4374ee1ab708e7b2078885fd63ad30"
 dependencies = [
  "anyhow",
  "futures-buffered",
- "futures-lite 2.4.0",
+ "futures-lite 2.5.0",
  "futures-util",
  "iroh-net",
  "tokio",
@@ -5200,7 +5200,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "derive_more",
- "futures-lite 2.4.0",
+ "futures-lite 2.5.0",
  "futures-sink",
  "futures-util",
  "libc",
@@ -5979,7 +5979,7 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "derive_more",
- "futures-lite 2.4.0",
+ "futures-lite 2.5.0",
  "futures-util",
  "igd-next 0.15.1",
  "iroh-metrics",
@@ -6240,7 +6240,7 @@ dependencies = [
  "derive_more",
  "educe",
  "flume",
- "futures-lite 2.4.0",
+ "futures-lite 2.5.0",
  "futures-sink",
  "futures-util",
  "hex",
@@ -8128,7 +8128,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28cce251fcbc87fac86a866eeb0d6c2d536fc16d06f184bb61aeae11aa4cee0c"
 dependencies = [
  "cfg-if",
- "fastrand 2.1.1",
+ "fastrand 2.2.0",
  "once_cell",
  "rustix",
  "windows-sys 0.59.0",
