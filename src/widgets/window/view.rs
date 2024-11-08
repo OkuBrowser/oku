@@ -81,7 +81,8 @@ impl Window {
         let network_session = web_view.network_session().unwrap();
         let data_manager = network_session.website_data_manager().unwrap();
         let security_manager = web_context.security_manager().unwrap();
-        let extensions_path = format!("{}/web-extensions/", DATA_DIR.to_string_lossy());
+        let extensions_path = format!("{}/extensions/", DATA_DIR.to_string_lossy());
+        let _ = std::fs::create_dir_all(&extensions_path);
 
         data_manager.set_favicons_enabled(true);
 

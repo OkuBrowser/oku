@@ -17,7 +17,12 @@
         "--socket=cups",
         "--filesystem=xdg-download",
         "--filesystem=xdg-pictures",
-        "--filesystem=host"
+        "--filesystem=host",
+        "--filesystem=xdg-run/gvfs",
+        "--filesystem=xdg-run/gvfsd",
+        "--talk-name=org.freedesktop.Flatpak",
+        "--talk-name=org.freedesktop.Notifications",
+        "--talk-name=org.gtk.vfs.*"
     ],
     "cleanup": [
         "/include",
