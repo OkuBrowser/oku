@@ -123,13 +123,9 @@ impl OkuNetProvider {
         let node = NODE
             .get()
             .ok_or(miette::miette!("No running Oku node … "))?;
-        let author_id = node
-            .default_author()
-            .await
-            .map_err(|e| miette::miette!("{}", e))?;
-        let posts = node.posts().await;
         let me = node.user().await?;
+        let posts = node.posts_from_user(&me).await.ok();
         self.create_profile_page(&me, posts).await?;
-        self.render_and_get(format!("output/{}.html", author_id.to_string()))
+        self.render_and_get(format!("output/{}.html", me.author_id.to_string()))
     }
 }

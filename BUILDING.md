@@ -28,6 +28,12 @@ After pre-requisites are installed and pre-compilation tasks are complete, you m
 * `cargo build --release` for release builds.
 * `cargo install --path .` to install Oku.
 
+### Troubleshooting
+
+#### Missing Icon
+
+If the browser's icon is missing at runtime, copy the icon files to the appropriate location on your system (eg, `cp -avr ./data/hicolor /app/share/icons/`).
+
 ## Flatpak
 
 ### Prerequisites
@@ -42,3 +48,14 @@ In addition to the prerequisites above, the Flatpak build requires:
 
 Run `./install_flatpak.sh`, assuming prerequisites are installed.
 This will output `oku.flatpak` and install the Flatpak.
+
+### Troubleshooting
+
+#### Not Opening
+
+Try starting Oku from the command-line by running `flatpak run io.github.OkuBrowser.oku`.
+This should reveal any runtime issues.
+
+#### Crashing Upon Start with Ubuntu
+
+See [the following](https://github.com/OkuBrowser/oku/issues/290#issuecomment-2380092489) for a workaround.

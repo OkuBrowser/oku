@@ -1,4 +1,4 @@
-<article class="post container">
+<article class="post container content">
   <div class="post-header">
       {%- include delete_button.html post = include.post -%}
       <a href="{{ include.post.url | prepend: global.url }}"><h1 class="post-title">{{ include.post.data.title }}</h1></a>

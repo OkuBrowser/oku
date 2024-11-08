@@ -1,5 +1,5 @@
 {% include user_header.html %}
-<h5 class="post-meta">{{ page.data.author_id }}</h5>
+<h5 class="post-meta mono">{{ page.data.author_id }}</h5>
 
 <div>
     <button class="tablink destructive" id="Posts-button" onclick="openPage('Posts')">Posts</button>

@@ -91,10 +91,10 @@
 }
 
 :root {
-  --body-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+  --body-font: sans-serif;
   --body-line-height: 1.5;
   --border-radius: .25rem;
-  --code-font: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --code-font: monospace;
   --code-color: var(--purple);
   --code-bg: var(--dark-4);
   --spacer: 1rem;
@@ -262,6 +262,10 @@ pre {
   overflow: auto;
 }
 
+.mono {
+  font-family: var(--code-font);
+}
+
 .page,
 .post {
   margin-bottom: 4em;
@@ -315,14 +319,11 @@ button {
   cursor: pointer;
 }
 
-.container-button {
-  background-color: var(--body-bg);
-}
-
 .delete-button {
   top: 0;
   right: 0;
   position: absolute;
+  border: thin solid var(--border-color);
 }
 
 .destructive {
@@ -358,12 +359,12 @@ button {
 }
 
 .masthead {
-  padding-top: var(--spacer);
+  padding-left: var(--spacer);
   padding-bottom: var(--spacer);
   margin-bottom: var(--spacer-2);
 }
 
-.masthead small:not(:last-of-type)::after {
+.masthead span:not(:last-of-type)::after {
   content: " • ";
 }
 
@@ -374,7 +375,7 @@ button {
   color: inherit;
   text-decoration: none;
 }
-.masthead-title small {
+.masthead-title span {
   font-weight: 400;
   opacity: 0.5;
 }
@@ -402,6 +403,21 @@ html {
   color: var(--body-color);
 }
 
+body {
+  max-width: 45rem;
+  padding-left: var(--spacer-2);
+  padding-right: var(--spacer-2);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.content {
+  max-width: 45rem;
+  padding: var(--spacer-2);
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .center {
   text-align: center;
   align-items: center;
@@ -415,10 +431,6 @@ html {
   box-shadow: 0 0 10px 1px rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(15px);
   z-index: -1;
-  max-width: 45rem;
-  padding: var(--spacer-2);
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .clay {

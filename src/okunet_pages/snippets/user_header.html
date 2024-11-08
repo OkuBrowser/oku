@@ -1,7 +1,9 @@
 <h1 class="post-header">
 {{- page.data.title -}}&ensp;
 {%- unless page.data.is_me -%}
+{%- unless page.data.is_blocked -%}
 {%- include follow_button.html author_id = author_id is_followed = page.data.is_followed -%}
+{%- endunless -%}
 {%- include block_button.html author_id = author_id is_blocked = page.data.is_blocked -%}
 {%- endunless -%}
 </h1>

@@ -1,0 +1,14 @@
+---
+layout = "default"
+title = "OkuNet"
+permalink = "home"
+depends = ["posts"]
+---
+<h1>Posts</h1>
+
+{% if posts[0] %}
+{% assign sorted_posts = posts | sort: "date" | reverse %}
+{% include posts.voxs posts = sorted_posts %}
+{% else %}
+<h2 class="post-meta center">No posts found … </h2>
+{% endif %}

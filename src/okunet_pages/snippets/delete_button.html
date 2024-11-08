@@ -1,6 +1,6 @@
 {%- if include.post.data.by_me -%}
 {%- assign path = include.post.url | split: "/" -%}
-<button class="container-button delete-button destructive" onclick="deletePost()">
+<button class="delete-button" onclick="deletePost()">
 <span>{%- include user-trash-symbolic.svg -%}</span>
 </button>
     

@@ -2,7 +2,7 @@ use super::{oku_path::OkuPath, util::SchemeRequest};
 use crate::{
     vox_providers::{oku_provider::core::OkuProvider, okunet_provider::core::OkuNetProvider},
     window_util::get_window_from_widget,
-    NODE,
+    HOME_REPLICA_SET, NODE,
 };
 use bytes::Bytes;
 use glib::clone;
@@ -12,7 +12,7 @@ use libadwaita::{
 };
 use log::error;
 use oku_fs::iroh::docs::AuthorId;
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::atomic::Ordering};
 use webkit2gtk::{functions::uri_for_display, prelude::WebViewExt};
 
 pub async fn oku_scheme(request: SchemeRequest) {
@@ -114,6 +114,7 @@ pub fn delete(request: SchemeRequest, replica_path: PathBuf) -> miette::Result<(
     dialog.present(window.as_ref());
     Ok(())
 }
+
 pub async fn toggle_follow(author_id: AuthorId) -> miette::Result<()> {
     let node = NODE
         .get()
@@ -143,9 +144,7 @@ pub async fn get_oku_scheme_handler(request: SchemeRequest) -> miette::Result<By
         .replacen("oku:", "", 1);
     let url_path = OkuPath::parse(decoded_url)?;
     match url_path {
-        OkuPath::Home => OkuProvider::new()
-            .render_and_get("output/home.html")
-            .map(|x| x.into()),
+        OkuPath::Home => home().await,
         OkuPath::Tags => OkuNetProvider::new().view_tags().await.map(|x| x.into()),
         OkuPath::Tag(tag) => OkuNetProvider::new().view_tag(tag).await.map(|x| x.into()),
         OkuPath::Me(replica_path) => match replica_path {
@@ -169,5 +168,14 @@ pub async fn get_oku_scheme_handler(request: SchemeRequest) -> miette::Result<By
             "Operation {:?} not supported for GET requests to Oku scheme … ",
             url_path
         )),
+    }
+}
+
+pub async fn home() -> miette::Result<Bytes> {
+    match HOME_REPLICA_SET.load(Ordering::Relaxed) {
+        false => OkuProvider::new()
+            .render_and_get("output/home.html")
+            .map(|x| x.into()),
+        true => OkuNetProvider::new().view_home().await.map(|x| x.into()),
     }
 }

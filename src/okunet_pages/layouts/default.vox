@@ -6,10 +6,11 @@
         {% include head.html %}
     </head>
     <body>
-        <div class="container">
+        {% include masthead.html %}
+        <div class="container content">
             {{- layouts | map: "rendered" | first -}}
         </div>
-        <footer class="container">
+        <footer class="container content">
             <small>
                 &copy; {{ global.author }} <time datetime="{{ meta.date.rfc_3339 }}">{{ meta.date.year }}</time>
             </small>
