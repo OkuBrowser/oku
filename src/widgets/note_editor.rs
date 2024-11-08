@@ -49,7 +49,9 @@ pub mod imp {
         pub(crate) body_entry: gtk::TextView,
         pub(crate) body_entry_label: gtk::Label,
         pub(crate) body_entry_label_overlay: gtk::Overlay,
+        pub(crate) save_bookmark_button_content: libadwaita::ButtonContent,
         pub(crate) save_bookmark_button: gtk::Button,
+        pub(crate) save_post_button_content: libadwaita::ButtonContent,
         pub(crate) save_post_button: gtk::Button,
         pub(crate) save_buttons: gtk::Box,
         pub(crate) tag_box: gtk::Box,
@@ -194,10 +196,13 @@ impl NoteEditor {
         imp.body_entry_label_overlay
             .add_overlay(&imp.body_entry_label);
 
-        imp.save_bookmark_button
+        imp.save_bookmark_button_content
             .set_icon_name("bookmark-filled-symbolic");
+        imp.save_bookmark_button_content.set_label("Save bookmark");
+        imp.save_bookmark_button
+            .set_child(Some(&imp.save_bookmark_button_content));
         imp.save_bookmark_button.add_css_class("linked");
-        imp.save_bookmark_button.set_label("Save bookmark");
+        imp.save_bookmark_button.add_css_class("pill");
         imp.save_bookmark_button.connect_clicked(clone!(
             #[weak]
             this,
@@ -221,8 +226,13 @@ impl NoteEditor {
             }
         ));
 
+        imp.save_post_button_content
+            .set_icon_name("people-symbolic");
+        imp.save_post_button_content.set_label("Save to OkuNet");
+        imp.save_post_button
+            .set_child(Some(&imp.save_post_button_content));
         imp.save_post_button.add_css_class("linked");
-        imp.save_post_button.set_label("Save post");
+        imp.save_post_button.add_css_class("pill");
 
         imp.save_buttons.append(&imp.save_bookmark_button);
         imp.save_buttons.append(&imp.save_post_button);

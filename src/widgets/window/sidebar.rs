@@ -378,13 +378,15 @@ impl Window {
     pub fn setup_replicas_page(&self) {
         let imp = self.imp();
 
+        imp.add_replicas_button_content.set_icon_name("folder-new");
+        imp.add_replicas_button_content.set_label("New replica");
+        imp.add_replicas_button_content.add_css_class("card");
+
         imp.add_replicas_button
-            .set_start_icon_name(Some("folder-new"));
+            .set_child(Some(&imp.add_replicas_button_content));
         imp.add_replicas_button.set_margin_start(4);
         imp.add_replicas_button.set_margin_end(4);
-        imp.add_replicas_button.set_title("New replica");
-        imp.add_replicas_button.add_css_class("card");
-        imp.add_replicas_button.connect_activated(clone!(move |_| {
+        imp.add_replicas_button.connect_clicked(clone!(move |_| {
             let ctx = glib::MainContext::default();
             ctx.spawn_local_with_priority(
                 glib::source::Priority::HIGH,
