@@ -1,4 +1,4 @@
-<button class="follow-block-button{%- if include.is_blocked %} destructive {% endif -%}" onclick="toggleBlock()">
+<button class="follow-block-button{%- unless include.is_blocked %} destructive {% endunless -%}" onclick="toggleBlock()">
 {%- if include.is_blocked -%}
 Unblock
 {%- else -%}
