@@ -378,7 +378,8 @@ impl Window {
     pub fn setup_replicas_page(&self) {
         let imp = self.imp();
 
-        imp.add_replicas_button_content.set_icon_name("folder-new");
+        imp.add_replicas_button_content
+            .set_icon_name("folder-new-symbolic");
         imp.add_replicas_button_content.set_label("New replica");
         imp.add_replicas_button_content.add_css_class("card");
 
