@@ -36,6 +36,68 @@
       </description>
     </release>
   </releases>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/main.png</image>
+      <caption>The browser window</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/bookmarks.png</image>
+      <caption>Library page showing bookmarks</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/find_in_page.png</image>
+      <caption>Finding text in a page</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/history.png</image>
+      <caption>Library page showing browser history</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/menu.png</image>
+      <caption>The browser menu</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/note_editor.png</image>
+      <caption>The note editor</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/okunet_home_empty.png</image>
+      <caption>OkuNet before following any users</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/okunet_me.png</image>
+      <caption>An example OkuNet profile</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/page.png</image>
+      <caption>A page on the Web</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/replicas.png</image>
+      <caption>Library page showing replicas</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/settings.png</image>
+      <caption>The browser settings</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/shortcuts_page1.png</image>
+      <caption>First page of the keyboard shortcuts</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/shortcuts_page2.png</image>
+      <caption>Second page of the keyboard shortcuts</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/tab_overview.png</image>
+      <caption>The tab overview</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/writing_note.png</image>
+      <caption>Writing an example note</caption>
+    </screenshot>
+  </screenshots>
     <!--
     GNOME Software kudos:
     https://gitlab.gnome.org/GNOME/gnome-software/blob/master/doc/kudos.md

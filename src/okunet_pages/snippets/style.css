@@ -335,8 +335,7 @@ button {
 }
 
 .follow-block-button {
-  font-size: large;
-  min-width: 4rem;
+  min-width: 12.5%;
   margin: auto 0.25rem;
 }
 
