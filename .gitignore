@@ -19,10 +19,11 @@ src/#*.ui#
 .flatpak-builder
 repo
 build
+builddir
 
 # These are files used for local Flatpak creation
-./flatpak-cargo-generator.py
-cargo-sources.json
+flatpak-cargo-generator.py
+build-aux/cargo-sources.json
 
 # Generated when building WebKit
 gtk4-dependencies

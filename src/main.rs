@@ -17,7 +17,6 @@ pub mod window_util;
 
 use database::DATABASE;
 use directories_next::ProjectDirs;
-use directories_next::UserDirs;
 use env_logger::Builder;
 use gio::prelude::*;
 use glib_macros::clone;
@@ -46,16 +45,8 @@ use webkit2gtk::WebContext;
 /// The platform-specific directories intended for Oku's use
 static PROJECT_DIRECTORIES: LazyLock<ProjectDirs> =
     LazyLock::new(|| ProjectDirs::from("io", "github.OkuBrowser", "oku").unwrap());
-/// The platform-specific directory where Oku caches data
-static CACHE_DIR: LazyLock<PathBuf> =
-    LazyLock::new(|| PROJECT_DIRECTORIES.cache_dir().to_path_buf());
 /// The platform-specific directory where Oku stores user data
 static DATA_DIR: LazyLock<PathBuf> = LazyLock::new(|| PROJECT_DIRECTORIES.data_dir().to_path_buf());
-/// The platform-specific directories containing user files
-static USER_DIRECTORIES: LazyLock<UserDirs> = LazyLock::new(|| UserDirs::new().unwrap());
-/// The platform-specific directory where users store pictures
-static PICTURES_DIR: LazyLock<PathBuf> =
-    LazyLock::new(|| USER_DIRECTORIES.picture_dir().unwrap().to_path_buf());
 /// The platform-specific directory where the Oku file system is mounted
 static MOUNT_DIR: LazyLock<PathBuf> = LazyLock::new(|| DATA_DIR.join("mount"));
 /// The platform-specific file path where Oku settings are stored
