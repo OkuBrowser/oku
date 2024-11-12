@@ -9,7 +9,6 @@
     <file preprocess="xml-stripblanks">library-symbolic.svg</file>
     <file preprocess="xml-stripblanks">people-symbolic.svg</file>
     <file preprocess="xml-stripblanks">screen-privacy7-symbolic.svg</file>
-    <file preprocess="xml-stripblanks">share-symbolic.svg</file>
     <file preprocess="xml-stripblanks">update-symbolic.svg</file>
     <file preprocess="xml-stripblanks">uppercase-symbolic.svg</file>
     <file preprocess="xml-stripblanks">user-trash-symbolic.svg</file>
@@ -21,12 +20,10 @@
     <file preprocess="xml-stripblanks">note-symbolic.svg</file>
     <file preprocess="xml-stripblanks">folder-remote-symbolic.svg</file>
     <file preprocess="xml-stripblanks">bookmark-filled-symbolic.svg</file>
-    <file preprocess="xml-stripblanks">pencil-and-paper-small-symbolic.svg</file>
     <file preprocess="xml-stripblanks">editor-symbolic.svg</file>
     <file preprocess="xml-stripblanks">window-close-symbolic.svg</file>
     <file preprocess="xml-stripblanks">user-info-symbolic.svg</file>
     <file preprocess="xml-stripblanks">system-switch-user-symbolic.svg</file>
-    <file preprocess="xml-stripblanks">text-strikethrough-symbolic.svg</file>
     <file preprocess="xml-stripblanks">up-symbolic.svg</file>
     <file preprocess="xml-stripblanks">down-symbolic.svg</file>
     <file preprocess="xml-stripblanks">first-symbolic.svg</file>

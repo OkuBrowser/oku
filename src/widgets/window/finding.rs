@@ -211,7 +211,7 @@ impl Window {
         imp.find_case_insensitive.set_can_focus(true);
         imp.find_case_insensitive.set_receives_default(true);
         imp.find_case_insensitive
-            .set_icon_name("text-strikethrough-symbolic");
+            .set_icon_name("uppercase-symbolic");
         imp.find_case_insensitive.add_css_class("linked");
         imp.find_case_insensitive
             .set_tooltip_text(Some("Ignore case when searching"));
