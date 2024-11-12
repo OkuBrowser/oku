@@ -1,17 +1,3 @@
-#    This file is part of Oku.
-#
-#    Oku is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU Affero General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-#
-#    Oku is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU Affero General Public License for more details.
-#
-#    You should have received a copy of the GNU Affero General Public License
-#    along with Oku.  If not, see <https://www.gnu.org/licenses/>.
 [package]
 name = "oku"
 version = "0.1.0"
@@ -38,7 +24,6 @@ glib = { version = "*", features = ["v2_80"] }
 glib-macros = { version = "*" }
 gtk = { version = "*", package = "gtk4", features = ["gnome_47"], default-features = false }
 ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", branch = "libp2p-next", package = "rust-ipfs"}
-lazy_static = "1.5.0"
 libadwaita = { version = "*", features = ["v1_6", "gio_v2_80"] }
 oku-fs = { git = "https://github.com/OkuBrowser/oku-fs", features = ["fuse"] }
 # oku-fs = { path = "/home/emil/Documents/GitHub/oku-fs", features = ["fuse"] }
@@ -52,7 +37,7 @@ open = "5.3.0"
 env_logger = "0.11.5"
 log = "0.4.22"
 toml = "0.8.19"
-serde = "1.0.214"
+serde = "1.0.215"
 uuid = { version = "1.11.0", features = ["v7", "fast-rng", "serde"] }
 miette = "7.2.0"
 html-escape = "0.2.13"

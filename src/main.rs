@@ -1,20 +1,3 @@
-/*
-    This file is part of Oku.
-
-    Oku is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Affero General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    Oku is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Affero General Public License for more details.
-
-    You should have received a copy of the GNU Affero General Public License
-    along with Oku.  If not, see <https://www.gnu.org/licenses/>.
-*/
-
 // #![feature(doc_cfg)]
 #![allow(clippy::needless_doctest_main)]
 #![doc(
@@ -60,28 +43,26 @@ use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::URISchemeRequest;
 use webkit2gtk::WebContext;
 
-#[macro_use]
-extern crate lazy_static;
-
-lazy_static! {
-    /// The platform-specific directories intended for Oku's use
-    static ref PROJECT_DIRECTORIES: ProjectDirs =
-        ProjectDirs::from("io", "github.OkuBrowser","oku").unwrap();
-    /// The platform-specific directory where Oku caches data
-    static ref CACHE_DIR: PathBuf = PROJECT_DIRECTORIES.cache_dir().to_path_buf();
-    /// The platform-specific directory where Oku stores user data
-    static ref DATA_DIR: PathBuf = PROJECT_DIRECTORIES.data_dir().to_path_buf();
-    /// The platform-specific directories containing user files
-    static ref USER_DIRECTORIES: UserDirs = UserDirs::new().unwrap();
-    /// The platform-specific directory where users store pictures
-    static ref PICTURES_DIR: PathBuf = USER_DIRECTORIES.picture_dir().unwrap().to_path_buf();
-    /// The platform-specific directory where the Oku file system is mounted
-    static ref MOUNT_DIR: PathBuf = DATA_DIR.join("mount");
-    /// The platform-specific file path where Oku settings are stored
-    static ref CONFIG_DIR: PathBuf = DATA_DIR.join("browser_config.toml");
-    /// The current release version number of Oku
-    static ref VERSION: &'static str = option_env!("CARGO_PKG_VERSION").unwrap();
-}
+/// The platform-specific directories intended for Oku's use
+static PROJECT_DIRECTORIES: LazyLock<ProjectDirs> =
+    LazyLock::new(|| ProjectDirs::from("io", "github.OkuBrowser", "oku").unwrap());
+/// The platform-specific directory where Oku caches data
+static CACHE_DIR: LazyLock<PathBuf> =
+    LazyLock::new(|| PROJECT_DIRECTORIES.cache_dir().to_path_buf());
+/// The platform-specific directory where Oku stores user data
+static DATA_DIR: LazyLock<PathBuf> = LazyLock::new(|| PROJECT_DIRECTORIES.data_dir().to_path_buf());
+/// The platform-specific directories containing user files
+static USER_DIRECTORIES: LazyLock<UserDirs> = LazyLock::new(|| UserDirs::new().unwrap());
+/// The platform-specific directory where users store pictures
+static PICTURES_DIR: LazyLock<PathBuf> =
+    LazyLock::new(|| USER_DIRECTORIES.picture_dir().unwrap().to_path_buf());
+/// The platform-specific directory where the Oku file system is mounted
+static MOUNT_DIR: LazyLock<PathBuf> = LazyLock::new(|| DATA_DIR.join("mount"));
+/// The platform-specific file path where Oku settings are stored
+static CONFIG_DIR: LazyLock<PathBuf> = LazyLock::new(|| DATA_DIR.join("browser_config.toml"));
+/// The current release version number of Oku
+static VERSION: LazyLock<&'static str> =
+    LazyLock::new(|| option_env!("CARGO_PKG_VERSION").unwrap());
 
 static NODE: OnceLock<OkuFs> = OnceLock::new();
 static HOME_REPLICA_SET: LazyLock<Arc<AtomicBool>> =

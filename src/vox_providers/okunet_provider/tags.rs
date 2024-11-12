@@ -1,4 +1,5 @@
 use super::core::OkuNetProvider;
+use crate::NODE;
 use oku_fs::database::OkuPost;
 use vox::provider::VoxProvider;
 
@@ -22,16 +23,11 @@ impl OkuNetProvider {
         table.insert("posts".into(), tag_post_frontmatter.into());
         Ok(table)
     }
-    pub async fn create_tag_page(
-        &self,
-        tag: String,
-        posts: Option<Vec<OkuPost>>,
-    ) -> miette::Result<()> {
-        let tag_posts = posts.unwrap_or(
-            oku_fs::database::DATABASE
-                .get_posts_by_tag(tag.clone())
-                .unwrap_or_default(),
-        );
+    pub async fn create_tag_page(&self, tag: String) -> miette::Result<()> {
+        let node = NODE
+            .get()
+            .ok_or(miette::miette!("No running Oku node … "))?;
+        let tag_posts = node.all_posts_with_tag(tag.clone()).await;
         for post in tag_posts.iter() {
             self.create_post_page(&post.user(), post, Some(tag.clone()))
                 .await?;
@@ -51,14 +47,17 @@ impl OkuNetProvider {
     }
 
     pub async fn view_tag(&self, tag: String) -> miette::Result<String> {
-        self.create_tag_page(tag.clone(), None).await?;
+        self.create_tag_page(tag.clone()).await?;
         self.render_and_get(format!("output/tag/{}", tag))
     }
 
     pub async fn view_tags(&self) -> miette::Result<String> {
-        let tags = oku_fs::database::DATABASE.get_tags().unwrap_or_default();
+        let node = NODE
+            .get()
+            .ok_or(miette::miette!("No running Oku node … "))?;
+        let tags = node.all_tags().await;
         for tag in tags {
-            self.create_tag_page(tag.clone(), None).await?;
+            self.create_tag_page(tag.clone()).await?;
         }
         self.render_and_get("output/tags")
     }
