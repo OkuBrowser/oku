@@ -21,9 +21,8 @@ repo
 build
 
 # These are files used for local Flatpak creation
-flatpak-cargo-generator.py
+./flatpak-cargo-generator.py
 cargo-sources.json
-flatpak.sh
 
 # Generated when building WebKit
 gtk4-dependencies
