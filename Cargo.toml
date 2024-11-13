@@ -43,7 +43,7 @@ miette = "7.2.0"
 html-escape = "0.2.13"
 bytes = "1.8.0"
 native_db = "0.8.1"
-native_model = "0.4.20"
+native_model = "0.5.0"
 rayon = "1.10.0"
 tantivy = "0.22.0"
 # vox = { path = "/home/emil/Documents/GitHub/vox", features = ["ram_provider"] }
