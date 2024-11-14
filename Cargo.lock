@@ -4930,7 +4930,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db7c6b50f9889052a3c1bbd3aa70cc33b76ec1761092aeb0ec0e1ac3cfdb881a"
 dependencies = [
  "native_db_macro",
- "native_model",
+ "native_model 0.4.20",
  "redb 1.5.1",
  "redb 2.2.0",
  "semver",
@@ -4958,10 +4958,25 @@ checksum = "c10f4542302b7fa69ef18b49d93106e27f20b59d695555121d9ed22fe5d716a8"
 dependencies = [
  "anyhow",
  "bincode",
- "native_model_macro",
+ "native_model_macro 0.4.20",
  "serde",
  "skeptic",
  "thiserror 1.0.69",
+ "zerocopy 0.8.9",
+]
+
+[[package]]
+name = "native_model"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7050d759e3da6673361dddda4f4a743492279dd2c6484a21fbee0a8278620df0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "doc-comment",
+ "native_model_macro 0.6.1",
+ "serde",
+ "thiserror 2.0.3",
  "zerocopy 0.8.9",
 ]
 
@@ -4970,6 +4985,17 @@ name = "native_model_macro"
 version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f385f3d57adaea8d8868e65a0bc821bcb8ba2228bbf87a1c3c6144ac48f3791"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+]
+
+[[package]]
+name = "native_model_macro"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1577a0bebf5ed1754e240baf5d9b1845f51e598b20600aa894f55e11cd20cc6c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5339,7 +5365,7 @@ dependencies = [
  "log",
  "miette",
  "native_db",
- "native_model",
+ "native_model 0.6.1",
  "oku-fs",
  "open",
  "pango",
@@ -5376,7 +5402,7 @@ dependencies = [
  "mainline 3.0.0",
  "miette",
  "native_db",
- "native_model",
+ "native_model 0.4.20",
  "path-clean",
  "rayon",
  "serde",
