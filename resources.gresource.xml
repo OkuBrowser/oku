@@ -48,5 +48,6 @@
     <file preprocess="xml-stripblanks">right-symbolic.svg</file>
     <file preprocess="xml-stripblanks">cross-large-symbolic.svg</file>
     <file preprocess="xml-stripblanks">folder-new-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">folder-open-symbolic.svg</file>
   </gresource>
 </gresources>

@@ -172,6 +172,7 @@ impl Window {
         self.setup_replicas_page();
         self.setup_history_page(&web_context);
         self.setup_bookmarks_page(&web_context);
+        self.setup_downloads_page();
         imp.side_view_stack
             .connect_visible_child_notify(clone!(move |side_view_stack| {
                 if let Some(visible_page) = get_view_stack_page_by_name(

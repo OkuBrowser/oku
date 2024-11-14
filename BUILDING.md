@@ -34,6 +34,10 @@ After pre-requisites are installed and pre-compilation tasks are complete, you m
 
 If the browser's icon is missing at runtime, copy the icon files to the appropriate location on your system (eg, `cp -avr ./data/hicolor /app/share/icons/`).
 
+#### Broken Replica Mount After Crash
+
+If the browser has been restarted after a crash and replicas are now inaccessible in the file manager, try running `umount ~/.local/share/oku/mount`.
+
 ## Flatpak
 
 ### Prerequisites
@@ -59,3 +63,7 @@ This should reveal any runtime issues.
 #### Crashing Upon Start with Ubuntu
 
 See [the following](https://github.com/OkuBrowser/oku/issues/290#issuecomment-2380092489) for a workaround.
+
+#### Broken Replica Mount After Crash
+
+If the browser has been restarted after a crash and replicas are now inaccessible in the file manager, try running `umount ~/.var/app/io.github.OkuBrowser.oku/data/oku/mount`.

@@ -1,6 +1,5 @@
 use crate::config::Config;
 use crate::widgets::settings::core::apply_appearance_config;
-use crate::window_util::get_window_from_widget;
 use crate::APP_ID;
 use glib::clone;
 use gtk::prelude::GtkWindowExt;
@@ -122,7 +121,7 @@ pub mod imp {
         pub(crate) replicas_label: gtk::Label,
         // Downloads
         pub(crate) downloads_box: gtk::Box,
-        pub(crate) downloads_store: RefCell<Option<gio::ListStore>>,
+        pub(crate) downloads_store: RefCell<Option<Rc<gio::ListStore>>>,
         pub(crate) downloads_factory: gtk::SignalListItemFactory,
         pub(crate) downloads_model: gtk::SingleSelection,
         pub(crate) downloads_view: gtk::ListView,

@@ -49,6 +49,7 @@ tantivy = "0.22.0"
 # vox = { path = "/home/emil/Documents/GitHub/vox", features = ["ram_provider"] }
 vox = { git = "https://github.com/emmyoh/vox", features = ["ram_provider"] }
 bs58 = "0.5.1"
+showfile = { version = "0.1.1", features = ["gio"], default-features = false}
 
 [profile.release]
 codegen-units = 1

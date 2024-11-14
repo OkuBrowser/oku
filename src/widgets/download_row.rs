@@ -1,7 +1,5 @@
 use glib::clone;
 use glib::closure;
-use glib::object::Cast;
-use glib::object::CastNone;
 use glib::object::ObjectExt;
 use glib::property::PropertySet;
 use glib::subclass::object::ObjectImpl;
@@ -11,30 +9,25 @@ use glib::subclass::types::ObjectSubclassIsExt;
 use glib::value::ToValue;
 use glib::Object;
 use glib::ParamSpec;
-use glib::ParamSpecBoxed;
+use glib::ParamSpecBoolean;
 use glib::ParamSpecBuilderExt;
+use glib::ParamSpecDouble;
 use glib::ParamSpecObject;
 use glib::ParamSpecString;
 use glib::Value;
-use glib::{ParamSpecBoolean, ParamSpecEnum, ParamSpecFloat};
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
 use gtk::prelude::GObjectPropertyExpressionExt;
-use gtk::prelude::ListBoxRowExt;
 use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::*;
 use libadwaita::prelude::ActionRowExt;
-use libadwaita::prelude::PreferencesRowExt;
+use libadwaita::prelude::AnimationExt;
 use libadwaita::subclass::prelude::*;
-use log::error;
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::LazyLock;
-use webkit2gtk::functions::uri_for_display;
 use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::Download;
-use webkit2gtk::DownloadError;
 use webkit2gtk::URIResponse;
 
 pub mod imp {
@@ -55,13 +48,17 @@ pub mod imp {
         pub(crate) cancel_button: gtk::Button,
         pub(crate) retry_button: gtk::Button,
         pub(crate) suffix_box: gtk::Box,
+        pub(crate) row: libadwaita::ActionRow,
+        pub(crate) progress_overlay: gtk::Overlay,
+        pub(crate) progress: gtk::ProgressBar,
+        pub(crate) progress_animation: RefCell<Option<libadwaita::SpringAnimation>>,
     }
 
     #[glib::object_subclass]
     impl ObjectSubclass for DownloadRow {
         const NAME: &'static str = "OkuDownloadRow";
         type Type = super::DownloadRow;
-        type ParentType = libadwaita::ActionRow;
+        type ParentType = gtk::Box;
     }
 
     impl ObjectImpl for DownloadRow {
@@ -69,11 +66,11 @@ pub mod imp {
             static PROPERTIES: LazyLock<Vec<ParamSpec>> = LazyLock::new(|| {
                 vec![
                     ParamSpecObject::builder::<Download>("download")
-                        .construct_only()
+                        .readwrite()
                         .build(),
                     ParamSpecString::builder("destination").readwrite().build(),
                     ParamSpecString::builder("uri").readwrite().build(),
-                    ParamSpecFloat::builder("estimated-progress")
+                    ParamSpecDouble::builder("estimated-progress")
                         .readwrite()
                         .build(),
                     ParamSpecString::builder("error").readwrite().build(),
@@ -86,8 +83,10 @@ pub mod imp {
         fn set_property(&self, _id: usize, value: &Value, pspec: &ParamSpec) {
             match pspec.name() {
                 "download" => {
-                    let download = value.get::<Download>().unwrap();
-                    self.download.set(Some(download));
+                    if let Ok(download) = value.get::<Download>() {
+                        self.download.set(Some(download.clone()));
+                        self.obj().setup(download);
+                    }
                 }
                 "destination" => {
                     let destination = value.get::<String>().unwrap();
@@ -101,11 +100,11 @@ pub mod imp {
                 "estimated-progress" => {
                     let estimated_progress = value.get::<f64>().unwrap();
                     self.estimated_progress.set(estimated_progress);
+                    self.obj().set_progress_animated(estimated_progress);
                 }
                 "error" => {
                     if let Ok(error) = value.get::<String>() {
                         self.error.set(Some(error));
-                        self.obj().finish_error();
                     }
                 }
                 "is-finished" => {
@@ -133,11 +132,12 @@ pub mod imp {
     impl ListBoxRowImpl for DownloadRow {}
     impl PreferencesRowImpl for DownloadRow {}
     impl ActionRowImpl for DownloadRow {}
+    impl BoxImpl for DownloadRow {}
 }
 
 glib::wrapper! {
     pub struct DownloadRow(ObjectSubclass<imp::DownloadRow>)
-    @extends libadwaita::ActionRow, libadwaita::PreferencesRow, gtk::ListBoxRow, gtk::Widget,
+    @extends gtk::Box, libadwaita::ActionRow, libadwaita::PreferencesRow, gtk::ListBoxRow, gtk::Widget,
     @implements gtk::Accessible, gtk::Actionable, gtk::Buildable, gtk::ConstraintTarget;
 }
 
@@ -167,90 +167,115 @@ impl DownloadRow {
         *self.imp().is_finished.borrow()
     }
     pub fn new(download: Download) -> Self {
-        let this = glib::Object::builder::<Self>()
-            .property("download", download.clone())
-            .property("is-finished", false)
-            .build();
-        let imp = this.imp();
+        let this = Self::default();
+
+        this.set_property("download", download);
+
+        this
+    }
+
+    pub fn setup(&self, download: Download) {
+        self.set_property("is-finished", false);
+
+        let imp = self.imp();
 
         imp.retry_button.set_visible(false);
+        imp.progress.set_show_text(true);
+        imp.progress.set_valign(gtk::Align::End);
 
         download
             .property_expression("destination")
-            .bind(&this, "destination", gtk::Widget::NONE);
+            .bind(self, "destination", gtk::Widget::NONE);
         download.property_expression("estimated-progress").bind(
-            &this,
+            self,
             "estimated-progress",
             gtk::Widget::NONE,
         );
         download
             .property_expression("response")
             .chain_property::<URIResponse>("uri")
-            .bind(&this, "uri", gtk::Widget::NONE);
-        this.property_expression("destination")
+            .bind(self, "uri", gtk::Widget::NONE);
+        self.property_expression("destination")
             .chain_closure::<String>(closure!(|_: Option<Object>, x: String| {
                 PathBuf::from(&x)
                     .file_name()
                     .map(|x| x.to_string_lossy().to_string())
                     .unwrap_or(x)
             }))
-            .bind(&this, "title", gtk::Widget::NONE);
-        this.property_expression("uri")
-            .bind(&this, "subtitle", gtk::Widget::NONE);
-        this.property_expression("is-finished").bind(
+            .bind(&imp.row, "title", gtk::Widget::NONE);
+        self.property_expression("uri")
+            .bind(&imp.row, "subtitle", gtk::Widget::NONE);
+        self.property_expression("is-finished").bind(
             &imp.open_button,
             "visible",
             gtk::Widget::NONE,
         );
-        this.property_expression("is-finished").bind(
+        self.property_expression("is-finished").bind(
             &imp.open_parent_button,
             "visible",
             gtk::Widget::NONE,
         );
-        this.property_expression("is-finished")
+        self.property_expression("is-finished")
             .chain_closure::<bool>(closure!(|_: Option<Object>, x: bool| { !x }))
             .bind(&imp.cancel_button, "visible", gtk::Widget::NONE);
-        this.property_expression("is-finished")
+        self.property_expression("is-finished")
             .chain_closure::<bool>(closure!(|_: Option<Object>, x: bool| { !x }))
             .bind(&imp.spinner, "visible", gtk::Widget::NONE);
-        this.property_expression("error")
-            .bind(&this, "tooltip-text", gtk::Widget::NONE);
+        self.property_expression("error")
+            .bind(self, "tooltip-text", gtk::Widget::NONE);
+        self.property_expression("estimated-progress").bind(
+            &imp.progress,
+            "fraction",
+            gtk::Widget::NONE,
+        );
 
         download.connect_failed(clone!(
-            #[weak]
-            this,
+            #[weak(rename_to = this)]
+            self,
             move |_, error| {
                 this.set_property("error", error.to_string());
-                this.set_property("is-finished", true);
             }
         ));
         download.connect_finished(clone!(
+            #[weak(rename_to = this)]
+            self,
             #[weak]
-            this,
+            imp,
             move |_| {
                 this.set_property("is-finished", true);
+                match this.error() {
+                    Some(error) => {
+                        imp.progress.set_text(Some(&error));
+                        imp.progress.add_css_class("error");
+                        imp.open_button.set_visible(false);
+                        imp.open_parent_button.set_visible(false);
+                        imp.retry_button.set_visible(true);
+                    }
+                    None => {
+                        imp.progress.set_visible(false);
+                    }
+                }
             }
         ));
 
         imp.open_button.connect_clicked(clone!(
-            #[weak]
-            this,
+            #[weak(rename_to = this)]
+            self,
             move |_| {
                 let _ = open::that_detached(PathBuf::from(this.destination()));
             }
         ));
         imp.open_parent_button.connect_clicked(clone!(
-            #[weak]
-            this,
+            #[weak(rename_to = this)]
+            self,
             move |_| {
-                if let Some(parent) = PathBuf::from(this.destination()).parent() {
-                    let _ = open::that_detached(parent);
-                }
+                let destination = this.destination();
+                gio::spawn_blocking(|| showfile::show_path_in_file_manager(destination));
             }
         ));
         imp.retry_button.connect_clicked(clone!(
-            #[weak]
-            this,
+            #[weak(rename_to = this)]
+            self,
             move |_| {
                 if let Some(web_view) = this.download().web_view() {
                     web_view.download_uri(&this.uri());
@@ -258,25 +283,96 @@ impl DownloadRow {
             }
         ));
         imp.cancel_button.connect_clicked(clone!(
-            #[weak]
-            this,
+            #[weak(rename_to = this)]
+            self,
             move |_| {
                 this.download().cancel();
             }
         ));
 
+        imp.open_button.set_icon_name("external-link-symbolic");
+        imp.open_button.add_css_class("circular");
+        imp.open_button.set_vexpand(false);
+        imp.open_button.set_hexpand(false);
+
+        imp.open_parent_button.set_icon_name("folder-open-symbolic");
+        imp.open_parent_button.add_css_class("circular");
+        imp.open_parent_button.add_css_class("linked");
+        imp.open_parent_button.set_vexpand(false);
+        imp.open_parent_button.set_hexpand(false);
+
+        imp.retry_button
+            .set_icon_name("arrow-circular-top-right-symbolic");
+        imp.retry_button.add_css_class("circular");
+        imp.retry_button.add_css_class("linked");
+        imp.retry_button.set_vexpand(false);
+        imp.retry_button.set_hexpand(false);
+
+        imp.cancel_button.set_icon_name("window-close-symbolic");
+        imp.cancel_button.add_css_class("circular");
+        imp.cancel_button.add_css_class("linked");
+        imp.cancel_button.set_vexpand(false);
+        imp.cancel_button.set_hexpand(false);
+
         imp.prefix_box.append(&imp.spinner);
         imp.prefix_box.append(&imp.open_button);
+        imp.prefix_box.set_homogeneous(false);
+        imp.prefix_box.set_valign(gtk::Align::Center);
+        imp.prefix_box.set_halign(gtk::Align::End);
+        imp.prefix_box.add_css_class("linked");
+
         imp.suffix_box.append(&imp.open_parent_button);
         imp.suffix_box.append(&imp.retry_button);
         imp.suffix_box.append(&imp.cancel_button);
+        imp.suffix_box.set_homogeneous(false);
+        imp.suffix_box.set_valign(gtk::Align::Center);
+        imp.suffix_box.set_halign(gtk::Align::End);
+        imp.suffix_box.add_css_class("linked");
 
-        this.add_prefix(&imp.prefix_box);
-        this.add_suffix(&imp.suffix_box);
+        imp.row.add_prefix(&imp.prefix_box);
+        imp.row.add_suffix(&imp.suffix_box);
+        imp.row.set_margin_bottom(24);
+        imp.row.set_title_lines(1);
+        imp.row.set_subtitle_lines(1);
+        imp.row.add_css_class("caption");
 
-        this
+        imp.progress_overlay.set_child(Some(&imp.row));
+        imp.progress_overlay.add_overlay(&imp.progress);
+        imp.progress_overlay.set_margin_bottom(4);
+
+        self.set_margin_bottom(4);
+        self.set_vexpand(true);
+        self.set_hexpand(true);
+        self.set_homogeneous(true);
+        self.add_css_class("card");
+        self.append(&imp.progress_overlay);
     }
-    pub fn finish_error(&self) {
+
+    /// Adapted from Geopard (https://github.com/ranfdev/Geopard)
+    fn set_progress_animated(&self, progress: f64) {
         let imp = self.imp();
+
+        if let Some(animation) = imp.progress_animation.borrow().as_ref() {
+            animation.pause()
+        }
+        if progress == 0.0 {
+            imp.progress.set_fraction(0.0);
+            return;
+        }
+        let animation = libadwaita::SpringAnimation::new(
+            &imp.progress,
+            imp.progress.fraction(),
+            progress,
+            libadwaita::SpringParams::new(1.0, 1.0, 100.0),
+            libadwaita::CallbackAnimationTarget::new(clone!(
+                #[weak]
+                imp,
+                move |v| {
+                    imp.progress.set_fraction(v);
+                }
+            )),
+        );
+        animation.play();
+        imp.progress_animation.replace(Some(animation));
     }
 }

@@ -1,30 +1,31 @@
 use super::*;
-use crate::config::Config;
-use crate::widgets::settings::core::apply_appearance_config;
-use crate::window_util::get_window_from_widget;
-use crate::APP_ID;
+use crate::window_util::{get_view_stack_page_by_name, get_window_from_widget};
 use glib::clone;
-use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
-use gtk::EventControllerFocus;
 use gtk::{gio, glib};
-use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
 use libadwaita::{prelude::*, ResponseAppearance};
-use std::cell::Cell;
-use std::cell::RefCell;
+use std::cell::Ref;
 use std::rc::Rc;
-use webkit2gtk::prelude::WebViewExt;
-use webkit2gtk::{Download, NetworkSession, WebContext};
+use webkit2gtk::Download;
 
 impl Window {
+    pub fn downloads_store(&self) -> Ref<gio::ListStore> {
+        let downloads_store = self.imp().downloads_store.borrow();
+
+        Ref::map(downloads_store, |downloads_store| {
+            let downloads_store = downloads_store.as_deref().unwrap();
+            downloads_store
+        })
+    }
+
     pub fn setup_downloads_page(&self) {
         let imp = self.imp();
 
         let downloads_store = gio::ListStore::new::<Download>();
-        imp.downloads_store.replace(Some(downloads_store));
+        imp.downloads_store.replace(Some(Rc::new(downloads_store)));
 
         imp.downloads_model
-            .set_model(imp.downloads_store.borrow().as_ref());
+            .set_model(Some(&self.downloads_store().clone()));
         imp.downloads_model.set_autoselect(false);
         imp.downloads_model.set_can_unselect(true);
         imp.downloads_model
@@ -34,9 +35,10 @@ impl Window {
 
         imp.downloads_factory.connect_setup(clone!(move |_, item| {
             let list_item = item.downcast_ref::<gtk::ListItem>().unwrap();
-            let row = crate::widgets::download_row::DownloadRow::new(
-                list_item.item().and_downcast::<Download>().unwrap(),
-            );
+            let row = crate::widgets::download_row::DownloadRow::default();
+            list_item
+                .property_expression("item")
+                .bind(&row, "download", gtk::Widget::NONE);
             list_item.set_child(Some(&row));
         }));
 
@@ -173,11 +175,13 @@ impl Window {
                         this,
                         move |download, _| {
                             let imp = this.imp();
-                            imp.downloads_store
-                                .borrow()
-                                .as_ref()
-                                .unwrap()
-                                .append(download);
+                            this.downloads_store().append(download);
+                            if let Some(downloads_page) = get_view_stack_page_by_name(
+                                "downloads".to_string(),
+                                &imp.side_view_stack,
+                            ) {
+                                downloads_page.set_needs_attention(true)
+                            }
                         }
                     ));
                 }
