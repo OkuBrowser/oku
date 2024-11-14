@@ -35,7 +35,7 @@ pub fn connect(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebView) {
                 // If it's now valid with protocol
                 Ok(nav_url) => {
                     nav_entry.set_text(nav_url.as_str());
-                    connect(&nav_entry, &web_view);
+                    connect(nav_entry, web_view);
                 }
                 // Still not valid, even with protocol
                 Err(e) => {

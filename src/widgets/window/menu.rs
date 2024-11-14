@@ -462,7 +462,7 @@ impl Window {
             move |_| {
                 self::Window::new(
                     &this.application().unwrap().downcast().unwrap(),
-                    &*this.imp().style_provider.borrow(),
+                    &this.imp().style_provider.borrow(),
                     &web_context,
                     false,
                 );
@@ -475,7 +475,7 @@ impl Window {
                 move |window: &Self, _, _| {
                     self::Window::new(
                         &window.application().unwrap().downcast().unwrap(),
-                        &*window.imp().style_provider.borrow(),
+                        &window.imp().style_provider.borrow(),
                         &web_context,
                         false,
                     );
@@ -493,7 +493,7 @@ impl Window {
             move |_| {
                 self::Window::new(
                     &this.application().unwrap().downcast().unwrap(),
-                    &*this.imp().style_provider.borrow(),
+                    &this.imp().style_provider.borrow(),
                     &web_context,
                     true,
                 );
@@ -506,7 +506,7 @@ impl Window {
                 move |window: &Self, _, _| {
                     self::Window::new(
                         &window.application().unwrap().downcast().unwrap(),
-                        &*window.imp().style_provider.borrow(),
+                        &window.imp().style_provider.borrow(),
                         &web_context,
                         true,
                     );
@@ -533,7 +533,7 @@ impl Window {
             .activate(|window: &Self, _, _| {
                 widgets::settings::core::Settings::new(
                     &window.application().unwrap().downcast().unwrap(),
-                    &window,
+                    window,
                 );
             })
             .build();

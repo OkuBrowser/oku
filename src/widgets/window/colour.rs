@@ -16,10 +16,10 @@ impl Window {
         if !config.colour_per_domain() {
             imp.style_provider.borrow().load_from_string("");
             if config.palette() != Palette::None {
-                self.update_from_palette(&web_view, &style_manager, &config.palette());
+                self.update_from_palette(web_view, style_manager, &config.palette());
             }
         } else {
-            self.update_domain_color(&web_view, &style_manager);
+            self.update_domain_color(web_view, style_manager);
         }
     }
 

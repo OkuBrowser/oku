@@ -52,14 +52,13 @@ static MOUNT_DIR: LazyLock<PathBuf> = LazyLock::new(|| DATA_DIR.join("mount"));
 /// The platform-specific file path where Oku settings are stored
 static CONFIG_DIR: LazyLock<PathBuf> = LazyLock::new(|| DATA_DIR.join("browser_config.toml"));
 /// The current release version number of Oku
-static VERSION: LazyLock<&'static str> =
-    LazyLock::new(|| option_env!("CARGO_PKG_VERSION").unwrap());
+static VERSION: LazyLock<&'static str> = LazyLock::new(|| env!("CARGO_PKG_VERSION"));
 
 static NODE: OnceLock<OkuFs> = OnceLock::new();
 static HOME_REPLICA_SET: LazyLock<Arc<AtomicBool>> =
     LazyLock::new(|| Arc::new(AtomicBool::new(false)));
 
-pub const APP_ID: &'static str = "io.github.OkuBrowser.oku";
+pub const APP_ID: &str = "io.github.OkuBrowser.oku";
 
 async fn create_web_context() -> (WebContext, Option<BackgroundSession>, Ipfs) {
     let (node, mount_handle) = create_oku_client().await;
@@ -225,28 +224,22 @@ async fn main() {
     }));
     application.connect_handle_local_options(clone!(move |application, dict| {
         if !(dict.contains("new-window") || dict.contains("new-private-window")) {
-            if let Ok(_) = application.register(Some(&gio::Cancellable::new())) {
+            if application.register(Some(&gio::Cancellable::new())).is_ok() {
                 application.open(&[], "false,true");
             }
             return -1;
         }
-        match dict.lookup::<String>("new-window").unwrap() {
-            Some(initial_uri) => {
-                if let Ok(_) = application.register(Some(&gio::Cancellable::new())) {
-                    let file = gio::File::for_uri(&initial_uri);
-                    application.open(&[file], "false,false");
-                }
+        if let Some(initial_uri) = dict.lookup::<String>("new-window").unwrap() {
+            if application.register(Some(&gio::Cancellable::new())).is_ok() {
+                let file = gio::File::for_uri(&initial_uri);
+                application.open(&[file], "false,false");
             }
-            None => (),
         };
-        match dict.lookup::<String>("new-private-window").unwrap() {
-            Some(initial_uri) => {
-                if let Ok(_) = application.register(Some(&gio::Cancellable::new())) {
-                    let file = gio::File::for_uri(&initial_uri);
-                    application.open(&[file], "true,false");
-                }
+        if let Some(initial_uri) = dict.lookup::<String>("new-private-window").unwrap() {
+            if application.register(Some(&gio::Cancellable::new())).is_ok() {
+                let file = gio::File::for_uri(&initial_uri);
+                application.open(&[file], "true,false");
             }
-            None => (),
         };
         -1
     }));
@@ -269,14 +262,14 @@ async fn main() {
                 true => match application.windows().last() {
                     Some(window) => window.clone().downcast().unwrap(),
                     None => crate::widgets::window::Window::new(
-                        &application,
+                        application,
                         &style_provider,
                         &web_context,
                         is_private,
                     ),
                 },
                 false => crate::widgets::window::Window::new(
-                    &application,
+                    application,
                     &style_provider,
                     &web_context,
                     is_private,
@@ -285,8 +278,7 @@ async fn main() {
             let mut files = files.to_vec();
             files.sort_unstable_by_key(|x| x.uri());
             files.dedup_by_key(|x| x.uri());
-            for file_index in 0..files.len() {
-                let file = &files[file_index];
+            for (file_index, file) in files.iter().enumerate() {
                 let new_view = if file_index == 0 {
                     new_window.get_view()
                 } else {
@@ -377,7 +369,7 @@ async fn main() {
         #[strong]
         shutdown_send,
         move |_, _| {
-            if application.windows().len() == 0 {
+            if application.windows().is_empty() {
                 shutdown_send.send(()).unwrap();
             }
         }

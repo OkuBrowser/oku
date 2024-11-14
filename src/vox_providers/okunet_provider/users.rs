@@ -56,7 +56,7 @@ impl OkuNetProvider {
         table.insert("layout".into(), "default".into());
         table.insert(
             "permalink".into(),
-            format!("{}.html", user.author_id.to_string()).into(),
+            format!("{}.html", user.author_id).into(),
         );
         table.insert("title".into(), user_name.into());
         table.insert("author_id".into(), user.author_id.to_string().into());
@@ -69,7 +69,7 @@ impl OkuNetProvider {
             node.is_blocked(&user.author_id).await.into(),
         );
         table.insert("is_me".into(), node.is_me(&user.author_id).await.into());
-        if posts.len() > 0 {
+        if !posts.is_empty() {
             table.insert("depends".into(), vec![user.author_id.to_string()].into());
         } else {
             table.insert("empty".into(), Vec::<String>::new().into());
@@ -91,7 +91,7 @@ impl OkuNetProvider {
             self.create_post_page(user, post, None).await?;
         }
         let page_path = format!("{}.vox", user.author_id);
-        let include_argument = if user_posts.len() > 0 {
+        let include_argument = if !user_posts.is_empty() {
             user.author_id.to_string()
         } else {
             "empty".into()
@@ -116,7 +116,7 @@ impl OkuNetProvider {
         let user = node.get_or_fetch_user(author_id).await?;
         let posts = node.posts_from_user(&user).await?;
         self.create_profile_page(&user, Some(posts)).await?;
-        self.render_and_get(format!("output/{}.html", user.author_id.to_string()))
+        self.render_and_get(format!("output/{}.html", user.author_id))
     }
 
     pub async fn view_self(&self) -> miette::Result<String> {
@@ -126,6 +126,6 @@ impl OkuNetProvider {
         let me = node.user().await?;
         let posts = node.posts_from_user(&me).await.ok();
         self.create_profile_page(&me, posts).await?;
-        self.render_and_get(format!("output/{}.html", me.author_id.to_string()))
+        self.render_and_get(format!("output/{}.html", me.author_id))
     }
 }

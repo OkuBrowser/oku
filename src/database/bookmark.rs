@@ -125,7 +125,7 @@ impl BrowserDatabase {
     ) -> miette::Result<Vec<Bookmark>> {
         let searcher = BOOKMARK_INDEX_READER.searcher();
         let query_parser = QueryParser::for_index(
-            &*BOOKMARK_INDEX,
+            &BOOKMARK_INDEX,
             BOOKMARK_SCHEMA.1.clone().into_values().collect(),
         );
         let query = query_parser.parse_query(&query_string).into_diagnostic()?;
@@ -247,17 +247,17 @@ impl BrowserDatabase {
 
     pub fn get_bookmarks(&self) -> miette::Result<Vec<Bookmark>> {
         let r = self.database.r_transaction().into_diagnostic()?;
-        Ok(r.scan()
+        r.scan()
             .primary()
             .into_diagnostic()?
             .all()
             .into_diagnostic()?
             .collect::<Result<Vec<_>, _>>()
-            .into_diagnostic()?)
+            .into_diagnostic()
     }
 
     pub fn get_bookmark(&self, url: String) -> miette::Result<Option<Bookmark>> {
         let r = self.database.r_transaction().into_diagnostic()?;
-        Ok(r.get().primary(url).into_diagnostic()?)
+        r.get().primary(url).into_diagnostic()
     }
 }

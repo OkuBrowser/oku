@@ -144,7 +144,7 @@ impl Window {
                     .build();
                 this.add_action_entries([action_close_tab]);
 
-                let new_view = get_view_from_page(&new_page);
+                let new_view = get_view_from_page(new_page);
                 let find_controller = new_view.find_controller().unwrap();
 
                 let found_text = RefCell::new(
@@ -238,11 +238,11 @@ impl Window {
                                 ("Allow locking the pointer?", "This page is requesting permission to lock your pointer.")
                             } else if permission_request.is::<webkit2gtk::UserMediaPermissionRequest>() {
                                 let user_media_permission_request = permission_request.downcast_ref::<webkit2gtk::UserMediaPermissionRequest>().unwrap();
-                                if user_media_permission_is_for_audio_device(&user_media_permission_request) {
+                                if user_media_permission_is_for_audio_device(user_media_permission_request) {
                                     ("Allow access to audio devices?", "This page is requesting access to your audio source devices.")
-                                } else if user_media_permission_is_for_display_device(&user_media_permission_request) {
+                                } else if user_media_permission_is_for_display_device(user_media_permission_request) {
                                     ("Allow access to display devices?", "This page is requesting access to your display devices.")
-                                } else if user_media_permission_is_for_video_device(&user_media_permission_request) {
+                                } else if user_media_permission_is_for_video_device(user_media_permission_request) {
                                     ("Allow access to video devices?", "This page is requesting access to your video source devices.")
                                 } else {
                                     ("Allow access to media devices?", "This page is requesting access to your media devices.")
@@ -296,12 +296,12 @@ impl Window {
                 let title_notify = RefCell::new(Some(new_view.connect_title_notify(clone!(
                     #[weak(rename_to = tab_view)]
                     imp.tab_view,
-                    move |w| update_title(tab_view, &w)
+                    move |w| update_title(tab_view, w)
                 ))));
                 let favicon_notify = RefCell::new(Some(new_view.connect_favicon_notify(clone!(
                     #[weak(rename_to = tab_view)]
                     imp.tab_view,
-                    move |w| update_favicon(tab_view, &w)
+                    move |w| update_favicon(tab_view, w)
                 ))));
                 let load_changed = RefCell::new(Some(new_view.connect_load_changed(clone!(
                     #[weak(rename_to = tab_view)]
@@ -315,12 +315,12 @@ impl Window {
                     #[weak]
                     this,
                     move |w, load_event| {
-                        let title = get_title(&w);
+                        let title = get_title(w);
                         match imp.is_private.get() {
                             true => this.set_title(Some(&format!("{} — Private", &title))),
                             false => this.set_title(Some(&title)),
                         }
-                        update_favicon(tab_view, &w);
+                        update_favicon(tab_view, w);
                         if this.get_view() == *w {
                             back_button.set_sensitive(w.can_go_back());
                             forward_button.set_sensitive(w.can_go_forward());
@@ -448,10 +448,10 @@ impl Window {
                     this,
                     move |w| {
                         if this.get_view() == *w {
-                            update_nav_bar(&nav_entry, &w);
+                            update_nav_bar(&nav_entry, w);
                             back_button.set_sensitive(w.can_go_back());
                             forward_button.set_sensitive(w.can_go_forward());
-                            this.update_color(&w, &style_manager);
+                            this.update_color(w, &style_manager);
                         }
                     }
                 ))));
@@ -467,7 +467,7 @@ impl Window {
                             let current_page = tab_view.page(w);
                             current_page.set_loading(w.is_loading());
                             if this.get_view() == *w {
-                                this.update_load_progress(&w);
+                                this.update_load_progress(w);
                                 if current_page.is_loading() {
                                     refresh_button.set_icon_name("cross-large-symbolic")
                                 } else {

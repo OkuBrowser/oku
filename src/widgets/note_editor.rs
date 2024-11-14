@@ -157,7 +157,7 @@ impl NoteEditor {
                         .contains(&tag_entry.text().trim().to_owned())
                 {
                     this.append_tag(tag_entry.text().to_string());
-                    tag_entry.set_text(&String::new());
+                    tag_entry.set_text("");
                 }
             }
         ));
@@ -262,70 +262,57 @@ impl NoteEditor {
             imp.title_entry.set_text(&bookmark.title);
             imp.body_buffer.set_text(&bookmark.body);
             this.set_tags(bookmark.tags.into_iter().collect());
-        } else {
-            if let Some(window) = window {
-                let view = window.get_view();
-                let url = view.uri().unwrap_or_default().to_string();
-                let title = view.title().unwrap_or_default().to_string();
-                imp.url_entry.set_text(&url);
-                imp.title_entry.set_text(&title);
+        } else if let Some(window) = window {
+            let view = window.get_view();
+            let url = view.uri().unwrap_or_default().to_string();
+            let title = view.title().unwrap_or_default().to_string();
+            imp.url_entry.set_text(&url);
+            imp.title_entry.set_text(&title);
 
-                glib::spawn_future_local(clone!(
-                    #[weak]
-                    this,
-                    #[weak]
-                    imp,
-                    async move {
-                        if let Some(node) = NODE.get() {
-                            let url = uri_for_display(&url)
-                                .map(|x| x.to_string())
-                                .unwrap_or(url)
-                                .replacen("oku:", "", 1);
-                            let post_at_url = if let Some(oku_path) =
-                                OkuPath::parse(url.clone()).ok()
-                            {
-                                match oku_path {
-                                    OkuPath::User(author_id, replica_path) => match replica_path {
-                                        Some(path) => {
-                                            if node.is_me(&author_id).await {
-                                                node.post(
-                                                    format!("{}.toml", path.to_string_lossy())
-                                                        .into(),
-                                                )
-                                                .await
-                                                .ok()
-                                            } else {
-                                                None
-                                            }
-                                        }
-                                        None => None,
-                                    },
-                                    OkuPath::Me(replica_path) => match replica_path {
-                                        Some(path) => node
-                                            .post(format!("{}.toml", path.to_string_lossy()).into())
+            glib::spawn_future_local(clone!(
+                #[weak]
+                this,
+                #[weak]
+                imp,
+                async move {
+                    if let Some(node) = NODE.get() {
+                        let url = uri_for_display(&url)
+                            .map(|x| x.to_string())
+                            .unwrap_or(url)
+                            .replacen("oku:", "", 1);
+                        let post_at_url = if let Ok(oku_path) = OkuPath::parse(url.clone()) {
+                            match oku_path {
+                                OkuPath::User(author_id, Some(path)) => {
+                                    if node.is_me(&author_id).await {
+                                        node.post(format!("{}.toml", path.to_string_lossy()).into())
                                             .await
-                                            .ok(),
-                                        None => None,
-                                    },
-                                    _ => None,
+                                            .ok()
+                                    } else {
+                                        None
+                                    }
                                 }
-                            } else {
-                                None
-                            };
-                            let post_from_url = {
-                                let path = OkuNote::suggested_post_path_from_url(url);
-                                node.post(format!("{}.toml", path).into()).await.ok()
-                            };
-                            if let Some(oku_post) = post_at_url.or(post_from_url) {
-                                imp.url_entry.set_text(&oku_post.note.url.to_string());
-                                imp.title_entry.set_text(&oku_post.note.title);
-                                imp.body_buffer.set_text(&oku_post.note.body);
-                                this.set_tags(oku_post.note.tags.into_iter().collect());
+                                OkuPath::Me(Some(path)) => node
+                                    .post(format!("{}.toml", path.to_string_lossy()).into())
+                                    .await
+                                    .ok(),
+                                _ => None,
                             }
+                        } else {
+                            None
+                        };
+                        let post_from_url = {
+                            let path = OkuNote::suggested_post_path_from_url(url);
+                            node.post(format!("{}.toml", path).into()).await.ok()
+                        };
+                        if let Some(oku_post) = post_at_url.or(post_from_url) {
+                            imp.url_entry.set_text(oku_post.note.url.as_ref());
+                            imp.title_entry.set_text(&oku_post.note.title);
+                            imp.body_buffer.set_text(&oku_post.note.body);
+                            this.set_tags(oku_post.note.tags.into_iter().collect());
                         }
                     }
-                ));
-            }
+                }
+            ));
         }
 
         match HOME_REPLICA_SET.load(Ordering::Relaxed) {

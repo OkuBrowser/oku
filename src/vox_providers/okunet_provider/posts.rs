@@ -32,7 +32,7 @@ impl OkuNetProvider {
     }
     pub fn get_post_path(&self, post: &OkuPost, tag: Option<String>) -> String {
         let post_id = {
-            let post_id_bytes = vec![
+            let post_id_bytes = [
                 post.entry.author().as_bytes().to_vec(),
                 post.entry.key().to_vec(),
             ];
@@ -40,7 +40,7 @@ impl OkuNetProvider {
         };
         match tag {
             Some(tag) => format!("{}/{}.vox", tag, post_id),
-            None => format!("{}/{}.vox", post.entry.author().to_string(), post_id),
+            None => format!("{}/{}.vox", post.entry.author(), post_id),
         }
     }
     pub async fn get_post_frontmatter(

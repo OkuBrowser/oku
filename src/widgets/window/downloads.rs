@@ -132,7 +132,7 @@ impl Window {
                                                         )
                                                         .unwrap(),
                                                     ))
-                                                    .title(&format!(
+                                                    .title(format!(
                                                         "Select destination for '{}'",
                                                         suggested_filename.clone()
                                                     ))

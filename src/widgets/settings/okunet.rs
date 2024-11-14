@@ -188,7 +188,7 @@ impl Settings {
                                     #[strong]
                                     exported_user_toml,
                                     move |destination| {
-                                        let path = destination.ok().map(|x| x.path()).flatten();
+                                        let path = destination.ok().and_then(|x| x.path());
                                         if let Some(path) = path {
                                             if let Err(e) = std::fs::write(path, exported_user_toml)
                                             {
@@ -251,10 +251,8 @@ impl Settings {
                                     move |destination| {
                                         let exported_user_toml = destination
                                             .ok()
-                                            .map(|x| x.path())
-                                            .flatten()
-                                            .map(|x| std::fs::read_to_string(x).ok())
-                                            .flatten();
+                                            .and_then(|x| x.path())
+                                            .and_then(|x| std::fs::read_to_string(x).ok());
                                         if let Some(exported_user_toml) = exported_user_toml {
                                             glib::spawn_future_local(clone!(async move {
                                                 if let Err(e) =

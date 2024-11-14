@@ -93,6 +93,12 @@ pub static OKUNET_VOX_FILES: LazyLock<HashMap<PathBuf, String>> = LazyLock::new(
 #[derive(Debug, Clone)]
 pub struct OkuNetProvider(pub RamProvider);
 
+impl Default for OkuNetProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OkuNetProvider {
     pub fn new() -> Self {
         Self(RamProvider::new(Some(OKUNET_VOX_FILES.clone())))

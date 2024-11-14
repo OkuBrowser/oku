@@ -14,14 +14,10 @@ pub struct Config {
 
 impl Config {
     pub fn new() -> Self {
-        match std::fs::read_to_string(CONFIG_DIR.to_path_buf())
+        std::fs::read_to_string(CONFIG_DIR.to_path_buf())
             .ok()
-            .map(|x| toml::from_str(&x).ok())
-            .flatten()
-        {
-            Some(config) => config,
-            None => Self::default(),
-        }
+            .and_then(|x| toml::from_str(&x).ok())
+            .unwrap_or_default()
     }
 
     pub fn save(&self) {

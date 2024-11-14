@@ -238,11 +238,11 @@ impl BookmarkRow {
         let encoded_tags = &self.tags().join(", ");
         if encoded_title.trim().is_empty() {
             self.set_title(&encoded_url);
-            self.set_subtitle(&encoded_tags);
+            self.set_subtitle(encoded_tags);
         } else {
-            self.set_title(&encoded_title);
+            self.set_title(encoded_title);
             if encoded_tags.trim().is_empty() {
-                self.set_subtitle(&format!("{}", encoded_url));
+                self.set_subtitle(&encoded_url.to_string());
             } else {
                 self.set_subtitle(&format!("{}\n{}", encoded_url, encoded_tags));
             }

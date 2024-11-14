@@ -389,11 +389,11 @@ impl ReplicaRow {
     }
 
     pub fn writable(&self) -> bool {
-        self.imp().writable.borrow().clone()
+        *self.imp().writable.borrow()
     }
 
     pub fn home(&self) -> bool {
-        self.imp().home.borrow().clone()
+        *self.imp().home.borrow()
     }
 
     pub fn set_id(&self, id: &str) {

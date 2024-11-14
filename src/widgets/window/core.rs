@@ -191,25 +191,25 @@ impl Window {
         this.setup_menu_popover();
         this.setup_find_popover();
         this.setup_tabs();
-        this.setup_main_content(&web_context);
+        this.setup_main_content(web_context);
         this.setup_overview_button_clicked();
         this.setup_note_button_clicked();
         this.setup_find_button_clicked();
         this.setup_replicas_button_clicked();
         this.setup_tab_indicator();
-        this.setup_add_tab_button_clicked(&web_context);
+        this.setup_add_tab_button_clicked(web_context);
         this.setup_sidebar_button_clicked();
-        this.setup_tab_signals(&web_context, &style_manager);
+        this.setup_tab_signals(web_context, &style_manager);
         this.setup_navigation_signals();
         this.setup_suggestions_popover();
-        this.setup_menu_buttons_clicked(&web_context);
-        this.setup_new_view_signals(&web_context, &style_manager);
+        this.setup_menu_buttons_clicked(web_context);
+        this.setup_new_view_signals(web_context, &style_manager);
         this.setup_network_session();
-        this.setup_actions(&web_context);
+        this.setup_actions(web_context);
         this.setup_config(&style_manager);
 
         if imp.tab_view.n_pages() == 0 {
-            let initial_web_view = this.new_tab_page(&web_context, None, None).0;
+            let initial_web_view = this.new_tab_page(web_context, None, None).0;
             initial_web_view.load_uri("oku:home");
         }
 
@@ -222,7 +222,7 @@ impl Window {
         let imp = self.imp();
 
         // Window appearance
-        apply_appearance_config(&style_manager, self);
+        apply_appearance_config(style_manager, self);
         imp.config.connect_notify_local(
             Some("colour-per-domain"),
             clone!(
@@ -382,7 +382,7 @@ impl Window {
                                             )
                                             .unwrap(),
                                         ))
-                                        .title(&format!(
+                                        .title(format!(
                                             "Select destination for '{}'",
                                             web_view.uri().unwrap_or_default()
                                         ))
@@ -488,7 +488,7 @@ impl Window {
         imp.main_box.append(&imp.tab_bar_revealer);
         imp.main_box.append(&imp.main_overlay);
 
-        self.setup_sidebar(&web_context);
+        self.setup_sidebar(web_context);
         imp.split_view.set_content(Some(&imp.main_box));
         imp.split_view.set_sidebar(Some(&imp.side_box));
         imp.split_view.set_max_sidebar_width(400.0);

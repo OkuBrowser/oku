@@ -146,9 +146,9 @@ impl SuggestionRow {
             .to_string();
         if encoded_title.trim().is_empty() {
             self.set_title(&encoded_uri);
-            self.set_subtitle(&String::new());
+            self.set_subtitle("");
         } else {
-            self.set_title(&encoded_title);
+            self.set_title(encoded_title);
             self.set_subtitle(&encoded_uri);
         }
     }
@@ -163,7 +163,7 @@ impl SuggestionRow {
             .to_string();
         if encoded_title.trim().is_empty() {
             self.set_title(&encoded_uri);
-            self.set_subtitle(&String::new());
+            self.set_subtitle("");
         } else {
             self.set_title(&encoded_title);
             self.set_subtitle(&encoded_uri);

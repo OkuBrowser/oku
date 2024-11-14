@@ -79,7 +79,7 @@ impl ReplicaItem {
         self.imp().id.borrow().to_string()
     }
     pub fn writable(&self) -> bool {
-        self.imp().writable.borrow().clone()
+        *self.imp().writable.borrow()
     }
     pub fn home(&self) -> bool {
         *self.imp().home.borrow()

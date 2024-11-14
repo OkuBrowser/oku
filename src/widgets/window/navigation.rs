@@ -253,7 +253,7 @@ impl Window {
                     if imp.suggestions_popover.is_visible() {
                         imp.suggestions_popover.popdown();
                     }
-                    if suggestion_items.len() > 0 {
+                    if !suggestion_items.is_empty() {
                         for suggestion_item in suggestion_items.iter() {
                             suggestions_store.append(suggestion_item);
                         }

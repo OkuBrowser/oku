@@ -53,14 +53,14 @@ impl From<libadwaita::ColorScheme> for ColourScheme {
     }
 }
 
-impl Into<libadwaita::ColorScheme> for ColourScheme {
-    fn into(self) -> libadwaita::ColorScheme {
-        match self {
-            Self::Default => libadwaita::ColorScheme::Default,
-            Self::ForceLight => libadwaita::ColorScheme::ForceLight,
-            Self::PreferLight => libadwaita::ColorScheme::PreferLight,
-            Self::PreferDark => libadwaita::ColorScheme::PreferDark,
-            Self::ForceDark => libadwaita::ColorScheme::ForceDark,
+impl From<ColourScheme> for libadwaita::ColorScheme {
+    fn from(val: ColourScheme) -> Self {
+        match val {
+            ColourScheme::Default => libadwaita::ColorScheme::Default,
+            ColourScheme::ForceLight => libadwaita::ColorScheme::ForceLight,
+            ColourScheme::PreferLight => libadwaita::ColorScheme::PreferLight,
+            ColourScheme::PreferDark => libadwaita::ColorScheme::PreferDark,
+            ColourScheme::ForceDark => libadwaita::ColorScheme::ForceDark,
         }
     }
 }

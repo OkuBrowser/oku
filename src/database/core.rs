@@ -54,20 +54,18 @@ impl BrowserDatabase {
 
         let history_record_suggestions: Vec<_> = history_records
             .into_iter()
-            .map(|x| {
-                SuggestionItem::new(x.title.unwrap_or(String::new()), x.uri, &favicon_database)
-            })
+            .map(|x| SuggestionItem::new(x.title.unwrap_or_default(), x.uri, favicon_database))
             .collect();
         let bookmark_suggestions = bookmarks
             .into_iter()
-            .map(|x| SuggestionItem::new(x.title, x.url, &favicon_database))
+            .map(|x| SuggestionItem::new(x.title, x.url, favicon_database))
             .collect();
         let okunet_post_suggestions = okunet_posts
             .into_iter()
-            .map(|x| SuggestionItem::new(x.note.title, x.note.url.to_string(), &favicon_database))
+            .map(|x| SuggestionItem::new(x.note.title, x.note.url.to_string(), favicon_database))
             .collect();
 
-        Ok(vec![
+        Ok([
             history_record_suggestions,
             bookmark_suggestions,
             okunet_post_suggestions,

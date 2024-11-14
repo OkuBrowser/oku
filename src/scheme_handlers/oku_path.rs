@@ -26,8 +26,7 @@ impl OkuPath {
             .unwrap_or(PathBuf::from("home"));
         let second_component = url_components.get(1);
         let replica_path = second_component
-            .map(|_x| path.as_ref().strip_prefix(first_component.clone()).ok())
-            .flatten()
+            .and_then(|_x| path.as_ref().strip_prefix(first_component.clone()).ok())
             .map(|x| x.to_path_buf());
         Ok(
             match first_component

@@ -241,9 +241,9 @@ impl HistoryRow {
         let encoded_timestamp = &self.timestamp();
         if encoded_title.trim().is_empty() {
             self.set_title(&encoded_uri);
-            self.set_subtitle(&encoded_timestamp);
+            self.set_subtitle(encoded_timestamp);
         } else {
-            self.set_title(&encoded_title);
+            self.set_title(encoded_title);
             self.set_subtitle(&format!("{}\n{}", encoded_uri, encoded_timestamp));
         }
     }

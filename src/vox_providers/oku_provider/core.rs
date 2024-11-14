@@ -57,6 +57,12 @@ pub static OKU_VOX_FILES: LazyLock<HashMap<PathBuf, String>> = LazyLock::new(|| 
 #[derive(Debug, Clone)]
 pub struct OkuProvider(pub RamProvider);
 
+impl Default for OkuProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OkuProvider {
     pub fn new() -> Self {
         Self(RamProvider::new(Some(OKU_VOX_FILES.clone())))

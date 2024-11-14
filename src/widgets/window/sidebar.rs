@@ -43,7 +43,7 @@ impl Window {
             .map(|x| BookmarkItem::new(x.url, x.title, x.body, x.tags, &favicon_database))
             .collect();
         bookmarks_store.remove_all();
-        if items.len() > 0 {
+        if !items.is_empty() {
             for item in items.iter() {
                 bookmarks_store.append(item);
             }
@@ -81,7 +81,7 @@ impl Window {
             .map(|x| {
                 HistoryItem::new(
                     x.id,
-                    x.title.unwrap_or(String::new()),
+                    x.title.unwrap_or_default(),
                     x.uri,
                     x.timestamp.to_rfc2822(),
                     &favicon_database,
@@ -89,7 +89,7 @@ impl Window {
             })
             .collect();
         history_store.remove_all();
-        if items.len() > 0 {
+        if !items.is_empty() {
             for item in items.iter() {
                 history_store.append(item);
             }
@@ -170,8 +170,8 @@ impl Window {
         imp.side_view_switcher.set_stack(Some(&imp.side_view_stack));
 
         self.setup_replicas_page();
-        self.setup_history_page(&web_context);
-        self.setup_bookmarks_page(&web_context);
+        self.setup_history_page(web_context);
+        self.setup_bookmarks_page(web_context);
         self.setup_downloads_page();
         imp.side_view_stack
             .connect_visible_child_notify(clone!(move |side_view_stack| {

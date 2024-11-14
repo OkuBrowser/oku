@@ -38,7 +38,7 @@ impl Window {
     ) -> (webkit2gtk::WebView, libadwaita::TabPage) {
         let imp = self.imp();
 
-        let new_view = self.new_view(&web_context, related_view, initial_request);
+        let new_view = self.new_view(web_context, related_view, initial_request);
         let new_page = imp.tab_view.append(&new_view);
         new_page.set_title("New Tab");
         new_page.set_icon(Some(&gio::ThemedIcon::new("globe-symbolic")));
@@ -61,7 +61,7 @@ impl Window {
             move |_, current_page| {
                 let current_view = get_view_from_page(current_page);
                 if !current_view.is_playing_audio() && !current_view.is_muted() {
-                    tab_view.set_page_pinned(&current_page, !current_page.is_pinned());
+                    tab_view.set_page_pinned(current_page, !current_page.is_pinned());
                 } else {
                     current_view.set_is_muted(!current_view.is_muted());
                 }
@@ -168,8 +168,8 @@ impl Window {
         let application = self.application().unwrap().downcast().unwrap();
         let new_window = self::Window::new(
             &application,
-            &*self.imp().style_provider.borrow(),
-            &web_context,
+            &self.imp().style_provider.borrow(),
+            web_context,
             self.imp().is_private.get(),
         );
         Some(new_window.imp().tab_view.to_owned())

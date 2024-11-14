@@ -55,7 +55,7 @@ pub fn apply_appearance_config(
 ) {
     style_manager.set_color_scheme(window.imp().config.imp().colour_scheme().into());
     let web_view = window.get_view();
-    window.update_color(&web_view, &style_manager);
+    window.update_color(&web_view, style_manager);
 }
 
 impl Settings {
@@ -65,7 +65,7 @@ impl Settings {
 
         let style_manager = app.style_manager();
 
-        this.setup_main_page(&style_manager, &window);
+        this.setup_main_page(&style_manager, window);
 
         this.set_visible(true);
         this.present(Some(window));
@@ -80,7 +80,7 @@ impl Settings {
     ) {
         let imp = self.imp();
 
-        self.setup_appearance_group(&style_manager, &window);
+        self.setup_appearance_group(style_manager, window);
         self.setup_okunet_group();
 
         imp.main_page.add(&imp.appearance_group);

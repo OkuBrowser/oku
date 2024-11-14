@@ -103,13 +103,12 @@ impl TryFrom<TantivyDocument> for HistoryRecord {
         let id = Uuid::parse_str(
             value
                 .get_first(HISTORY_RECORD_SCHEMA.1["id"])
-                .map(|x| x.as_str())
-                .flatten()
+                .and_then(|x| x.as_str())
                 .ok_or(miette::miette!("No ID for document in index … "))?,
         )
         .into_diagnostic()?;
         DATABASE
-            .get_history_record(id.clone())
+            .get_history_record(id)
             .ok()
             .flatten()
             .ok_or(miette::miette!(
@@ -126,7 +125,7 @@ impl BrowserDatabase {
     ) -> miette::Result<Vec<HistoryRecord>> {
         let searcher = HISTORY_RECORD_INDEX_READER.searcher();
         let query_parser = QueryParser::for_index(
-            &*HISTORY_RECORD_INDEX,
+            &HISTORY_RECORD_INDEX,
             vec![
                 HISTORY_RECORD_SCHEMA.1["original_uri"],
                 HISTORY_RECORD_SCHEMA.1["uri"],
@@ -280,6 +279,6 @@ impl BrowserDatabase {
 
     pub fn get_history_record(&self, id: Uuid) -> miette::Result<Option<HistoryRecord>> {
         let r = self.database.r_transaction().into_diagnostic()?;
-        Ok(r.get().primary(id.to_string()).into_diagnostic()?)
+        r.get().primary(id.to_string()).into_diagnostic()
     }
 }

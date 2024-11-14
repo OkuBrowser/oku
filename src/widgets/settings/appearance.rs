@@ -34,21 +34,21 @@ impl Settings {
         imp.domain_colour_row.set_active(config.colour_per_domain());
         imp.colour_scheme_row
             .set_selected(match config.colour_scheme() {
-                ColourScheme::Default => 0 as u32,
-                ColourScheme::ForceLight => 1 as u32,
-                ColourScheme::PreferLight => 2 as u32,
-                ColourScheme::PreferDark => 3 as u32,
-                ColourScheme::ForceDark => 4 as u32,
+                ColourScheme::Default => 0_u32,
+                ColourScheme::ForceLight => 1_u32,
+                ColourScheme::PreferLight => 2_u32,
+                ColourScheme::PreferDark => 3_u32,
+                ColourScheme::ForceDark => 4_u32,
             });
         imp.palette_row.set_selected(match config.palette() {
-            Palette::None => 0 as u32,
-            Palette::Blue => 1 as u32,
-            Palette::Green => 2 as u32,
-            Palette::Yellow => 3 as u32,
-            Palette::Orange => 4 as u32,
-            Palette::Red => 5 as u32,
-            Palette::Purple => 6 as u32,
-            Palette::Brown => 7 as u32,
+            Palette::None => 0_u32,
+            Palette::Blue => 1_u32,
+            Palette::Green => 2_u32,
+            Palette::Yellow => 3_u32,
+            Palette::Orange => 4_u32,
+            Palette::Red => 5_u32,
+            Palette::Purple => 6_u32,
+            Palette::Brown => 7_u32,
         });
 
         // Colour per domain
@@ -70,7 +70,7 @@ impl Settings {
         // Colour scheme
         imp.config
             .bind_property("colour-scheme", style_manager, "color-scheme")
-            .transform_to(move |_, x: ColourScheme| Some(libadwaita::ColorScheme::from(x.into())))
+            .transform_to(move |_, x: ColourScheme| Some::<libadwaita::ColorScheme>(x.into()))
             .transform_from(move |_, x: libadwaita::ColorScheme| Some(ColourScheme::from(x)))
             .bidirectional()
             .build();
@@ -78,11 +78,11 @@ impl Settings {
             .bind_property("colour-scheme", &imp.colour_scheme_row, "selected")
             .transform_to(move |_, x: ColourScheme| {
                 Some(match x {
-                    ColourScheme::Default => 0 as u32,
-                    ColourScheme::ForceLight => 1 as u32,
-                    ColourScheme::PreferLight => 2 as u32,
-                    ColourScheme::PreferDark => 3 as u32,
-                    ColourScheme::ForceDark => 4 as u32,
+                    ColourScheme::Default => 0_u32,
+                    ColourScheme::ForceLight => 1_u32,
+                    ColourScheme::PreferLight => 2_u32,
+                    ColourScheme::PreferDark => 3_u32,
+                    ColourScheme::ForceDark => 4_u32,
                 })
             })
             .transform_from(|_, x: u32| {
@@ -103,14 +103,14 @@ impl Settings {
             .bind_property("palette", &imp.palette_row, "selected")
             .transform_to(move |_, x: Palette| {
                 Some(match x {
-                    Palette::None => 0 as u32,
-                    Palette::Blue => 1 as u32,
-                    Palette::Green => 2 as u32,
-                    Palette::Yellow => 3 as u32,
-                    Palette::Orange => 4 as u32,
-                    Palette::Red => 5 as u32,
-                    Palette::Purple => 6 as u32,
-                    Palette::Brown => 7 as u32,
+                    Palette::None => 0_u32,
+                    Palette::Blue => 1_u32,
+                    Palette::Green => 2_u32,
+                    Palette::Yellow => 3_u32,
+                    Palette::Orange => 4_u32,
+                    Palette::Red => 5_u32,
+                    Palette::Purple => 6_u32,
+                    Palette::Brown => 7_u32,
                 })
             })
             .transform_from(|_, x: u32| {
@@ -140,7 +140,7 @@ impl Settings {
         self.setup_colour_scheme_row();
         self.setup_domain_colour_row();
         self.setup_palette_row();
-        self.setup_appearance_bindings(&style_manager, &window);
+        self.setup_appearance_bindings(style_manager, window);
 
         imp.appearance_group.set_title("Appearance");
         imp.appearance_group
