@@ -1,8 +1,8 @@
 use super::*;
 use crate::database::{HistoryRecord, DATABASE};
 use crate::window_util::{
-    get_title, get_view_from_page, get_window_from_widget, new_webkit_settings, update_favicon,
-    update_nav_bar, update_title,
+    get_title, get_view_from_page, new_webkit_settings, update_favicon, update_nav_bar,
+    update_title,
 };
 use crate::{DATA_DIR, VERSION};
 use glib::clone;
@@ -68,11 +68,8 @@ impl Window {
         let web_settings: webkit2gtk::Settings = new_webkit_settings();
         let mut web_view_builder = WebView::builder()
             .web_context(web_context)
+            .network_session(&self.imp().network_session.borrow())
             .settings(&web_settings);
-        if self.imp().is_private.get() {
-            web_view_builder =
-                web_view_builder.network_session(&webkit2gtk::NetworkSession::new_ephemeral());
-        };
         if let Some(related_view) = related_view {
             web_view_builder = web_view_builder.related_view(related_view);
         };
@@ -149,101 +146,6 @@ impl Window {
 
                 let new_view = get_view_from_page(&new_page);
                 let find_controller = new_view.find_controller().unwrap();
-                let network_session = new_view.network_session().unwrap();
-
-                network_session.connect_download_started(clone!(
-                    #[weak]
-                    this,
-                    move |_network_session, download| {
-                        let window = match download.web_view() {
-                            Some(web_view) => get_window_from_widget(&web_view),
-                            None => this
-                        };
-                        download.connect_decide_destination(clone!(
-                            #[weak]
-                            window,
-                            #[weak]
-                            download,
-                            #[upgrade_or]
-                            false,
-                            move |_, suggested_filename| {
-                                let file_uri = download.request().unwrap().uri().unwrap();
-                                let dialog = libadwaita::AlertDialog::new(
-                                    Some("Download file?"),
-                                    Some(&format!(
-                                        "Would you like to download '{}'?",
-                                        file_uri
-                                    )),
-                                );
-                                dialog.add_responses(&[
-                                    ("cancel", "Cancel"),
-                                    ("download", "Download"),
-                                ]);
-                                dialog.set_response_appearance(
-                                    "cancel",
-                                    ResponseAppearance::Default,
-                                );
-                                dialog.set_response_appearance(
-                                    "download",
-                                    ResponseAppearance::Suggested,
-                                );
-                                dialog.set_default_response(Some("cancel"));
-                                dialog.set_close_response("cancel");
-                                let suggested_filename = suggested_filename.to_string();
-                                dialog.connect_response(
-                                    None,
-                                    clone!(
-                                        #[weak]
-                                        window,
-                                        #[weak]
-                                        download,
-                                        move |_, response| {
-                                            match response {
-                                                "cancel" => download.cancel(),
-                                                "download" => {
-                                                    download.set_allow_overwrite(true);
-                                                    let file_dialog =
-                                                        gtk::FileDialog::builder()
-                                                            .accept_label("Download")
-                                                            .initial_name(suggested_filename.clone())
-                                                            .initial_folder(&gio::File::for_path(glib::user_special_dir(glib::enums::UserDirectory::Downloads).unwrap()))
-                                                            .title(&format!(
-                                                                "Select destination for '{}'",
-                                                                suggested_filename.clone()
-                                                            ))
-                                                            .build();
-                                                    file_dialog.save(
-                                                        Some(&window),
-                                                        Some(&gio::Cancellable::new()),
-                                                        clone!(
-                                                            #[weak]
-                                                            download,
-                                                            move |destination| {
-                                                                    if let Ok(destination) = destination {
-                                                                        download.set_destination(destination.path()
-                                                                        .unwrap()
-                                                                        .to_str()
-                                                                        .unwrap())
-                                                                    } else {
-                                                                        download.cancel()
-                                                                    }
-                                                            }
-                                                        ),
-                                                    )
-                                                }
-                                                _ => {
-                                                    unreachable!()
-                                                }
-                                            }
-                                        }
-                                    ),
-                                );
-                                dialog.present(Some(&window));
-                                true
-                            }
-                        ));
-                    }
-                ));
 
                 let found_text = RefCell::new(
                     Some(

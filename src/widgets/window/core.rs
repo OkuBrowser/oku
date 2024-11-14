@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::widgets::settings::core::apply_appearance_config;
+use crate::window_util::get_window_from_widget;
 use crate::APP_ID;
 use glib::clone;
 use gtk::prelude::GtkWindowExt;
@@ -12,7 +13,7 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
 use webkit2gtk::prelude::WebViewExt;
-use webkit2gtk::WebContext;
+use webkit2gtk::{NetworkSession, WebContext};
 
 pub mod imp {
     use super::*;
@@ -93,6 +94,7 @@ pub mod imp {
         pub(crate) side_box: gtk::Box,
         pub(crate) side_view_stack: libadwaita::ViewStack,
         pub(crate) side_view_switcher: libadwaita::ViewSwitcher,
+        // Bookmarks
         pub(crate) bookmarks_box: gtk::Box,
         pub(crate) bookmarks_store: RefCell<Option<Rc<gio::ListStore>>>,
         pub(crate) bookmarks_factory: gtk::SignalListItemFactory,
@@ -100,6 +102,7 @@ pub mod imp {
         pub(crate) bookmarks_view: gtk::ListView,
         pub(crate) bookmarks_scrolled_window: gtk::ScrolledWindow,
         pub(crate) bookmarks_label: gtk::Label,
+        // History
         pub(crate) history_box: gtk::Box,
         pub(crate) history_store: RefCell<Option<Rc<gio::ListStore>>>,
         pub(crate) history_factory: gtk::SignalListItemFactory,
@@ -107,6 +110,7 @@ pub mod imp {
         pub(crate) history_view: gtk::ListView,
         pub(crate) history_scrolled_window: gtk::ScrolledWindow,
         pub(crate) history_label: gtk::Label,
+        // Replicas
         pub(crate) add_replicas_button: gtk::Button,
         pub(crate) add_replicas_button_content: libadwaita::ButtonContent,
         pub(crate) replicas_box: gtk::Box,
@@ -116,12 +120,21 @@ pub mod imp {
         pub(crate) replicas_view: gtk::ListView,
         pub(crate) replicas_scrolled_window: gtk::ScrolledWindow,
         pub(crate) replicas_label: gtk::Label,
+        // Downloads
+        pub(crate) downloads_box: gtk::Box,
+        pub(crate) downloads_store: RefCell<Option<gio::ListStore>>,
+        pub(crate) downloads_factory: gtk::SignalListItemFactory,
+        pub(crate) downloads_model: gtk::SingleSelection,
+        pub(crate) downloads_view: gtk::ListView,
+        pub(crate) downloads_scrolled_window: gtk::ScrolledWindow,
+        pub(crate) downloads_label: gtk::Label,
         // Miscellaneous
         pub(crate) progress_animation: RefCell<Option<libadwaita::SpringAnimation>>,
         pub(crate) progress_bar: gtk::ProgressBar,
         pub(crate) url_status_outer_box: gtk::Box,
         pub(crate) url_status_box: gtk::Box,
         pub(crate) url_status: gtk::Label,
+        pub(crate) network_session: RefCell<webkit2gtk::NetworkSession>,
     }
 
     impl Window {}
@@ -164,8 +177,14 @@ impl Window {
         let imp = this.imp();
         imp.is_private.set(is_private);
         match imp.is_private.get() {
-            true => this.set_title(Some("Oku — Private")),
-            false => this.set_title(Some("Oku")),
+            true => {
+                this.set_title(Some("Oku — Private"));
+                this.add_css_class("devel");
+                imp.network_session.replace(NetworkSession::new_ephemeral());
+            }
+            false => {
+                this.set_title(Some("Oku"));
+            }
         }
         imp.style_provider.replace(style_provider.clone());
 
@@ -186,12 +205,9 @@ impl Window {
         this.setup_suggestions_popover();
         this.setup_menu_buttons_clicked(&web_context);
         this.setup_new_view_signals(&web_context, &style_manager);
+        this.setup_network_session();
         this.setup_actions(&web_context);
         this.setup_config(&style_manager);
-
-        if imp.is_private.get() {
-            this.add_css_class("devel");
-        }
 
         if imp.tab_view.n_pages() == 0 {
             let initial_web_view = this.new_tab_page(&web_context, None, None).0;

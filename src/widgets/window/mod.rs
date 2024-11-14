@@ -1,6 +1,7 @@
 mod colour;
 mod core;
 mod dialogs;
+mod downloads;
 mod finding;
 mod headerbar;
 mod menu;
@@ -16,6 +17,8 @@ pub use self::colour::*;
 pub use self::core::*;
 #[allow(unused_imports)]
 pub use self::dialogs::*;
+#[allow(unused_imports)]
+pub use self::downloads::*;
 #[allow(unused_imports)]
 pub use self::finding::*;
 #[allow(unused_imports)]
