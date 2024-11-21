@@ -1,12 +1,12 @@
-<h1 class="mono">#{{ page.data.title }}</h1>
-
-<h2>Posts</h2>
+{% markdown %}
+# Results for `{{ page.data.title }}`
+{% endmarkdown %}
 
 {% if include.posts[0] %}
 {% assign posts = include.posts | sort: "date" | reverse %}
 {% include posts.voxs posts = posts %}
 {% else %}
 
-<h3>No posts found … </h3>
+<h3>No results … </h3>
 
 {% endif %}

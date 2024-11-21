@@ -85,16 +85,13 @@ impl Window {
 
         security_manager.register_uri_scheme_as_secure("ipfs");
         security_manager.register_uri_scheme_as_secure("ipns");
-        security_manager.register_uri_scheme_as_secure("tor");
         security_manager.register_uri_scheme_as_secure("hive");
-        security_manager.register_uri_scheme_as_secure("oku");
-        security_manager.register_uri_scheme_as_secure("view-source");
         security_manager.register_uri_scheme_as_cors_enabled("ipfs");
         security_manager.register_uri_scheme_as_cors_enabled("ipns");
-        security_manager.register_uri_scheme_as_cors_enabled("tor");
         security_manager.register_uri_scheme_as_cors_enabled("hive");
-        security_manager.register_uri_scheme_as_cors_enabled("oku");
-        security_manager.register_uri_scheme_as_cors_enabled("view-source");
+        security_manager.register_uri_scheme_as_display_isolated("view-source");
+        security_manager.register_uri_scheme_as_no_access("view-source");
+        security_manager.register_uri_scheme_as_display_isolated("oku");
 
         web_settings
             .set_user_agent_with_application_details(Some("Oku"), Some(&VERSION.to_string()));

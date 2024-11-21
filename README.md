@@ -1,6 +1,9 @@
-# Oku
+# [Oku](https://okubrowser.github.io)
+## Browse & express yourself
 
-A Web browser with an emphasis on local-first data storage.
+Oku is a browser that offers a space that exists parallel to the web, where sites are shared between peers and found through social bookmarking.\
+While you may still browse traditional sites, Oku enables you to create, share, and find content without being beholden to centralised corporate interests.\
+Unleash your creativity and join a network of users supporting an independent effort to reintroduce control, privacy, & free expression online.
 
 ## Build instructions
 

@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Oku
 GenericName=Web Browser
-Comment=A Web browser with an emphasis on local-first data storage
+Comment=Browse & express yourself
 Type=Application
 Exec=oku %U
 Terminal=false

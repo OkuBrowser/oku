@@ -4,9 +4,11 @@
   <metadata_license>CC0</metadata_license>
   <project_license>AGPL-3.0+</project_license>
   <name>Oku</name>
-  <summary>A Web browser with an emphasis on local-first data storage</summary>
+  <summary>Browse &amp; express yourself</summary>
   <description>
-    <p>A Web browser with an emphasis on local-first data storage</p>
+    <p>Oku is a browser that offers a space that exists parallel to the web, where sites are shared between peers and found through social bookmarking.</p>
+    <p>While you may still browse traditional sites, Oku enables you to create, share, and find content without being beholden to centralised corporate interests.</p>
+    <p>Unleash your creativity and join a network of users supporting an independent effort to reintroduce control, privacy, &amp; free expression online.</p>
   </description>
   <url type="homepage">https://okubrowser.github.io</url>
   <url type="bugtracker">https://github.com/OkuBrowser/oku/issues</url>
@@ -23,72 +25,53 @@
     -->
   <content_rating type="oars-1.1" />
   <releases>
-    <release version="0.1.0" date="2024-11-13">
+    <release version="0.1.1" date="2024-11-30">
+      <description>
+        <p>Added download manager to library. Performance improvements.</p>
+      </description>
+    </release>
+    <release version="0.1.0" date="2024-11-12">
       <description>
         <p>Initial release.</p>
       </description>
     </release>
   </releases>
   <screenshots>
-    <screenshot type="default">
+    <screenshot type="default" xml:lang="en">
       <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/main.png</image>
-      <caption>The browser window</caption>
+      <caption>Browser window</caption>
     </screenshot>
-    <screenshot>
+    <screenshot xml:lang="en">
       <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/bookmarks.png</image>
       <caption>Library page showing bookmarks</caption>
     </screenshot>
-    <screenshot>
-      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/find_in_page.png</image>
-      <caption>Finding text in a page</caption>
-    </screenshot>
-    <screenshot>
-      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/history.png</image>
+    <screenshot xml:lang="en">
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/history.png</image>
       <caption>Library page showing browser history</caption>
     </screenshot>
-    <screenshot>
-      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/menu.png</image>
-      <caption>The browser menu</caption>
-    </screenshot>
-    <screenshot>
-      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/note_editor.png</image>
-      <caption>The note editor</caption>
-    </screenshot>
-    <screenshot>
-      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/okunet_home_empty.png</image>
-      <caption>OkuNet before following any users</caption>
-    </screenshot>
-    <screenshot>
+    <screenshot xml:lang="en">
       <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/okunet_me.png</image>
-      <caption>An example OkuNet profile</caption>
+      <caption>Example OkuNet profile</caption>
     </screenshot>
-    <screenshot>
+    <screenshot xml:lang="en">
       <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/page.png</image>
-      <caption>A page on the Web</caption>
+      <caption>Web page</caption>
     </screenshot>
-    <screenshot>
+    <screenshot xml:lang="en">
       <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/replicas.png</image>
       <caption>Library page showing replicas</caption>
     </screenshot>
-    <screenshot>
+    <screenshot xml:lang="en">
       <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/settings.png</image>
-      <caption>The browser settings</caption>
+      <caption>Browser settings</caption>
     </screenshot>
-    <screenshot>
-      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/shortcuts_page1.png</image>
-      <caption>First page of the keyboard shortcuts</caption>
-    </screenshot>
-    <screenshot>
-      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/shortcuts_page2.png</image>
-      <caption>Second page of the keyboard shortcuts</caption>
-    </screenshot>
-    <screenshot>
+    <screenshot xml:lang="en">
       <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/tab_overview.png</image>
-      <caption>The tab overview</caption>
+      <caption>Tab overview</caption>
     </screenshot>
-    <screenshot>
+    <screenshot xml:lang="en">
       <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/writing_note.png</image>
-      <caption>Writing an example note</caption>
+      <caption>Writing a note</caption>
     </screenshot>
   </screenshots>
     <!--

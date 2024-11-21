@@ -13,7 +13,7 @@
 {% include posts.voxs posts = posts %}
 {% else %}
 
-<h3>No posts found</h3>
+<h3>No posts</h3>
 
 {% endif %}
 </div>

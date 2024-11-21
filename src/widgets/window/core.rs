@@ -264,7 +264,7 @@ impl Window {
         let config = imp.config.imp();
         let (mut previous_width, mut previous_height) = (config.width(), config.height());
         if previous_width == 0 && previous_height == 0 {
-            (previous_width, previous_height) = (768, 576);
+            (previous_width, previous_height) = (1000, 700);
         }
         config.set_width(previous_width);
         config.set_height(previous_height);

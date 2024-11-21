@@ -32,13 +32,7 @@ pub async fn ipfs_scheme_handler(
         .replacen("ipfs://", "", 1)
         .parse::<ipfs::IpfsPath>()
         .map_err(|e| miette::miette!("{}", e))?;
-    let ipfs_stream = ipfs.cat_unixfs(decoded_url);
-    let mut bytes_vec: Vec<u8> = vec![];
-    pin_mut!(ipfs_stream);
-    while let Some(bytes_result) = ipfs_stream.next().await {
-        bytes_vec.extend(bytes_result.into_diagnostic()?)
-    }
-    Ok(bytes_vec)
+    cat_unixfs(ipfs, decoded_url).await
 }
 
 pub async fn ipns_scheme_handler(
@@ -56,7 +50,11 @@ pub async fn ipns_scheme_handler(
     let decoded_url = format!("/ipns/{}", uri_for_display.replacen("ipns://", "", 1))
         .parse::<ipfs::IpfsPath>()
         .map_err(|e| miette::miette!("{}", e))?;
-    let ipfs_stream = ipfs.cat_unixfs(decoded_url);
+    cat_unixfs(ipfs, decoded_url).await
+}
+
+pub async fn cat_unixfs(ipfs: &Ipfs, path: ipfs::IpfsPath) -> miette::Result<impl Into<Bytes>> {
+    let ipfs_stream = ipfs.cat_unixfs(path);
     let mut bytes_vec: Vec<u8> = vec![];
     pin_mut!(ipfs_stream);
     while let Some(bytes_result) = ipfs_stream.next().await {

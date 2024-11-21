@@ -1,5 +1,7 @@
+use std::sync::atomic::Ordering;
+
 use super::*;
-use crate::MOUNT_DIR;
+use crate::{MOUNT_DIR, REPLICAS_MOUNTED};
 use glib::clone;
 use gtk::glib;
 use gtk::subclass::prelude::*;
@@ -55,6 +57,8 @@ impl Window {
         imp.replicas_button.set_can_focus(true);
         imp.replicas_button.set_receives_default(true);
         imp.replicas_button.set_icon_name("file-cabinet-symbolic");
+        imp.replicas_button
+            .set_visible(REPLICAS_MOUNTED.load(Ordering::Relaxed));
 
         // Menu button
         imp.menu_button.set_can_focus(true);

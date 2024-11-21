@@ -1,3 +1,4 @@
+use miette::IntoDiagnostic;
 use oku_fs::iroh::docs::AuthorId;
 use std::{path::PathBuf, str::FromStr};
 
@@ -11,6 +12,7 @@ pub enum OkuPath {
     ToggleFollow(AuthorId),
     ToggleBlock(AuthorId),
     Delete(PathBuf),
+    Search(String),
 }
 
 impl OkuPath {
@@ -66,6 +68,13 @@ impl OkuPath {
                 "delete" => {
                     OkuPath::Delete(replica_path.ok_or(miette::miette!("Missing post path … "))?)
                 }
+                "search" => OkuPath::Search(
+                    path.as_ref()
+                        .strip_prefix("search/")
+                        .into_diagnostic()?
+                        .to_string_lossy()
+                        .to_string(),
+                ),
                 _ => OkuPath::User(
                     AuthorId::from_str(
                         first_component

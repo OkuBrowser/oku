@@ -1,4 +1,5 @@
 pub mod hive;
+pub mod hive_path;
 pub mod ipfs;
 pub mod oku;
 pub mod oku_path;

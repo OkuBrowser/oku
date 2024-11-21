@@ -36,9 +36,13 @@ impl OkuNetProvider {
         let table = self.get_tag_frontmatter(tag.clone(), tag_posts).await?;
         let page_contents = format!(
             "---
-{}
+{0}
 ---
-{{% include tag.voxs posts = {} %}}
+{{% if {1}[0] %}}
+{{% include tag.voxs posts = {1} %}}
+{{% else %}}
+{{% include tag.voxs posts = \"\" %}}
+{{% endif %}}
 ",
             table, tag
         );

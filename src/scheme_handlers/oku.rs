@@ -164,6 +164,7 @@ pub async fn get_oku_scheme_handler(request: SchemeRequest) -> miette::Result<By
                 .await
                 .map(|x| x.into()),
         },
+        OkuPath::Search(query) => OkuNetProvider::new().search(query).await.map(|x| x.into()),
         _ => Err(miette::miette!(
             "Operation {:?} not supported for GET requests to Oku scheme … ",
             url_path

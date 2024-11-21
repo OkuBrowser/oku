@@ -1,11 +1,11 @@
 [package]
 name = "oku"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Emil Sayahi <limesayahi@gmail.com>"]
 edition = "2021"
 exclude = ["/.github/**/*", "/.cargo/**/*", "/branding/**/*", "/rust-toolchain", "/.gitignore", "/.whitesource", "/renovate.json", "/CODE_OF_CONDUCT.md", "/CONTRIBUTING.md", "/LICENSE.md", "/SECURITY.md", "/COPYING", "/NOTICE"]
 license = "AGPL-3.0-or-later"
-description = "A Web browser with an emphasis on local-first data storage"
+description = "Browse & express yourself"
 repository = "https://github.com/OkuBrowser/oku"
 homepage = "https://okubrowser.github.io/"
 readme = "README.md"

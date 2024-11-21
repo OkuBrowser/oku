@@ -23,34 +23,36 @@ pub fn connect(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebView) {
         }
         // When URL is missing a scheme
         Err(url::ParseError::RelativeUrlWithoutBase) => {
-            let nav_text_with_base = if is_hive_uri(nav_text.clone()) {
+            let nav_text_with_base = if is_hive_uri(&nav_text) {
                 format!("hive://{}", nav_text)
-            } else if is_ipfs_uri(nav_text.clone()) {
+            } else if is_ipfs_uri(&nav_text) {
                 format!("ipfs://{}", nav_text)
             } else {
-                format!("http://{}", nav_text)
+                nav_text.clone()
             };
             parsed_url = url::Url::parse(&nav_text_with_base); // Try with protocol first
             match parsed_url {
                 // If it's now valid with protocol
                 Ok(nav_url) => {
                     nav_entry.set_text(nav_url.as_str());
-                    connect(nav_entry, web_view);
+                    web_view.load_uri(nav_url.as_str());
                 }
                 // Still not valid, even with protocol
                 Err(e) => {
                     error!("{}", e);
+                    web_view.load_uri(&format!("oku:search/{}", nav_text));
                 }
             }
         }
         // URL is malformed beyond missing a scheme
         Err(e) => {
             error!("{}", e);
+            web_view.load_uri(&format!("oku:search/{}", nav_text));
         }
     }
 }
 
-pub fn is_hive_uri(nav_text: String) -> bool {
+pub fn is_hive_uri(nav_text: &str) -> bool {
     let path = PathBuf::from(nav_text);
     let components = &mut path.components();
     if let Some(first_component) = components.next() {
@@ -62,7 +64,7 @@ pub fn is_hive_uri(nav_text: String) -> bool {
     }
 }
 
-pub fn is_ipfs_uri(nav_text: String) -> bool {
+pub fn is_ipfs_uri(nav_text: &str) -> bool {
     nav_text.parse::<ipfs::IpfsPath>().is_ok()
 }
 
@@ -75,15 +77,11 @@ pub fn is_ipfs_uri(nav_text: String) -> bool {
 /// * `web_view` - The WebKit instance for the current tab
 pub fn update_nav_bar(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebView) {
     let mut url = web_view.uri().unwrap().to_string();
-    let cid = url
-        .replacen("http://", "", 1)
-        .replacen(".ipfs.localhost:8080", "", 1);
-    let split_cid: Vec<&str> = cid.split('/').collect();
-    if url.starts_with(&format!("http://{}.ipfs.localhost:8080/", split_cid[0])) {
-        url = cid;
-    }
     if url.starts_with("oku:home") || url.starts_with("about:") || url.starts_with("view-source:") {
         url = "".to_string();
+    }
+    if let Some(search_stripped) = url.strip_prefix("oku:search/") {
+        url = search_stripped.to_owned();
     }
     nav_entry.set_text(&uri_for_display(&url).unwrap_or_default());
 }

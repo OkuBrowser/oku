@@ -1,6 +1,7 @@
 use crate::window_util::get_window_from_widget;
 use crate::MOUNT_DIR;
 use crate::NODE;
+use crate::REPLICAS_MOUNTED;
 use gdk::prelude::DisplayExt;
 use gio::prelude::ApplicationExt;
 use glib::clone;
@@ -29,6 +30,7 @@ use oku_fs::iroh::client::docs::ShareMode;
 use oku_fs::iroh::docs::NamespaceId;
 use std::cell::RefCell;
 use std::str::FromStr;
+use std::sync::atomic::Ordering;
 use std::sync::LazyLock;
 
 pub mod imp {
@@ -165,6 +167,8 @@ impl ReplicaRow {
         imp.open_button.add_css_class("circular");
         imp.open_button.set_vexpand(false);
         imp.open_button.set_hexpand(false);
+        imp.open_button
+            .set_visible(REPLICAS_MOUNTED.load(Ordering::Relaxed));
         imp.open_button.connect_clicked(clone!(
             #[weak(rename_to = this)]
             self,

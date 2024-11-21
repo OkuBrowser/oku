@@ -12,6 +12,6 @@ depends = ["posts"]
 {% else %}
 <h2 class="post-meta center">No posts found … </h2>
 {% markdown %}
-> Welcome to OkuNet. Posts from users you follow will appear here.
+> Welcome to OkuNet. Posts from your network will appear here.
 {% endmarkdown %}
 {% endif %}

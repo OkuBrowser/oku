@@ -57,12 +57,15 @@ static VERSION: LazyLock<&'static str> = LazyLock::new(|| env!("CARGO_PKG_VERSIO
 static NODE: OnceLock<OkuFs> = OnceLock::new();
 static HOME_REPLICA_SET: LazyLock<Arc<AtomicBool>> =
     LazyLock::new(|| Arc::new(AtomicBool::new(false)));
+static REPLICAS_MOUNTED: LazyLock<Arc<AtomicBool>> =
+    LazyLock::new(|| Arc::new(AtomicBool::new(false)));
 
 pub const APP_ID: &str = "io.github.OkuBrowser.oku";
 
 async fn create_web_context() -> (WebContext, Option<BackgroundSession>, Ipfs) {
     let (node, mount_handle) = create_oku_client().await;
     NODE.get_or_init(|| node.clone());
+    REPLICAS_MOUNTED.store(mount_handle.is_some(), Ordering::Relaxed);
     let ipfs = create_ipfs_client().await;
 
     let web_context = WebContext::builder().build();
