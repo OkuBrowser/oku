@@ -17,6 +17,12 @@ impl Window {
             imp.style_provider.borrow().load_from_string("");
             if config.palette() != Palette::None {
                 self.update_from_palette(web_view, style_manager, &config.palette());
+            } else {
+                web_view.set_background_color(if style_manager.is_dark() {
+                    &gdk::RGBA::BLACK
+                } else {
+                    &gdk::RGBA::WHITE
+                });
             }
         } else {
             self.update_domain_color(web_view, style_manager);

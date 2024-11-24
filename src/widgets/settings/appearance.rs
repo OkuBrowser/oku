@@ -137,7 +137,7 @@ impl Settings {
     ) {
         let imp = self.imp();
 
-        self.setup_colour_scheme_row();
+        self.setup_colour_scheme_row(style_manager);
         self.setup_domain_colour_row();
         self.setup_palette_row();
         self.setup_appearance_bindings(style_manager, window);
@@ -150,7 +150,7 @@ impl Settings {
         imp.appearance_group.add(&imp.palette_row);
     }
 
-    pub fn setup_colour_scheme_row(&self) {
+    pub fn setup_colour_scheme_row(&self, style_manager: &StyleManager) {
         let imp = self.imp();
 
         imp.colour_scheme_list.append("Automatic");
@@ -166,6 +166,9 @@ impl Settings {
             .set_subtitle("Whether the browser should be light or dark");
         imp.colour_scheme_row
             .set_model(imp.colour_scheme_selection.model().as_ref());
+        style_manager
+            .property_expression("system-supports-color-schemes")
+            .bind(&imp.colour_scheme_row, "sensitive", gtk::Widget::NONE);
     }
 
     pub fn setup_palette_row(&self) {
