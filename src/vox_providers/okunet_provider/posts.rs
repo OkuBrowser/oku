@@ -2,7 +2,7 @@ use super::core::OkuNetProvider;
 use crate::NODE;
 use miette::IntoDiagnostic;
 use oku_fs::{
-    database::{OkuIdentity, OkuPost, OkuUser},
+    database::{posts::OkuPost, users::OkuIdentity, users::OkuUser},
     fs::entry_key_to_path,
     iroh::docs::AuthorId,
 };

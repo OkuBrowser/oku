@@ -12,7 +12,9 @@ impl OkuNetProvider {
         // Posts
         let me = node.user().await?;
         let my_posts = node.posts_from_user(&me).await.unwrap_or_default();
-        let mut posts = oku_fs::database::DATABASE.get_posts().unwrap_or_default();
+        let mut posts = oku_fs::database::core::DATABASE
+            .get_posts()
+            .unwrap_or_default();
         posts.extend(my_posts.into_iter());
         for post in posts.iter() {
             self.create_post_page(&post.user(), post, Some("posts".into()))

@@ -2,7 +2,7 @@ use super::{BrowserDatabase, DATABASE};
 use miette::IntoDiagnostic;
 use native_db::*;
 use native_model::{native_model, Model};
-use oku_fs::{database::OkuNote, fs::FS_PATH};
+use oku_fs::{database::posts::OkuNote, fs::FS_PATH};
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::{

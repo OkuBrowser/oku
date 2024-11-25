@@ -1,5 +1,5 @@
 use super::core::OkuNetProvider;
-use oku_fs::database::OkuDatabase;
+use oku_fs::database::core::OkuDatabase;
 use vox::provider::VoxProvider;
 
 impl OkuNetProvider {

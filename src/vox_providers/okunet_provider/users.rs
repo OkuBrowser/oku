@@ -1,7 +1,7 @@
 use super::core::OkuNetProvider;
 use crate::NODE;
 use oku_fs::{
-    database::{OkuPost, OkuUser},
+    database::{posts::OkuPost, users::OkuUser},
     iroh::docs::AuthorId,
 };
 use vox::provider::VoxProvider;
@@ -83,7 +83,7 @@ impl OkuNetProvider {
         posts: Option<Vec<OkuPost>>,
     ) -> miette::Result<()> {
         let user_posts = posts.unwrap_or(
-            oku_fs::database::DATABASE
+            oku_fs::database::core::DATABASE
                 .get_posts_by_author(user.author_id)
                 .unwrap_or_default(),
         );

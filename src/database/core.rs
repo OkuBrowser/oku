@@ -2,7 +2,7 @@ use super::*;
 use crate::{suggestion_item::SuggestionItem, DATA_DIR};
 use miette::IntoDiagnostic;
 use native_db::*;
-use oku_fs::database::OkuDatabase;
+use oku_fs::database::core::OkuDatabase;
 use std::{path::PathBuf, sync::LazyLock};
 use webkit2gtk::FaviconDatabase;
 

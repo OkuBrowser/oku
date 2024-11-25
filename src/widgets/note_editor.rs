@@ -21,7 +21,7 @@ use libadwaita::prelude::PreferencesRowExt;
 use libadwaita::prelude::*;
 use libadwaita::subclass::dialog::AdwDialogImpl;
 use log::error;
-use oku_fs::database::OkuNote;
+use oku_fs::database::posts::OkuNote;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::atomic::Ordering;

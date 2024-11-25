@@ -1,6 +1,6 @@
 use super::core::OkuNetProvider;
 use crate::NODE;
-use oku_fs::database::OkuPost;
+use oku_fs::database::posts::OkuPost;
 use vox::provider::VoxProvider;
 
 impl OkuNetProvider {
