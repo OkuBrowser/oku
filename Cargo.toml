@@ -28,7 +28,7 @@ libadwaita = { version = "*", features = ["v1_6", "gio_v2_80"] }
 oku-fs = { git = "https://github.com/OkuBrowser/oku-fs", features = ["fuse"] }
 # oku-fs = { path = "/home/emil/Documents/GitHub/oku-fs", features = ["fuse"] }
 pango = { version = "*" }
-url = "2.5.3"
+url = "2.5.4"
 tokio = { version = "1.41.1", features = ["full"] }
 tokio-stream = "0.1.16"
 webkit2gtk = { version = "*", package = "webkit6", features = ["v2_44"] }
