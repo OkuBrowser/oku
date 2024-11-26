@@ -12,7 +12,7 @@ use webkit2gtk::{functions::uri_for_display, prelude::WebViewExt};
 /// * `nav_entry` - The navigation bar of the browser
 ///
 /// * `web_view` - The WebKit instance for the current tab
-pub fn connect(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebView) {
+pub fn connect(nav_entry: &impl IsA<gtk::Editable>, web_view: &webkit2gtk::WebView) {
     let nav_text = nav_entry.text().to_string();
     let mut parsed_url = url::Url::parse(&nav_text);
     match parsed_url {
@@ -75,7 +75,7 @@ pub fn is_ipfs_uri(nav_text: &str) -> bool {
 /// * `nav_entry` - The navigation bar of the browser
 ///
 /// * `web_view` - The WebKit instance for the current tab
-pub fn update_nav_bar(nav_entry: &gtk::SearchEntry, web_view: &webkit2gtk::WebView) {
+pub fn update_nav_bar(nav_entry: &impl IsA<gtk::Editable>, web_view: &webkit2gtk::WebView) {
     let mut url = web_view.uri().unwrap().to_string();
     if url.starts_with("oku:home") || url.starts_with("about:") || url.starts_with("view-source:") {
         url = "".to_string();

@@ -66,7 +66,7 @@ pub mod imp {
 
     #[glib::object_subclass]
     impl ObjectSubclass for NoteEditor {
-        const NAME: &'static str = "OkuNote";
+        const NAME: &'static str = "OkuNoteEditor";
         type Type = super::NoteEditor;
         type ParentType = libadwaita::Dialog;
     }

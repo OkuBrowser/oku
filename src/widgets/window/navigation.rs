@@ -87,15 +87,6 @@ impl Window {
         // Navigation bar
         imp.nav_entry
             .add_controller(imp.nav_entry_focus.borrow().clone());
-        imp.nav_entry.set_can_focus(true);
-        imp.nav_entry.set_focusable(true);
-        imp.nav_entry.set_focus_on_click(true);
-        imp.nav_entry.set_editable(true);
-        imp.nav_entry.set_hexpand(true);
-        imp.nav_entry
-            .set_placeholder_text(Some("Enter an address … "));
-        imp.nav_entry.set_input_purpose(gtk::InputPurpose::Url);
-        imp.nav_entry.set_halign(gtk::Align::Fill);
 
         // Back button
         imp.back_button.set_can_focus(true);
@@ -211,7 +202,7 @@ impl Window {
             #[weak]
             imp,
             move |_| {
-                imp.nav_entry.select_region(0, -1);
+                imp.nav_entry.grab_focus();
             }
         ));
 
@@ -221,6 +212,7 @@ impl Window {
             #[weak(rename_to = this)]
             self,
             move |_| {
+                imp.nav_entry.select_region(0, 0);
                 let suggestions_store = this.suggestions_store();
                 suggestions_store.remove_all();
                 if imp.suggestions_popover.is_visible() {
@@ -229,7 +221,7 @@ impl Window {
             }
         ));
 
-        imp.nav_entry.connect_search_changed(clone!(
+        imp.nav_entry.connect_changed(clone!(
             #[weak]
             imp,
             #[weak(rename_to = this)]

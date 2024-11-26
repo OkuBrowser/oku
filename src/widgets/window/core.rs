@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::widgets::address_entry::AddressEntry;
 use crate::widgets::settings::core::apply_appearance_config;
 use crate::APP_ID;
 use glib::clone;
@@ -24,7 +25,8 @@ pub mod imp {
         pub(crate) is_private: Cell<bool>,
         pub(crate) style_provider: RefCell<gtk::CssProvider>,
         // Navigation bar
-        pub(crate) nav_entry: gtk::SearchEntry,
+        // pub(crate) nav_entry: gtk::SearchEntry,
+        pub(crate) nav_entry: AddressEntry,
         pub(crate) nav_entry_focus: RefCell<EventControllerFocus>,
         pub(crate) suggestions_store: RefCell<Option<Rc<gio::ListStore>>>,
         pub(crate) suggestions_factory: gtk::SignalListItemFactory,

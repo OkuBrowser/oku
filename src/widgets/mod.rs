@@ -1,3 +1,4 @@
+pub mod address_entry;
 pub mod bookmark_row;
 pub mod download_row;
 pub mod history_row;
