@@ -41,7 +41,7 @@ serde = "1.0.215"
 uuid = { version = "1.11.0", features = ["v7", "fast-rng", "serde"] }
 miette = "7.2.0"
 html-escape = "0.2.13"
-bytes = "1.8.0"
+bytes = "1.9.0"
 native_db = "0.8.1"
 native_model = "0.4.20"
 rayon = "1.10.0"
