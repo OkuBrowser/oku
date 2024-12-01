@@ -35,7 +35,7 @@ impl From<&str> for ColourScheme {
             "Prefer Light" => Self::PreferLight,
             "Prefer Dark" => Self::PreferDark,
             "Force Dark" => Self::ForceDark,
-            _ => Self::Default,
+            _ => Self::default(),
         }
     }
 }
@@ -48,7 +48,7 @@ impl From<libadwaita::ColorScheme> for ColourScheme {
             libadwaita::ColorScheme::PreferLight => Self::PreferLight,
             libadwaita::ColorScheme::PreferDark => Self::PreferDark,
             libadwaita::ColorScheme::ForceDark => Self::ForceDark,
-            _ => Self::Default,
+            _ => Self::default(),
         }
     }
 }
@@ -104,7 +104,7 @@ impl From<&str> for Palette {
             "Red" => Self::Red,
             "Purple" => Self::Purple,
             "Brown" => Self::Brown,
-            _ => Self::None,
+            _ => Self::default(),
         }
     }
 }

@@ -1,4 +1,5 @@
 use super::*;
+use crate::database::policy::PolicySettingRecord;
 use crate::database::{HistoryRecord, DATABASE};
 use crate::window_util::{
     get_title, get_view_from_page, new_webkit_settings, update_favicon, update_nav_bar,
@@ -23,6 +24,94 @@ use webkit2gtk::LoadEvent;
 use webkit2gtk::{WebContext, WebView};
 
 impl Window {
+    pub fn ask_permission(&self, permission_request: &webkit2gtk::PermissionRequest) {
+        let (title, description) = if permission_request
+            .is::<webkit2gtk::ClipboardPermissionRequest>()
+        {
+            (
+                "Allow access to clipboard?",
+                "This page is requesting permission to read the contents of your clipboard.",
+            )
+        } else if permission_request.is::<webkit2gtk::DeviceInfoPermissionRequest>() {
+            ("Allow access to audio & video devices?", "This page is requesting access to information regarding your audio & video devices.")
+        } else if permission_request.is::<webkit2gtk::GeolocationPermissionRequest>() {
+            (
+                "Allow access to location?",
+                "This page is requesting access to your location.",
+            )
+        } else if permission_request.is::<webkit2gtk::MediaKeySystemPermissionRequest>() {
+            (
+                "Allow playback of encrypted media?",
+                "This page wishes to play encrypted media.",
+            )
+        } else if permission_request.is::<webkit2gtk::NotificationPermissionRequest>() {
+            (
+                "Allow notifications?",
+                "This page is requesting permission to display notifications.",
+            )
+        } else if permission_request.is::<webkit2gtk::PointerLockPermissionRequest>() {
+            (
+                "Allow locking the pointer?",
+                "This page is requesting permission to lock your pointer.",
+            )
+        } else if permission_request.is::<webkit2gtk::UserMediaPermissionRequest>() {
+            let user_media_permission_request = permission_request
+                .downcast_ref::<webkit2gtk::UserMediaPermissionRequest>()
+                .unwrap();
+            if user_media_permission_is_for_audio_device(user_media_permission_request) {
+                (
+                    "Allow access to audio devices?",
+                    "This page is requesting access to your audio source devices.",
+                )
+            } else if user_media_permission_is_for_display_device(user_media_permission_request) {
+                (
+                    "Allow access to display devices?",
+                    "This page is requesting access to your display devices.",
+                )
+            } else if user_media_permission_is_for_video_device(user_media_permission_request) {
+                (
+                    "Allow access to video devices?",
+                    "This page is requesting access to your video source devices.",
+                )
+            } else {
+                (
+                    "Allow access to media devices?",
+                    "This page is requesting access to your media devices.",
+                )
+            }
+        } else if permission_request.is::<webkit2gtk::WebsiteDataAccessPermissionRequest>() {
+            (
+                "Allow access to third-party cookies?",
+                "This page is requesing permission to read your data from third-party domains.",
+            )
+        } else {
+            ("", "")
+        };
+        let dialog = libadwaita::AlertDialog::new(Some(title), Some(description));
+        dialog.add_responses(&[("deny", "Deny"), ("allow", "Allow")]);
+        dialog.set_response_appearance("deny", ResponseAppearance::Default);
+        dialog.set_response_appearance("allow", ResponseAppearance::Destructive);
+        dialog.set_default_response(Some("deny"));
+        dialog.set_close_response("deny");
+        dialog.connect_response(
+            None,
+            clone!(
+                #[strong]
+                permission_request,
+                move |_, response| {
+                    match response {
+                        "deny" => permission_request.deny(),
+                        "allow" => permission_request.allow(),
+                        _ => {
+                            unreachable!()
+                        }
+                    }
+                }
+            ),
+        );
+        dialog.present(Some(self));
+    }
+
     /// Update the load progress indicator under the navigation bar
     ///
     /// # Arguments
@@ -66,12 +155,13 @@ impl Window {
         initial_request: Option<&webkit2gtk::URIRequest>,
     ) -> webkit2gtk::WebView {
         let web_settings: webkit2gtk::Settings = new_webkit_settings();
-        let mut web_view_builder = WebView::builder()
-            .web_context(web_context)
-            .network_session(&self.imp().network_session.borrow())
-            .settings(&web_settings);
+        let mut web_view_builder = WebView::builder().settings(&web_settings);
         if let Some(related_view) = related_view {
             web_view_builder = web_view_builder.related_view(related_view);
+        } else {
+            web_view_builder = web_view_builder
+                .web_context(web_context)
+                .network_session(&self.imp().network_session.borrow())
         };
         let web_view = web_view_builder.build();
         web_view.set_vexpand(true);
@@ -115,104 +205,109 @@ impl Window {
         let imp = self.imp();
 
         imp.tab_view.connect_page_attached(clone!(
-            #[weak] web_context,
-            #[weak] style_manager,
+            #[weak]
+            web_context,
+            #[weak]
+            style_manager,
             #[weak(rename_to = this)]
             self,
             #[weak]
             imp,
             move |_, new_page, _page_position| {
                 let action_close_tab = gio::ActionEntry::builder("close-tab")
-                    .activate(
-                        clone!(
-                            #[weak(rename_to = tab_view)]
-                            imp.tab_view,
-                            #[weak]
-                            new_page,
-                            move |window: &Self, _, _| {
-                                if tab_view.n_pages() > 1 {
-                                    tab_view.close_page(&new_page);
-                                } else {
-                                    window.close();
-                                }
+                    .activate(clone!(
+                        #[weak(rename_to = tab_view)]
+                        imp.tab_view,
+                        #[weak]
+                        new_page,
+                        move |window: &Self, _, _| {
+                            if tab_view.n_pages() > 1 {
+                                tab_view.close_page(&new_page);
+                            } else {
+                                window.close();
                             }
-                        )
-                    )
+                        }
+                    ))
                     .build();
                 this.add_action_entries([action_close_tab]);
 
                 let new_view = get_view_from_page(new_page);
                 let find_controller = new_view.find_controller().unwrap();
 
-                let found_text = RefCell::new(
-                    Some(
-                        find_controller.connect_found_text(
-                            clone!(
-                                #[weak]
-                                    imp,
-                                    move |_find_controller, match_count| {
-                                        if match_count > 1 {
-                                            imp.total_matches_label.set_text(&format!("{} matches", match_count));
-                                        } else {
-                                            imp.total_matches_label.set_text("");
-                                        }
-                                }
-                            )
-                        )
-                    )
-                );
+                let found_text = RefCell::new(Some(find_controller.connect_found_text(clone!(
+                    #[weak]
+                    imp,
+                    move |_find_controller, match_count| {
+                        if match_count > 1 {
+                            imp.total_matches_label
+                                .set_text(&format!("{} matches", match_count));
+                        } else {
+                            imp.total_matches_label.set_text("");
+                        }
+                    }
+                ))));
 
-                let failed_to_find_text = RefCell::new(
-                    Some(
-                        find_controller.connect_failed_to_find_text(
-                            clone!(
-                                #[weak]
-                                    imp,
-                                    move |_find_controller| {
-                                        imp.total_matches_label.set_text("");
-                                }
-                            )
-                        )
-                    )
-                );
+                let failed_to_find_text =
+                    RefCell::new(Some(find_controller.connect_failed_to_find_text(clone!(
+                        #[weak]
+                        imp,
+                        move |_find_controller| {
+                            imp.total_matches_label.set_text("");
+                        }
+                    ))));
 
-                let create = RefCell::new(
-                    Some(
-                        new_view.connect_create(
-                            clone!(
-                                #[weak]
-                                web_context,
-                                #[weak]
-                                this,
-                                #[upgrade_or_panic] move |w, navigation_action| {
-                                    let mut navigation_action = navigation_action.clone();
-                                    let new_related_view = this.new_tab_page(&web_context, Some(w), navigation_action.request().as_ref()).0;
-                                    new_related_view.into()
-                                }
-                            )
-                        )
-                    )
-                );
+                let close = RefCell::new(Some(new_view.connect_close(clone!(
+                    #[weak]
+                    new_page,
+                    #[weak]
+                    imp,
+                    #[upgrade_or_panic]
+                    move |_w| {
+                        imp.tab_view.set_page_pinned(&new_page, false);
+                        if imp.tab_view.n_pages() <= 1 {
+                            imp.tab_overview.set_open(true);
+                        }
+                        imp.tab_view.close_page(&new_page);
+                    }
+                ))));
 
-                let status_message = RefCell::new(
-                    Some(
-                        new_view.connect_mouse_target_changed(
-                            clone!(
-                                #[weak]
-                                imp,
-                                move |_w, hit_test_result, _modifier| {
-                                    if let Some(link_uri) = hit_test_result.link_uri() {
-                                        imp.url_status.set_text(uri_for_display(link_uri.as_str()).unwrap_or_default().as_str());
-                                        imp.url_status_box.set_visible(true);
-                                    } else {
-                                        imp.url_status.set_text("");
-                                        imp.url_status_box.set_visible(false);
-                                    }
-                                }
+                let create = RefCell::new(Some(new_view.connect_create(clone!(
+                    #[weak]
+                    web_context,
+                    #[weak]
+                    this,
+                    #[upgrade_or_panic]
+                    move |w, navigation_action| {
+                        let mut navigation_action = navigation_action.clone();
+                        let new_related_view = this
+                            .new_tab_page(
+                                &web_context,
+                                Some(w),
+                                navigation_action.request().as_ref(),
                             )
-                        )
-                    )
-                );
+                            .0;
+                        new_related_view.into()
+                    }
+                ))));
+
+                let status_message =
+                    RefCell::new(Some(new_view.connect_mouse_target_changed(clone!(
+                        #[weak]
+                        imp,
+                        move |_w, hit_test_result, _modifier| {
+                            if let Some(link_uri) = hit_test_result.link_uri() {
+                                imp.url_status.set_text(
+                                    uri_for_display(link_uri.as_str())
+                                        .unwrap_or_default()
+                                        .as_str(),
+                                );
+                                imp.url_status_box.set_visible(true);
+                            } else {
+                                imp.url_status.set_text("");
+                                imp.url_status_box.set_visible(false);
+                            }
+                        }
+                    ))));
 
                 let permission_request =
                     RefCell::new(Some(new_view.connect_permission_request(clone!(
@@ -220,72 +315,11 @@ impl Window {
                         this,
                         #[upgrade_or]
                         false,
-                        move |_w, permission_request| {
-                            let (title, description) = if permission_request.is::<webkit2gtk::ClipboardPermissionRequest>() {
-                                ("Allow access to clipboard?", "This page is requesting permission to read the contents of your clipboard.")
-                            } else if permission_request.is::<webkit2gtk::DeviceInfoPermissionRequest>() {
-                                ("Allow access to audio & video devices?", "This page is requesting access to information regarding your audio & video devices.")
-                            } else if permission_request.is::<webkit2gtk::GeolocationPermissionRequest>() {
-                                ("Allow access to location?", "This page is requesting access to your location.")
-                            } else if permission_request.is::<webkit2gtk::MediaKeySystemPermissionRequest>() {
-                                ("Allow playback of encrypted media?", "This page wishes to play encrypted media.")
-                            } else if permission_request.is::<webkit2gtk::NotificationPermissionRequest>() {
-                                ("Allow notifications?", "This page is requesting permission to display notifications.")
-                            } else if permission_request.is::<webkit2gtk::PointerLockPermissionRequest>() {
-                                ("Allow locking the pointer?", "This page is requesting permission to lock your pointer.")
-                            } else if permission_request.is::<webkit2gtk::UserMediaPermissionRequest>() {
-                                let user_media_permission_request = permission_request.downcast_ref::<webkit2gtk::UserMediaPermissionRequest>().unwrap();
-                                if user_media_permission_is_for_audio_device(user_media_permission_request) {
-                                    ("Allow access to audio devices?", "This page is requesting access to your audio source devices.")
-                                } else if user_media_permission_is_for_display_device(user_media_permission_request) {
-                                    ("Allow access to display devices?", "This page is requesting access to your display devices.")
-                                } else if user_media_permission_is_for_video_device(user_media_permission_request) {
-                                    ("Allow access to video devices?", "This page is requesting access to your video source devices.")
-                                } else {
-                                    ("Allow access to media devices?", "This page is requesting access to your media devices.")
-                                }
-                            } else if permission_request.is::<webkit2gtk::WebsiteDataAccessPermissionRequest>() {
-                                ("Allow access to third-party cookies?", "This page is requesing permission to read your data from third-party domains.")
-                            } else {
-                                ("", "")
-                            };
-                            let dialog = libadwaita::AlertDialog::new(
-                                Some(title),
-                                Some(description),
+                        move |w, permission_request| {
+                            let policy = PolicySettingRecord::from_uri(
+                                w.uri().unwrap_or_default().to_string(),
                             );
-                            dialog.add_responses(&[
-                                ("deny", "Deny"),
-                                ("allow", "Allow"),
-                            ]);
-                            dialog.set_response_appearance(
-                                "deny",
-                                ResponseAppearance::Default,
-                            );
-                            dialog.set_response_appearance(
-                                "allow",
-                                ResponseAppearance::Destructive,
-                            );
-                            dialog.set_default_response(Some("deny"));
-                            dialog.set_close_response("deny");
-                            dialog.connect_response(
-                                None,
-                                clone!(
-                                    #[strong]
-                                    permission_request,
-                                    move |_, response| {
-                                        match response {
-                                            "deny" => permission_request.deny(),
-                                            "allow" => {
-                                                permission_request.allow()
-                                            }
-                                            _ => {
-                                                unreachable!()
-                                            }
-                                        }
-                                    }
-                                ),
-                            );
-                            dialog.present(Some(&this));
+                            policy.handle(&this, permission_request);
                             true
                         }
                     ))));
@@ -322,15 +356,21 @@ impl Window {
                             back_button.set_sensitive(w.can_go_back());
                             forward_button.set_sensitive(w.can_go_forward());
                         }
-                        if !matches!(w.uri(), Some(x) if x == "oku:home") && !imp.is_private.get() && load_event == LoadEvent::Finished {
+                        if !matches!(w.uri(), Some(x) if x == "oku:home")
+                            && !imp.is_private.get()
+                            && load_event == LoadEvent::Finished
+                        {
                             if let Some(back_forward_list) = w.back_forward_list() {
                                 if let Some(current_item) = back_forward_list.current_item() {
                                     if let Err(e) = DATABASE.upsert_history_record(HistoryRecord {
                                         id: Uuid::now_v7(),
-                                        original_uri: current_item.original_uri().unwrap_or_default().to_string(),
+                                        original_uri: current_item
+                                            .original_uri()
+                                            .unwrap_or_default()
+                                            .to_string(),
                                         uri: current_item.uri().unwrap_or_default().to_string(),
                                         title: Some(title),
-                                        timestamp: chrono::Utc::now()
+                                        timestamp: chrono::Utc::now(),
                                     }) {
                                         error!("{}", e)
                                     }
@@ -421,17 +461,18 @@ impl Window {
                             }
                         }
                     ))));
-                let zoom_level_notify = RefCell::new(Some(new_view.connect_zoom_level_notify(clone!(
-                    #[weak(rename_to = zoom_percentage)]
-                    imp.zoom_percentage,
-                    #[weak]
-                    this,
-                    move |w| {
-                        if this.get_view() == *w {
-                            zoom_percentage.set_text(&format!("{:.0}%", w.zoom_level() * 100.0))
+                let zoom_level_notify =
+                    RefCell::new(Some(new_view.connect_zoom_level_notify(clone!(
+                        #[weak(rename_to = zoom_percentage)]
+                        imp.zoom_percentage,
+                        #[weak]
+                        this,
+                        move |w| {
+                            if this.get_view() == *w {
+                                zoom_percentage.set_text(&format!("{:.0}%", w.zoom_level() * 100.0))
+                            }
                         }
-                    }
-                ))));
+                    ))));
                 let uri_notify = RefCell::new(Some(new_view.connect_uri_notify(clone!(
                     #[weak(rename_to = nav_entry)]
                     imp.nav_entry,
@@ -468,7 +509,8 @@ impl Window {
                                 if current_page.is_loading() {
                                     refresh_button.set_icon_name("cross-large-symbolic")
                                 } else {
-                                    refresh_button.set_icon_name("arrow-circular-top-right-symbolic")
+                                    refresh_button
+                                        .set_icon_name("arrow-circular-top-right-symbolic")
                                 }
                             }
                         }
@@ -492,7 +534,8 @@ impl Window {
                                     refresh_button.set_icon_name("cross-large-symbolic");
                                     progress_bar.pulse()
                                 } else {
-                                    refresh_button.set_icon_name("arrow-circular-top-right-symbolic")
+                                    refresh_button
+                                        .set_icon_name("arrow-circular-top-right-symbolic")
                                 }
                             }
                         }
@@ -516,6 +559,9 @@ impl Window {
                         }
                         if let Some(id) = found_text.take() {
                             old_find_controller.disconnect(id);
+                        }
+                        if let Some(id) = close.take() {
+                            old_view.disconnect(id);
                         }
                         if let Some(id) = create.take() {
                             old_view.disconnect(id);

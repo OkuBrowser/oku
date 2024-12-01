@@ -1,3 +1,4 @@
+use crate::widgets::address_entry::AddressEntry;
 use glib::object::{Cast, IsA};
 use gtk::{prelude::EditableExt, prelude::WidgetExt};
 use log::error;
@@ -75,8 +76,8 @@ pub fn is_ipfs_uri(nav_text: &str) -> bool {
 /// * `nav_entry` - The navigation bar of the browser
 ///
 /// * `web_view` - The WebKit instance for the current tab
-pub fn update_nav_bar(nav_entry: &impl IsA<gtk::Editable>, web_view: &webkit2gtk::WebView) {
-    let mut url = web_view.uri().unwrap().to_string();
+pub fn update_nav_bar(nav_entry: &AddressEntry, web_view: &webkit2gtk::WebView) {
+    let mut url = web_view.uri().unwrap_or_default().to_string();
     if url.starts_with("oku:home") || url.starts_with("about:") || url.starts_with("view-source:") {
         url = "".to_string();
     }
@@ -84,6 +85,7 @@ pub fn update_nav_bar(nav_entry: &impl IsA<gtk::Editable>, web_view: &webkit2gtk
         url = search_stripped.to_owned();
     }
     nav_entry.set_text(&uri_for_display(&url).unwrap_or_default());
+    nav_entry.update_policy_setting_from_uri(web_view.uri().unwrap_or_default().to_string());
 }
 
 /// Provide the default configuration for Oku's WebView
