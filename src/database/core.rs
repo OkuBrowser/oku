@@ -1,4 +1,5 @@
 use super::*;
+use crate::database::policy::PolicySettingRecord;
 use crate::{suggestion_item::SuggestionItem, DATA_DIR};
 use miette::IntoDiagnostic;
 use native_db::*;
@@ -14,6 +15,7 @@ pub(crate) static MODELS: LazyLock<Models> = LazyLock::new(|| {
     let mut models = Models::new();
     models.define::<HistoryRecord>().unwrap();
     models.define::<Bookmark>().unwrap();
+    models.define::<PolicySettingRecord>().unwrap();
     models
 });
 
