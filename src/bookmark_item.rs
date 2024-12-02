@@ -1,3 +1,5 @@
+use crate::database::Bookmark;
+use crate::widgets::window::Window;
 use glib::clone;
 use glib::object::ObjectExt;
 use glib::property::PropertySet;
@@ -104,6 +106,9 @@ glib::wrapper! {
     pub struct BookmarkItem(ObjectSubclass<imp::BookmarkItem>);
 }
 
+unsafe impl Send for BookmarkItem {}
+unsafe impl Sync for BookmarkItem {}
+
 impl BookmarkItem {
     pub fn url(&self) -> String {
         self.imp().url.borrow().to_string()
@@ -119,6 +124,33 @@ impl BookmarkItem {
     }
     pub fn favicon(&self) -> Option<gdk::Texture> {
         self.imp().favicon.borrow().clone()
+    }
+    pub fn update(&self, bookmark: Bookmark, window: Window) {
+        let ctx = glib::MainContext::default();
+        let this = self.clone();
+        ctx.invoke(move || {
+            let favicon_database = window.favicon_database();
+            this.set_properties(&[
+                ("url", &bookmark.url),
+                ("title", &bookmark.title),
+                ("body", &bookmark.body),
+                (
+                    "tags",
+                    &bookmark.tags.clone().into_iter().collect::<Vec<_>>(),
+                ),
+            ]);
+            favicon_database.favicon(
+                &bookmark.url,
+                Some(&gio::Cancellable::new()),
+                clone!(
+                    #[weak]
+                    this,
+                    move |favicon_result| {
+                        this.set_property("favicon", favicon_result.ok());
+                    }
+                ),
+            );
+        });
     }
     pub fn new(
         url: String,

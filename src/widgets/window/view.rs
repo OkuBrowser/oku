@@ -20,7 +20,7 @@ use webkit2gtk::functions::{
 };
 use webkit2gtk::prelude::PermissionRequestExt;
 use webkit2gtk::prelude::WebViewExt;
-use webkit2gtk::LoadEvent;
+use webkit2gtk::{FaviconDatabase, LoadEvent};
 use webkit2gtk::{WebContext, WebView};
 
 impl Window {
@@ -143,6 +143,16 @@ impl Window {
         }
     }
 
+    pub fn favicon_database(&self) -> FaviconDatabase {
+        self.get_view()
+            .network_session()
+            .unwrap()
+            .website_data_manager()
+            .unwrap()
+            .favicon_database()
+            .unwrap()
+    }
+
     /// Create a new WebKit instance for the current tab
     ///
     /// # Arguments
@@ -242,7 +252,7 @@ impl Window {
                             imp.total_matches_label
                                 .set_text(&format!("{} matches", match_count));
                         } else {
-                            imp.total_matches_label.set_text("");
+                            imp.total_matches_label.set_text("1 match");
                         }
                     }
                 ))));
@@ -252,7 +262,23 @@ impl Window {
                         #[weak]
                         imp,
                         move |_find_controller| {
-                            imp.total_matches_label.set_text("");
+                            imp.total_matches_label.set_text("No matches");
+                        }
+                    ))));
+
+                let show_notification =
+                    RefCell::new(Some(new_view.connect_show_notification(clone!(
+                        #[weak]
+                        new_page,
+                        #[weak]
+                        imp,
+                        #[upgrade_or]
+                        false,
+                        move |_w, _notification| {
+                            if !matches!(imp.tab_view.selected_page(), Some(x) if x == new_page) {
+                                new_page.set_needs_attention(true);
+                            }
+                            false
                         }
                     ))));
 
@@ -559,6 +585,9 @@ impl Window {
                         }
                         if let Some(id) = found_text.take() {
                             old_find_controller.disconnect(id);
+                        }
+                        if let Some(id) = show_notification.take() {
+                            old_view.disconnect(id);
                         }
                         if let Some(id) = close.take() {
                             old_view.disconnect(id);

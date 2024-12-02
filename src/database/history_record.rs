@@ -6,7 +6,6 @@ use oku_fs::fs::FS_PATH;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::{
-    cmp::Reverse,
     collections::HashMap,
     path::PathBuf,
     sync::{Arc, LazyLock},
@@ -273,7 +272,7 @@ impl BrowserDatabase {
             .into_diagnostic()?
             .collect::<Result<Vec<_>, _>>()
             .into_diagnostic()?;
-        history_records.sort_unstable_by_key(|x: &HistoryRecord| Reverse(x.timestamp));
+        history_records.sort_unstable_by_key(|x: &HistoryRecord| x.timestamp);
         Ok(history_records)
     }
 

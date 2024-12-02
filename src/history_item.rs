@@ -1,3 +1,5 @@
+use crate::database::HistoryRecord;
+use crate::widgets::window::Window;
 use glib::clone;
 use glib::object::ObjectExt;
 use glib::property::PropertySet;
@@ -98,6 +100,9 @@ glib::wrapper! {
     pub struct HistoryItem(ObjectSubclass<imp::HistoryItem>);
 }
 
+unsafe impl Send for HistoryItem {}
+unsafe impl Sync for HistoryItem {}
+
 impl HistoryItem {
     pub fn id(&self) -> Uuid {
         self.imp().id.borrow().to_owned()
@@ -113,6 +118,31 @@ impl HistoryItem {
     }
     pub fn favicon(&self) -> Option<gdk::Texture> {
         self.imp().favicon.borrow().clone()
+    }
+
+    pub fn update(&self, history_record: HistoryRecord, window: Window) {
+        let ctx = glib::MainContext::default();
+        let this = self.clone();
+        ctx.invoke(move || {
+            let favicon_database = window.favicon_database();
+            this.set_properties(&[
+                ("id", &history_record.id.to_string()),
+                ("title", &history_record.title.clone().unwrap_or_default()),
+                ("timestamp", &history_record.timestamp.to_rfc2822()),
+                ("uri", &history_record.uri),
+            ]);
+            favicon_database.favicon(
+                &history_record.uri,
+                Some(&gio::Cancellable::new()),
+                clone!(
+                    #[weak]
+                    this,
+                    move |favicon_result| {
+                        this.set_property("favicon", favicon_result.ok());
+                    }
+                ),
+            );
+        });
     }
     pub fn new(
         id: Uuid,

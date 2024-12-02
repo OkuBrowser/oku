@@ -74,6 +74,9 @@ glib::wrapper! {
     pub struct ReplicaItem(ObjectSubclass<imp::ReplicaItem>);
 }
 
+unsafe impl Send for ReplicaItem {}
+unsafe impl Sync for ReplicaItem {}
+
 impl ReplicaItem {
     pub fn id(&self) -> String {
         self.imp().id.borrow().to_string()

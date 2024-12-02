@@ -228,14 +228,7 @@ impl Window {
             self,
             move |_nav_entry| {
                 if imp.nav_entry_focus.borrow().contains_focus() {
-                    let favicon_database = this
-                        .get_view()
-                        .network_session()
-                        .unwrap()
-                        .website_data_manager()
-                        .unwrap()
-                        .favicon_database()
-                        .unwrap();
+                    let favicon_database = this.favicon_database();
 
                     let suggestion_items = DATABASE
                         .search(imp.nav_entry.text().to_string(), &favicon_database)

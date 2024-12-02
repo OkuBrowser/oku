@@ -119,39 +119,34 @@ impl Window {
 
         // Selected tab changed
         imp.tab_view.connect_selected_page_notify(clone!(
-            #[weak(rename_to = nav_entry)]
-            imp.nav_entry,
-            #[weak(rename_to = refresh_button)]
-            imp.refresh_button,
-            #[weak(rename_to = back_button)]
-            imp.back_button,
-            #[weak(rename_to = forward_button)]
-            imp.forward_button,
-            #[weak(rename_to = zoom_percentage)]
-            imp.zoom_percentage,
             #[weak]
             style_manager,
             #[weak]
             imp,
             #[weak(rename_to = this)]
             self,
-            move |_| {
+            move |tab_view| {
+                if let Some(selected_page) = tab_view.selected_page() {
+                    selected_page.set_needs_attention(false);
+                }
                 let web_view = this.get_view();
-                update_nav_bar(&nav_entry, &web_view);
+                update_nav_bar(&imp.nav_entry, &web_view);
                 match imp.is_private.get() {
                     true => this.set_title(Some(&format!("{} — Private", get_title(&web_view)))),
                     false => this.set_title(Some(&get_title(&web_view))),
                 }
                 this.update_load_progress(&web_view);
                 if web_view.is_loading() {
-                    refresh_button.set_icon_name("cross-large-symbolic")
+                    imp.refresh_button.set_icon_name("cross-large-symbolic")
                 } else {
-                    refresh_button.set_icon_name("arrow-circular-top-right-symbolic")
+                    imp.refresh_button
+                        .set_icon_name("arrow-circular-top-right-symbolic")
                 }
-                back_button.set_sensitive(web_view.can_go_back());
-                forward_button.set_sensitive(web_view.can_go_forward());
+                imp.back_button.set_sensitive(web_view.can_go_back());
+                imp.forward_button.set_sensitive(web_view.can_go_forward());
                 this.update_color(&web_view, &style_manager);
-                zoom_percentage.set_text(&format!("{:.0}%", web_view.zoom_level() * 100.0))
+                imp.zoom_percentage
+                    .set_text(&format!("{:.0}%", web_view.zoom_level() * 100.0))
             }
         ));
     }

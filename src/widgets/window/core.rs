@@ -174,6 +174,9 @@ glib::wrapper! {
     @implements gio::ActionMap, gio::ActionGroup;
 }
 
+unsafe impl Send for Window {}
+unsafe impl Sync for Window {}
+
 impl Window {
     pub fn new(
         app: &libadwaita::Application,

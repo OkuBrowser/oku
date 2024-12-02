@@ -4,7 +4,10 @@ use crate::database::DATABASE;
 use crate::history_item::HistoryItem;
 use crate::replica_item::ReplicaItem;
 use crate::window_util::get_view_stack_page_by_name;
-use crate::{widgets, NODE};
+use crate::{
+    widgets, BOOKMARK_SIDEBAR_INITIALISED, HISTORY_SIDEBAR_INITIALISED, NODE,
+    REPLICA_SIDEBAR_INITIALISED,
+};
 use glib::{clone, closure, Object};
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
@@ -14,6 +17,7 @@ use log::error;
 use oku_fs::iroh::docs::CapabilityKind;
 use std::cell::Ref;
 use std::rc::Rc;
+use std::sync::atomic::Ordering;
 use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::WebContext;
 
@@ -28,32 +32,68 @@ impl Window {
     }
 
     pub fn bookmarks_updated(&self) {
-        let favicon_database = self
-            .get_view()
-            .network_session()
-            .unwrap()
-            .website_data_manager()
-            .unwrap()
-            .favicon_database()
-            .unwrap();
+        let bookmarks_page =
+            get_view_stack_page_by_name("bookmarks".to_string(), &self.imp().side_view_stack)
+                .unwrap();
+        bookmarks_page.child().set_sensitive(false);
+        // let favicon_database = self
+        //     .get_view()
+        //     .network_session()
+        //     .unwrap()
+        //     .website_data_manager()
+        //     .unwrap()
+        //     .favicon_database()
+        //     .unwrap();
         let bookmarks_store = self.bookmarks_store();
-        let bookmarks = DATABASE.get_bookmarks().unwrap_or_default();
-        let items: Vec<_> = bookmarks
-            .into_iter()
-            .map(|x| BookmarkItem::new(x.url, x.title, x.body, x.tags, &favicon_database))
-            .collect();
-        bookmarks_store.remove_all();
-        if !items.is_empty() {
-            for item in items.iter() {
-                bookmarks_store.append(item);
+        let mut bookmarks = DATABASE.get_bookmarks().unwrap_or_default();
+        let old_store = bookmarks_store.snapshot();
+        for (item_index, item) in old_store
+            .iter()
+            .filter_map(|x| x.clone().downcast::<BookmarkItem>().ok())
+            .enumerate()
+        {
+            match bookmarks.iter().position(|x| x.url == item.url()) {
+                Some(bookmark_index) => {
+                    let bookmark = &bookmarks[bookmark_index];
+                    item.update(bookmark.clone(), self.clone());
+                    bookmarks.remove(bookmark_index);
+                }
+                None => bookmarks_store.remove(item_index as u32),
             }
         }
+        let ctx = glib::MainContext::default();
+        let this = self.clone();
+        ctx.invoke(move || {
+            let bookmarks_store = this.bookmarks_store();
+            let favicon_database = this.favicon_database();
+            for x in bookmarks.into_iter() {
+                bookmarks_store.append(&BookmarkItem::new(
+                    x.url,
+                    x.title,
+                    x.body,
+                    x.tags,
+                    &favicon_database,
+                ));
+            }
+        });
 
-        if let Some(bookmarks_page) =
-            get_view_stack_page_by_name("bookmarks".to_string(), &self.imp().side_view_stack)
-        {
-            bookmarks_page.set_needs_attention(true)
-        }
+        let items_changed = BOOKMARK_SIDEBAR_INITIALISED.load(Ordering::Relaxed)
+            && old_store != bookmarks_store.snapshot();
+        // let items: HashSet<_> = bookmarks
+        //     .into_iter()
+        //     .map(|x| BookmarkItem::new(x.url, x.title, x.body, x.tags, &favicon_database))
+        //     .collect();
+        // let current_list_items: HashSet<_> =  bookmarks_store.snapshot().iter().filter_map(|x| x.clone().downcast::<BookmarkItem>().ok()).collect();
+        // let added_items: HashSet<_> = items.difference(&current_list_items).collect();
+        // let removed_items: HashSet<_> = current_list_items.difference(&items).collect();
+        // let items_changed = BOOKMARK_SIDEBAR_INITIALISED.load(Ordering::Relaxed) && (added_items.len() + removed_items.len()) > 0;
+        // bookmarks_store.retain(|x| !removed_items.contains(&x.clone().downcast::<BookmarkItem>().unwrap()));
+        // for item in added_items.into_iter() {
+        //     bookmarks_store.append(item);
+        // }
+
+        bookmarks_page.set_needs_attention(bookmarks_page.needs_attention() || items_changed);
+        bookmarks_page.child().set_sensitive(true);
     }
 
     pub fn history_store(&self) -> Ref<gio::ListStore> {
@@ -66,40 +106,79 @@ impl Window {
     }
 
     pub fn history_updated(&self) {
-        let favicon_database = self
-            .get_view()
-            .network_session()
-            .unwrap()
-            .website_data_manager()
-            .unwrap()
-            .favicon_database()
-            .unwrap();
+        let history_page =
+            get_view_stack_page_by_name("history".to_string(), &self.imp().side_view_stack)
+                .unwrap();
+        history_page.child().set_sensitive(false);
+        // let favicon_database = self
+        //     .get_view()
+        //     .network_session()
+        //     .unwrap()
+        //     .website_data_manager()
+        //     .unwrap()
+        //     .favicon_database()
+        //     .unwrap();
         let history_store = self.history_store();
-        let history_records = DATABASE.get_history_records().unwrap_or_default();
-        let items: Vec<_> = history_records
-            .into_iter()
-            .map(|x| {
-                HistoryItem::new(
-                    x.id,
-                    x.title.unwrap_or_default(),
-                    x.uri,
-                    x.timestamp.to_rfc2822(),
-                    &favicon_database,
-                )
-            })
-            .collect();
-        history_store.remove_all();
-        if !items.is_empty() {
-            for item in items.iter() {
-                history_store.append(item);
+        let mut history_records = DATABASE.get_history_records().unwrap_or_default();
+        let old_store = history_store.snapshot();
+        for (item_index, item) in old_store
+            .iter()
+            .filter_map(|x| x.clone().downcast::<HistoryItem>().ok())
+            .enumerate()
+        {
+            match history_records.iter().position(|x| x.id == item.id()) {
+                Some(history_record_index) => {
+                    let history_record = &history_records[history_record_index];
+                    item.update(history_record.clone(), self.clone());
+                    history_records.remove(history_record_index);
+                }
+                None => history_store.remove(item_index as u32),
             }
         }
+        let ctx = glib::MainContext::default();
+        let this = self.clone();
+        ctx.invoke(move || {
+            let history_store = this.history_store();
+            let favicon_database = this.favicon_database();
+            for x in history_records.into_iter() {
+                history_store.insert(
+                    0,
+                    &HistoryItem::new(
+                        x.id,
+                        x.title.unwrap_or_default(),
+                        x.uri,
+                        x.timestamp.to_rfc2822(),
+                        &favicon_database,
+                    ),
+                );
+            }
+        });
 
-        if let Some(history_page) =
-            get_view_stack_page_by_name("history".to_string(), &self.imp().side_view_stack)
-        {
-            history_page.set_needs_attention(true)
-        }
+        let items_changed = HISTORY_SIDEBAR_INITIALISED.load(Ordering::Relaxed)
+            && old_store != history_store.snapshot();
+        // let items: HashSet<_> = history_records
+        //     .into_iter()
+        //     .map(|x| {
+        //         HistoryItem::new(
+        //             x.id,
+        //             x.title.unwrap_or_default(),
+        //             x.uri,
+        //             x.timestamp.to_rfc2822(),
+        //             &favicon_database,
+        //         )
+        //     })
+        //     .collect();
+        // let current_list_items: HashSet<_> =  history_store.snapshot().iter().filter_map(|x| x.clone().downcast::<BookmarkItem>().ok()).collect();
+        // let added_items: HashSet<_> = items.difference(&current_list_items).collect();
+        // let removed_items: HashSet<_> = current_list_items.difference(&items).collect();
+        // let items_changed = BOOKMARK_SIDEBAR_INITIALISED.load(Ordering::Relaxed) && (added_items.len() + removed_items.len()) > 0;
+        // history_store.retain(|x| !removed_items.contains(&x.clone().downcast::<HistoryItem>().unwrap()));
+        // for item in added_items.into_iter() {
+        //     history_store.append(item);
+        // }
+
+        history_page.set_needs_attention(history_page.needs_attention() || items_changed);
+        history_page.child().set_sensitive(true);
     }
 
     pub fn replicas_store(&self) -> Ref<gio::ListStore> {
@@ -111,56 +190,61 @@ impl Window {
         })
     }
 
-    pub fn replicas_updated(&self) {
-        let ctx = glib::MainContext::default();
-        ctx.spawn_local_with_priority(
-            glib::source::Priority::HIGH,
-            clone!(
-                #[weak(rename_to = this)]
-                self,
-                async move {
-                    if let Some(node) = NODE.get() {
-                        if let Ok(mut replicas) = node.list_replicas().await {
-                            let home_replica = node.home_replica().await;
-                            let replicas_store = this.replicas_store();
-                            for item_index in 0..replicas_store.n_items() {
-                                let item: ReplicaItem =
-                                    replicas_store.item(item_index).unwrap().downcast().unwrap();
-                                match replicas.iter().position(|x| x.0.to_string() == item.id()) {
-                                    Some(replica_index) => {
-                                        let (replica, capability_kind) = replicas[replica_index];
-                                        item.set_properties(&[
-                                            ("id", &replica.to_string()),
-                                            (
-                                                "writable",
-                                                &matches!(capability_kind, CapabilityKind::Write),
-                                            ),
-                                            (
-                                                "home",
-                                                &matches!(home_replica, Some(x) if x == replica),
-                                            ),
-                                        ]);
-                                        replicas.remove(replica_index);
-                                    }
-                                    None => replicas_store.remove(item_index),
-                                }
-                            }
-                            for (replica, capability_kind) in replicas.iter() {
-                                replicas_store.append(&ReplicaItem::new(
-                                    replica.to_string(),
-                                    matches!(capability_kind, CapabilityKind::Write),
-                                    matches!(home_replica, Some(x) if x == *replica),
-                                ));
-                            }
-                        }
-                    }
-                }
-            ),
-        );
+    pub async fn replicas_updated(&self) {
         if let Some(replicas_page) =
             get_view_stack_page_by_name("replicas".to_string(), &self.imp().side_view_stack)
         {
-            replicas_page.set_needs_attention(true)
+            replicas_page.child().set_sensitive(false);
+        }
+        if let Some(node) = NODE.get() {
+            if let Ok(mut replicas) = node.list_replicas().await {
+                let home_replica = node.home_replica().await;
+                let replicas_store = self.replicas_store();
+                let old_store = replicas_store.snapshot();
+                for (item_index, item) in old_store
+                    .iter()
+                    .filter_map(|x| x.clone().downcast::<ReplicaItem>().ok())
+                    .enumerate()
+                {
+                    match replicas.iter().position(|x| x.0.to_string() == item.id()) {
+                        Some(replica_index) => {
+                            let (replica, capability_kind) = replicas[replica_index];
+                            item.set_properties(&[
+                                ("id", &replica.to_string()),
+                                (
+                                    "writable",
+                                    &matches!(capability_kind, CapabilityKind::Write),
+                                ),
+                                ("home", &matches!(home_replica, Some(x) if x == replica)),
+                            ]);
+                            replicas.remove(replica_index);
+                        }
+                        None => replicas_store.remove(item_index as u32),
+                    }
+                }
+                let ctx = glib::MainContext::default();
+                let this = self.clone();
+                ctx.invoke(move || {
+                    let replicas_store = this.replicas_store();
+                    for (replica, capability_kind) in replicas.iter() {
+                        replicas_store.append(&ReplicaItem::new(
+                            replica.to_string(),
+                            matches!(capability_kind, CapabilityKind::Write),
+                            matches!(home_replica, Some(x) if x == *replica),
+                        ));
+                    }
+                });
+
+                let items_changed = REPLICA_SIDEBAR_INITIALISED.load(Ordering::Relaxed)
+                    && old_store != replicas_store.snapshot();
+                if let Some(replicas_page) =
+                    get_view_stack_page_by_name("replicas".to_string(), &self.imp().side_view_stack)
+                {
+                    replicas_page
+                        .set_needs_attention(replicas_page.needs_attention() || items_changed);
+                    replicas_page.child().set_sensitive(true);
+                }
+            }
         }
     }
 
