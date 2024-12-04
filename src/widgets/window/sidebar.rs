@@ -36,14 +36,6 @@ impl Window {
             get_view_stack_page_by_name("bookmarks".to_string(), &self.imp().side_view_stack)
                 .unwrap();
         bookmarks_page.child().set_sensitive(false);
-        // let favicon_database = self
-        //     .get_view()
-        //     .network_session()
-        //     .unwrap()
-        //     .website_data_manager()
-        //     .unwrap()
-        //     .favicon_database()
-        //     .unwrap();
         let bookmarks_store = self.bookmarks_store();
         let mut bookmarks = DATABASE.get_bookmarks().unwrap_or_default();
         let old_store = bookmarks_store.snapshot();
@@ -79,18 +71,6 @@ impl Window {
 
         let items_changed = BOOKMARK_SIDEBAR_INITIALISED.load(Ordering::Relaxed)
             && old_store != bookmarks_store.snapshot();
-        // let items: HashSet<_> = bookmarks
-        //     .into_iter()
-        //     .map(|x| BookmarkItem::new(x.url, x.title, x.body, x.tags, &favicon_database))
-        //     .collect();
-        // let current_list_items: HashSet<_> =  bookmarks_store.snapshot().iter().filter_map(|x| x.clone().downcast::<BookmarkItem>().ok()).collect();
-        // let added_items: HashSet<_> = items.difference(&current_list_items).collect();
-        // let removed_items: HashSet<_> = current_list_items.difference(&items).collect();
-        // let items_changed = BOOKMARK_SIDEBAR_INITIALISED.load(Ordering::Relaxed) && (added_items.len() + removed_items.len()) > 0;
-        // bookmarks_store.retain(|x| !removed_items.contains(&x.clone().downcast::<BookmarkItem>().unwrap()));
-        // for item in added_items.into_iter() {
-        //     bookmarks_store.append(item);
-        // }
 
         bookmarks_page.set_needs_attention(bookmarks_page.needs_attention() || items_changed);
         bookmarks_page.child().set_sensitive(true);
@@ -110,14 +90,6 @@ impl Window {
             get_view_stack_page_by_name("history".to_string(), &self.imp().side_view_stack)
                 .unwrap();
         history_page.child().set_sensitive(false);
-        // let favicon_database = self
-        //     .get_view()
-        //     .network_session()
-        //     .unwrap()
-        //     .website_data_manager()
-        //     .unwrap()
-        //     .favicon_database()
-        //     .unwrap();
         let history_store = self.history_store();
         let mut history_records = DATABASE.get_history_records().unwrap_or_default();
         let old_store = history_store.snapshot();
@@ -156,26 +128,6 @@ impl Window {
 
         let items_changed = HISTORY_SIDEBAR_INITIALISED.load(Ordering::Relaxed)
             && old_store != history_store.snapshot();
-        // let items: HashSet<_> = history_records
-        //     .into_iter()
-        //     .map(|x| {
-        //         HistoryItem::new(
-        //             x.id,
-        //             x.title.unwrap_or_default(),
-        //             x.uri,
-        //             x.timestamp.to_rfc2822(),
-        //             &favicon_database,
-        //         )
-        //     })
-        //     .collect();
-        // let current_list_items: HashSet<_> =  history_store.snapshot().iter().filter_map(|x| x.clone().downcast::<BookmarkItem>().ok()).collect();
-        // let added_items: HashSet<_> = items.difference(&current_list_items).collect();
-        // let removed_items: HashSet<_> = current_list_items.difference(&items).collect();
-        // let items_changed = BOOKMARK_SIDEBAR_INITIALISED.load(Ordering::Relaxed) && (added_items.len() + removed_items.len()) > 0;
-        // history_store.retain(|x| !removed_items.contains(&x.clone().downcast::<HistoryItem>().unwrap()));
-        // for item in added_items.into_iter() {
-        //     history_store.append(item);
-        // }
 
         history_page.set_needs_attention(history_page.needs_attention() || items_changed);
         history_page.child().set_sensitive(true);
@@ -349,13 +301,36 @@ impl Window {
             .set_propagate_natural_height(true);
         imp.bookmarks_scrolled_window
             .set_propagate_natural_width(true);
+        self.bookmarks_store()
+            .property_expression("n-items")
+            .chain_closure::<bool>(closure!(|_: Option<Object>, x: u32| { x == 0 }))
+            .bind(&imp.bookmarks_placeholder, "visible", gtk::Widget::NONE);
+        imp.bookmarks_placeholder
+            .property_expression("visible")
+            .chain_closure::<bool>(closure!(|_: Option<Object>, x: bool| { !x }))
+            .bind(&imp.bookmarks_scrolled_window, "visible", gtk::Widget::NONE);
 
         imp.bookmarks_label.set_label("Bookmarks");
         imp.bookmarks_label.set_margin_top(24);
         imp.bookmarks_label.set_margin_bottom(24);
         imp.bookmarks_label.add_css_class("title-1");
+        imp.bookmarks_placeholder.set_label("No bookmarks … ");
+        imp.bookmarks_placeholder.set_margin_top(24);
+        imp.bookmarks_placeholder.set_margin_bottom(24);
+        imp.bookmarks_placeholder.add_css_class("title-2");
+        imp.bookmarks_search_placeholder
+            .set_label("No bookmarks found … ");
+        imp.bookmarks_search_placeholder.set_margin_top(24);
+        imp.bookmarks_search_placeholder.set_margin_bottom(24);
+        imp.bookmarks_search_placeholder.add_css_class("title-2");
 
         self.setup_bookmarks_stack(web_context);
+
+        imp.bookmarks_all_box
+            .set_orientation(gtk::Orientation::Vertical);
+        imp.bookmarks_all_box.set_spacing(4);
+        imp.bookmarks_all_box.append(&imp.bookmarks_placeholder);
+        imp.bookmarks_all_box.append(&imp.bookmarks_scrolled_window);
 
         imp.bookmarks_box
             .set_orientation(gtk::Orientation::Vertical);
@@ -379,9 +354,9 @@ impl Window {
         imp.bookmarks_stack
             .set_transition_type(gtk::StackTransitionType::Crossfade);
         imp.bookmarks_stack
-            .add_named(&imp.bookmarks_scrolled_window, Some("all"));
+            .add_named(&imp.bookmarks_all_box, Some("all"));
         imp.bookmarks_stack
-            .add_named(&imp.bookmarks_search_scrolled_window, Some("search"));
+            .add_named(&imp.bookmarks_search_box, Some("search"));
         imp.bookmarks_search
             .set_placeholder_text(Some("Search bookmarks … "));
         imp.bookmarks_search
@@ -529,6 +504,28 @@ impl Window {
             .set_propagate_natural_height(true);
         imp.bookmarks_search_scrolled_window
             .set_propagate_natural_width(true);
+        imp.bookmarks_search_box
+            .append(&imp.bookmarks_search_placeholder);
+        imp.bookmarks_search_box
+            .append(&imp.bookmarks_search_scrolled_window);
+        imp.bookmarks_filter_model
+            .property_expression("n-items")
+            .chain_closure::<bool>(closure!(|_: Option<Object>, x: u32| { x == 0 }))
+            .bind(
+                &imp.bookmarks_search_placeholder,
+                "visible",
+                gtk::Widget::NONE,
+            );
+        imp.bookmarks_search_placeholder
+            .property_expression("visible")
+            .chain_closure::<bool>(closure!(|_: Option<Object>, x: bool| { !x }))
+            .bind(
+                &imp.bookmarks_search_scrolled_window,
+                "visible",
+                gtk::Widget::NONE,
+            );
+        imp.bookmarks_search_box
+            .set_orientation(gtk::Orientation::Vertical);
     }
 
     pub fn setup_history_page(&self, web_context: &WebContext) {
@@ -601,13 +598,36 @@ impl Window {
             .set_propagate_natural_height(true);
         imp.history_scrolled_window
             .set_propagate_natural_width(true);
+        self.history_store()
+            .property_expression("n-items")
+            .chain_closure::<bool>(closure!(|_: Option<Object>, x: u32| { x == 0 }))
+            .bind(&imp.history_placeholder, "visible", gtk::Widget::NONE);
+        imp.history_placeholder
+            .property_expression("visible")
+            .chain_closure::<bool>(closure!(|_: Option<Object>, x: bool| { !x }))
+            .bind(&imp.history_scrolled_window, "visible", gtk::Widget::NONE);
 
         imp.history_label.set_label("History");
         imp.history_label.set_margin_top(24);
         imp.history_label.set_margin_bottom(24);
         imp.history_label.add_css_class("title-1");
+        imp.history_placeholder.set_label("No history records … ");
+        imp.history_placeholder.set_margin_top(24);
+        imp.history_placeholder.set_margin_bottom(24);
+        imp.history_placeholder.add_css_class("title-2");
+        imp.history_search_placeholder
+            .set_label("No history records found … ");
+        imp.history_search_placeholder.set_margin_top(24);
+        imp.history_search_placeholder.set_margin_bottom(24);
+        imp.history_search_placeholder.add_css_class("title-2");
 
         self.setup_history_stack(web_context);
+
+        imp.history_all_box
+            .set_orientation(gtk::Orientation::Vertical);
+        imp.history_all_box.set_spacing(4);
+        imp.history_all_box.append(&imp.history_placeholder);
+        imp.history_all_box.append(&imp.history_scrolled_window);
 
         imp.history_box.set_orientation(gtk::Orientation::Vertical);
         imp.history_box.set_spacing(4);
@@ -630,9 +650,9 @@ impl Window {
         imp.history_stack
             .set_transition_type(gtk::StackTransitionType::Crossfade);
         imp.history_stack
-            .add_named(&imp.history_scrolled_window, Some("all"));
+            .add_named(&imp.history_all_box, Some("all"));
         imp.history_stack
-            .add_named(&imp.history_search_scrolled_window, Some("search"));
+            .add_named(&imp.history_search_box, Some("search"));
         imp.history_search
             .set_placeholder_text(Some("Search history entries … "));
         imp.history_search
@@ -747,6 +767,28 @@ impl Window {
             .set_propagate_natural_height(true);
         imp.history_search_scrolled_window
             .set_propagate_natural_width(true);
+        imp.history_search_box
+            .append(&imp.history_search_scrolled_window);
+        imp.history_search_box
+            .append(&imp.history_search_placeholder);
+        imp.history_filter_model
+            .property_expression("n-items")
+            .chain_closure::<bool>(closure!(|_: Option<Object>, x: u32| { x == 0 }))
+            .bind(
+                &imp.history_search_placeholder,
+                "visible",
+                gtk::Widget::NONE,
+            );
+        imp.history_search_placeholder
+            .property_expression("visible")
+            .chain_closure::<bool>(closure!(|_: Option<Object>, x: bool| { !x }))
+            .bind(
+                &imp.history_search_scrolled_window,
+                "visible",
+                gtk::Widget::NONE,
+            );
+        imp.history_search_box
+            .set_orientation(gtk::Orientation::Vertical);
     }
 
     pub fn setup_replicas_page(&self) {
@@ -844,14 +886,27 @@ impl Window {
             .set_propagate_natural_height(true);
         imp.replicas_scrolled_window
             .set_propagate_natural_width(true);
+        self.replicas_store()
+            .property_expression("n-items")
+            .chain_closure::<bool>(closure!(|_: Option<Object>, x: u32| { x == 0 }))
+            .bind(&imp.replicas_placeholder, "visible", gtk::Widget::NONE);
+        imp.replicas_placeholder
+            .property_expression("visible")
+            .chain_closure::<bool>(closure!(|_: Option<Object>, x: bool| { !x }))
+            .bind(&imp.replicas_scrolled_window, "visible", gtk::Widget::NONE);
 
         imp.replicas_label.set_label("Replicas");
         imp.replicas_label.set_margin_top(24);
         imp.replicas_label.set_margin_bottom(24);
         imp.replicas_label.add_css_class("title-1");
+        imp.replicas_placeholder.set_label("No replicas … ");
+        imp.replicas_placeholder.set_margin_top(24);
+        imp.replicas_placeholder.set_margin_bottom(24);
+        imp.replicas_placeholder.add_css_class("title-2");
 
         imp.replicas_box.set_orientation(gtk::Orientation::Vertical);
         imp.replicas_box.append(&imp.replicas_label);
+        imp.replicas_box.append(&imp.replicas_placeholder);
         imp.replicas_box.append(&imp.add_replicas_button);
         imp.replicas_box.append(&imp.replicas_scrolled_window);
 

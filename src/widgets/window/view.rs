@@ -413,7 +413,6 @@ impl Window {
                         false,
                         move |_w| {
                             imp.obj().set_fullscreened(true);
-                            imp.tab_bar_revealer.set_reveal_child(false);
                             true
                         }
                     ))));
@@ -425,7 +424,6 @@ impl Window {
                         false,
                         move |_w| {
                             imp.obj().set_fullscreened(false);
-                            imp.tab_bar_revealer.set_reveal_child(true);
                             true
                         }
                     ))));

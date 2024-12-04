@@ -7,8 +7,13 @@ Unleash your creativity and join a network of users supporting an independent ef
 
 ## Build instructions
 
-As this project has not reached a stable release, pre-built packages are not publicly available.
 If you are interested in using Oku, please follow the [documented build instructions](https://github.com/OkuBrowser/oku/blob/master/BUILDING.md).
+
+## Installation
+- Linux: [Flathub](https://flathub.org/apps/io.github.OkuBrowser.oku)
+- macOS: [Waitlist](https://forms.gle/toyf1N6zdWzSAdpH8)
+- Windows: [Waitlist](https://forms.gle/toyf1N6zdWzSAdpH8)
+- Other: [Waitlist](https://forms.gle/toyf1N6zdWzSAdpH8)
 
 ---
 

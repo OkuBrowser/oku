@@ -1,6 +1,6 @@
 use super::*;
 use crate::window_util::{get_view_stack_page_by_name, get_window_from_widget};
-use glib::clone;
+use glib::{clone, closure, Object};
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use libadwaita::{prelude::*, ResponseAppearance};
@@ -61,17 +61,30 @@ impl Window {
             .set_propagate_natural_height(true);
         imp.downloads_scrolled_window
             .set_propagate_natural_width(true);
+        self.downloads_store()
+            .property_expression("n-items")
+            .chain_closure::<bool>(closure!(|_: Option<Object>, x: u32| { x == 0 }))
+            .bind(&imp.downloads_placeholder, "visible", gtk::Widget::NONE);
+        imp.downloads_placeholder
+            .property_expression("visible")
+            .chain_closure::<bool>(closure!(|_: Option<Object>, x: bool| { !x }))
+            .bind(&imp.downloads_scrolled_window, "visible", gtk::Widget::NONE);
 
         imp.downloads_label.set_label("Downloads");
         imp.downloads_label.set_margin_top(24);
         imp.downloads_label.set_margin_bottom(24);
         imp.downloads_label.add_css_class("title-1");
+        imp.downloads_placeholder.set_label("No downloads … ");
+        imp.downloads_placeholder.set_margin_top(24);
+        imp.downloads_placeholder.set_margin_bottom(24);
+        imp.downloads_placeholder.add_css_class("title-2");
 
         imp.downloads_box
             .set_orientation(gtk::Orientation::Vertical);
         imp.downloads_box.set_spacing(4);
         imp.downloads_box.append(&imp.downloads_label);
         imp.downloads_box.append(&imp.downloads_scrolled_window);
+        imp.downloads_box.append(&imp.downloads_placeholder);
 
         imp.side_view_stack.add_titled_with_icon(
             &imp.downloads_box,

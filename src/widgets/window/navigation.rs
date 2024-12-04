@@ -85,8 +85,7 @@ impl Window {
         let imp = self.imp();
 
         // Navigation bar
-        imp.nav_entry
-            .add_controller(imp.nav_entry_focus.borrow().clone());
+        imp.nav_entry.add_controller(imp.nav_entry_focus.clone());
 
         // Back button
         imp.back_button.set_can_focus(true);
@@ -198,15 +197,7 @@ impl Window {
             }
         ));
 
-        imp.nav_entry_focus.borrow().connect_enter(clone!(
-            #[weak]
-            imp,
-            move |_| {
-                imp.nav_entry.grab_focus();
-            }
-        ));
-
-        imp.nav_entry_focus.borrow().connect_leave(clone!(
+        imp.nav_entry_focus.connect_leave(clone!(
             #[weak]
             imp,
             #[weak(rename_to = this)]
@@ -227,7 +218,7 @@ impl Window {
             #[weak(rename_to = this)]
             self,
             move |_nav_entry| {
-                if imp.nav_entry_focus.borrow().contains_focus() {
+                if imp.nav_entry_focus.contains_focus() {
                     let favicon_database = this.favicon_database();
 
                     let suggestion_items = DATABASE

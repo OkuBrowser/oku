@@ -5,7 +5,6 @@ use crate::APP_ID;
 use glib::clone;
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
-use gtk::EventControllerFocus;
 use gtk::{gio, glib};
 use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
 use libadwaita::{prelude::*, ResponseAppearance};
@@ -16,6 +15,8 @@ use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::{NetworkSession, WebContext};
 
 pub mod imp {
+    use gtk::EventControllerFocus;
+
     use super::*;
 
     #[derive(Debug, Default)]
@@ -27,7 +28,7 @@ pub mod imp {
         // Navigation bar
         // pub(crate) nav_entry: gtk::SearchEntry,
         pub(crate) nav_entry: AddressEntry,
-        pub(crate) nav_entry_focus: RefCell<EventControllerFocus>,
+        pub(crate) nav_entry_focus: EventControllerFocus,
         pub(crate) suggestions_store: RefCell<Option<Rc<gio::ListStore>>>,
         pub(crate) suggestions_factory: gtk::SignalListItemFactory,
         pub(crate) suggestions_model: gtk::SingleSelection,
@@ -89,6 +90,8 @@ pub mod imp {
         // Main content
         pub(crate) main_overlay: gtk::Overlay,
         pub(crate) main_box: gtk::Box,
+        pub(crate) fullscreen_box: libadwaita::ToolbarView,
+        pub(crate) fullscreen_motion_controller: gtk::EventControllerMotion,
         pub(crate) tab_overview: libadwaita::TabOverview,
         pub(crate) split_view: libadwaita::OverlaySplitView,
         // Sidebar content
@@ -103,6 +106,8 @@ pub mod imp {
         pub(crate) bookmarks_view: gtk::ListView,
         pub(crate) bookmarks_scrolled_window: gtk::ScrolledWindow,
         pub(crate) bookmarks_label: gtk::Label,
+        pub(crate) bookmarks_placeholder: gtk::Label,
+        pub(crate) bookmarks_all_box: gtk::Box,
         pub(crate) bookmarks_stack: gtk::Stack,
         pub(crate) bookmarks_search: gtk::SearchEntry,
         pub(crate) bookmarks_filter_model: gtk::FilterListModel,
@@ -110,6 +115,8 @@ pub mod imp {
         pub(crate) bookmarks_search_factory: gtk::SignalListItemFactory,
         pub(crate) bookmarks_search_view: gtk::ListView,
         pub(crate) bookmarks_search_scrolled_window: gtk::ScrolledWindow,
+        pub(crate) bookmarks_search_box: gtk::Box,
+        pub(crate) bookmarks_search_placeholder: gtk::Label,
         // History
         pub(crate) history_box: gtk::Box,
         pub(crate) history_store: RefCell<Option<Rc<gio::ListStore>>>,
@@ -118,6 +125,8 @@ pub mod imp {
         pub(crate) history_view: gtk::ListView,
         pub(crate) history_scrolled_window: gtk::ScrolledWindow,
         pub(crate) history_label: gtk::Label,
+        pub(crate) history_placeholder: gtk::Label,
+        pub(crate) history_all_box: gtk::Box,
         pub(crate) history_stack: gtk::Stack,
         pub(crate) history_search: gtk::SearchEntry,
         pub(crate) history_filter_model: gtk::FilterListModel,
@@ -125,6 +134,8 @@ pub mod imp {
         pub(crate) history_search_factory: gtk::SignalListItemFactory,
         pub(crate) history_search_view: gtk::ListView,
         pub(crate) history_search_scrolled_window: gtk::ScrolledWindow,
+        pub(crate) history_search_box: gtk::Box,
+        pub(crate) history_search_placeholder: gtk::Label,
         // Replicas
         pub(crate) add_replicas_button: gtk::Button,
         pub(crate) add_replicas_button_content: libadwaita::ButtonContent,
@@ -135,6 +146,7 @@ pub mod imp {
         pub(crate) replicas_view: gtk::ListView,
         pub(crate) replicas_scrolled_window: gtk::ScrolledWindow,
         pub(crate) replicas_label: gtk::Label,
+        pub(crate) replicas_placeholder: gtk::Label,
         // Downloads
         pub(crate) downloads_box: gtk::Box,
         pub(crate) downloads_store: RefCell<Option<Rc<gio::ListStore>>>,
@@ -143,6 +155,7 @@ pub mod imp {
         pub(crate) downloads_view: gtk::ListView,
         pub(crate) downloads_scrolled_window: gtk::ScrolledWindow,
         pub(crate) downloads_label: gtk::Label,
+        pub(crate) downloads_placeholder: gtk::Label,
         // Miscellaneous
         pub(crate) progress_animation: RefCell<Option<libadwaita::SpringAnimation>>,
         pub(crate) progress_bar: gtk::ProgressBar,
@@ -503,12 +516,30 @@ impl Window {
 
         imp.main_box.set_orientation(gtk::Orientation::Vertical);
         imp.main_box.set_vexpand(false);
-        imp.main_box.append(&imp.headerbar);
         imp.main_box.append(&imp.tab_bar_revealer);
         imp.main_box.append(&imp.main_overlay);
 
+        imp.fullscreen_box.add_top_bar(&imp.headerbar);
+        imp.fullscreen_box.set_content(Some(&imp.main_box));
+        imp.fullscreen_motion_controller.connect_motion(clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[weak]
+            imp,
+            move |_fullscreen_motion_controller, _x, y| {
+                match this.is_fullscreen() {
+                    true => imp.fullscreen_box.set_reveal_top_bars(
+                        y <= imp.fullscreen_box.top_bar_height().max(5).into(),
+                    ),
+                    false => imp.fullscreen_box.set_reveal_top_bars(true),
+                }
+            }
+        ));
+        imp.fullscreen_box
+            .add_controller(imp.fullscreen_motion_controller.clone());
+
         self.setup_sidebar(web_context);
-        imp.split_view.set_content(Some(&imp.main_box));
+        imp.split_view.set_content(Some(&imp.fullscreen_box));
         imp.split_view.set_sidebar(Some(&imp.side_box));
         imp.split_view.set_max_sidebar_width(400.0);
         imp.split_view.set_collapsed(true);
