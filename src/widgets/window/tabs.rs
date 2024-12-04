@@ -21,8 +21,10 @@ impl Window {
 
         imp.tab_bar_revealer.set_child(Some(&imp.tab_bar));
         imp.tab_bar_revealer
-            .set_transition_type(gtk::RevealerTransitionType::SwingDown);
-        imp.tab_bar_revealer.set_reveal_child(true);
+            .set_transition_type(gtk::RevealerTransitionType::SlideDown);
+        imp.fullscreen_box
+            .property_expression("reveal-top-bars")
+            .bind(&imp.tab_bar_revealer, "reveal-child", gtk::Widget::NONE);
     }
 
     /// Create a new entry in the TabBar
