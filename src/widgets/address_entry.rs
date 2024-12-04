@@ -1,20 +1,26 @@
 use crate::database::policy::PolicyDecision;
 use crate::database::policy::PolicySetting;
 use crate::database::policy::PolicySettingRecord;
+use crate::scheme_handlers::oku_path::OkuPath;
+use crate::NODE;
 use glib::clone;
 use glib::closure;
+use glib::property::PropertySet;
 use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
 use glib::ParamSpec;
 use glib::ParamSpecObject;
+use glib::ParamSpecString;
 use glib::SignalHandlerId;
 use glib::Value;
 use gtk::glib;
 use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::*;
 use libadwaita::prelude::*;
+use log::error;
 use std::cell::RefCell;
 use std::sync::LazyLock;
+use webkit2gtk::functions::uri_for_display;
 
 pub mod imp {
     use super::*;
@@ -22,7 +28,14 @@ pub mod imp {
     #[derive(Debug, Default)]
     pub struct AddressEntry {
         pub(crate) clicked_handler_id: RefCell<Option<SignalHandlerId>>,
+        pub(crate) uri: RefCell<String>,
         pub(crate) toolbox: gtk::Popover,
+        pub(crate) toolbox_scrolled_window: gtk::ScrolledWindow,
+        pub(crate) toolbox_content: gtk::Box,
+        // OkuNet
+        pub(crate) okunet_box: gtk::Box,
+        pub(crate) okunet_refresh_button: gtk::Button,
+        pub(crate) okunet_refresh_button_content: libadwaita::ButtonContent,
         // Site policies
         pub(crate) policy_setting: PolicySetting,
         pub(crate) policy_box: gtk::Box,
@@ -73,49 +86,29 @@ pub mod imp {
     impl ObjectImpl for AddressEntry {
         fn properties() -> &'static [ParamSpec] {
             static PROPERTIES: LazyLock<Vec<ParamSpec>> = LazyLock::new(|| {
-                vec![ParamSpecObject::builder::<PolicySetting>("policy-setting")
-                    .readwrite()
-                    .build()]
+                vec![
+                    ParamSpecObject::builder::<PolicySetting>("policy-setting")
+                        .readwrite()
+                        .build(),
+                    ParamSpecString::builder("uri").readwrite().build(),
+                ]
             });
             PROPERTIES.as_ref()
         }
 
         fn set_property(&self, _id: usize, value: &Value, pspec: &ParamSpec) {
             match pspec.name() {
+                "uri" => {
+                    let uri = value.get::<String>().unwrap_or_default();
+                    self.uri.set(
+                        html_escape::encode_text(&uri_for_display(&uri).unwrap_or(uri.into()))
+                            .to_string(),
+                    );
+                }
                 "policy-setting" => {
-                    let policy_setting = value.get::<PolicySetting>().unwrap();
-                    self.policy_setting.set_properties_from_value(&[
-                        ("uri", policy_setting.property_value("uri")),
-                        (
-                            "clipboard-policy",
-                            policy_setting.property_value("clipboard-policy"),
-                        ),
-                        (
-                            "device-info-policy",
-                            policy_setting.property_value("device-info-policy"),
-                        ),
-                        (
-                            "geolocation-policy",
-                            policy_setting.property_value("geolocation-policy"),
-                        ),
-                        ("cdm-policy", policy_setting.property_value("cdm-policy")),
-                        (
-                            "notification-policy",
-                            policy_setting.property_value("notification-policy"),
-                        ),
-                        (
-                            "pointer-lock-policy",
-                            policy_setting.property_value("pointer-lock-policy"),
-                        ),
-                        (
-                            "user-media-policy",
-                            policy_setting.property_value("user-media-policy"),
-                        ),
-                        (
-                            "data-access-policy",
-                            policy_setting.property_value("data-access-policy"),
-                        ),
-                    ]);
+                    if let Ok(policy_setting) = value.get::<PolicySetting>() {
+                        self.policy_setting.update(policy_setting);
+                    }
                 }
                 _ => unimplemented!(),
             }
@@ -123,6 +116,7 @@ pub mod imp {
 
         fn property(&self, _id: usize, pspec: &ParamSpec) -> Value {
             match pspec.name() {
+                "uri" => self.uri.borrow().to_value(),
                 "policy-setting" => self.policy_setting.to_owned().to_value(),
                 _ => unimplemented!(),
             }
@@ -148,7 +142,10 @@ unsafe impl Sync for AddressEntry {}
 
 impl AddressEntry {
     pub fn new() -> Self {
-        let this: Self = glib::Object::builder::<Self>().build();
+        let this: Self = glib::Object::builder::<Self>()
+            .property("uri", "about:blank")
+            .build();
+        let imp = this.imp();
 
         this.set_can_focus(true);
         this.set_focusable(true);
@@ -182,20 +179,31 @@ impl AddressEntry {
                 attributes
             }))
             .bind(&this, "attributes", gtk::Widget::NONE);
+        this.property_expression("uri")
+            .chain_closure::<PolicySetting>(closure!(|_: Option<glib::Object>, x: String| {
+                PolicySetting::from(PolicySettingRecord::from_uri(x))
+            }))
+            .bind(&this, "policy-setting", gtk::Widget::NONE);
+        this.property_expression("uri")
+            .chain_closure::<bool>(closure!(|_: Option<glib::Object>, x: String| {
+                let uri = &x.replacen("oku:", "", 1);
+                matches!(
+                    OkuPath::parse(uri),
+                    Ok(OkuPath::Home) | Ok(OkuPath::User(_, _))
+                )
+            }))
+            .bind(&imp.okunet_refresh_button, "visible", gtk::Widget::NONE);
         this.setup_click_handler();
         this.set_visible(true);
 
         this
     }
 
-    pub fn update_policy_setting_from_uri(&self, uri: String) {
+    pub fn update_uri(&self, uri: String) {
         self.set_primary_icon_sensitive(false);
         let this = self.clone();
         tokio::task::spawn_blocking(move || {
-            this.set_property(
-                "policy-setting",
-                PolicySetting::from(PolicySettingRecord::from_uri(uri)),
-            );
+            this.set_property("uri", uri);
             this.set_primary_icon_sensitive(true);
         });
     }
@@ -216,7 +224,11 @@ impl AddressEntry {
         let click_handler = self.connect_icon_release(clone!(move |this, icon_position| {
             match icon_position {
                 gtk::EntryIconPosition::Primary => {
-                    this.imp().toolbox.popup();
+                    let toolbox = &this.imp().toolbox;
+                    match toolbox.is_visible() {
+                        false => this.imp().toolbox.popup(),
+                        true => this.imp().toolbox.popdown(),
+                    }
                 }
                 gtk::EntryIconPosition::Secondary => {
                     this.buffer().delete_text(0, None);
@@ -254,14 +266,83 @@ impl AddressEntry {
     pub fn setup_toolbox(&self) {
         let imp = self.imp();
 
+        self.setup_okunet_box();
         self.setup_policy_box();
-        imp.toolbox.set_child(Some(&imp.policy_box));
+        imp.toolbox_content.append(&imp.okunet_box);
+        imp.toolbox_content.append(&imp.policy_box);
+        imp.toolbox_content
+            .set_orientation(gtk::Orientation::Vertical);
+        imp.toolbox_scrolled_window
+            .set_child(Some(&imp.toolbox_content));
+        imp.toolbox_scrolled_window
+            .set_propagate_natural_width(true);
+        imp.toolbox_scrolled_window
+            .set_propagate_natural_height(true);
+        imp.toolbox_scrolled_window.set_max_content_width(300);
+        imp.toolbox_scrolled_window.set_max_content_height(400);
+        imp.toolbox.set_child(Some(&imp.toolbox_scrolled_window));
         if let Some(primary_icon) = self.primary_icon().as_ref() {
             imp.toolbox.set_parent(primary_icon);
         } else {
             imp.toolbox.set_parent(self);
         }
         imp.toolbox.set_autohide(true);
+    }
+
+    pub fn setup_okunet_box(&self) {
+        let imp = self.imp();
+        imp.okunet_refresh_button_content
+            .set_label("Fetch from OkuNet");
+        imp.okunet_refresh_button_content
+            .set_icon_name("update-symbolic");
+        imp.okunet_refresh_button
+            .set_child(Some(&imp.okunet_refresh_button_content));
+        imp.okunet_refresh_button
+            .add_css_class("destructive-action");
+        imp.okunet_refresh_button.add_css_class("card");
+        imp.okunet_refresh_button.set_hexpand(true);
+        imp.okunet_refresh_button.set_vexpand(true);
+        imp.okunet_refresh_button.connect_clicked(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| {
+                tokio::spawn(async move { this.refresh_okunet().await });
+            }
+        ));
+        imp.okunet_box.append(&imp.okunet_refresh_button);
+    }
+
+    pub async fn refresh_okunet(&self) {
+        self.imp().okunet_refresh_button.set_sensitive(false);
+        if let Some(node) = NODE.get() {
+            let uri = &*self.imp().uri.borrow().replacen("oku:", "", 1);
+            let parsed_uri = OkuPath::parse(uri);
+            match parsed_uri {
+                Ok(OkuPath::Home) => {
+                    if let Err(e) = node.fetch_users().await {
+                        error!("{}", e);
+                    }
+                }
+                Ok(OkuPath::User(author_id, None)) => {
+                    if let Err(e) = node.fetch_user(author_id).await {
+                        error!("{}", e);
+                    }
+                }
+                Ok(OkuPath::User(author_id, Some(path))) => {
+                    let post_path = format!(
+                        "{}.toml",
+                        path.to_string_lossy()
+                            .strip_suffix(".html")
+                            .unwrap_or(&path.to_string_lossy())
+                    );
+                    if let Err(e) = node.fetch_post(author_id, post_path.into()).await {
+                        error!("{}", e);
+                    }
+                }
+                _ => (),
+            }
+        }
+        self.imp().okunet_refresh_button.set_sensitive(true);
     }
 
     pub fn setup_policy_box(&self) {

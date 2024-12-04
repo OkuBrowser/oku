@@ -4,10 +4,7 @@ use crate::database::DATABASE;
 use crate::history_item::HistoryItem;
 use crate::replica_item::ReplicaItem;
 use crate::window_util::get_view_stack_page_by_name;
-use crate::{
-    widgets, BOOKMARK_SIDEBAR_INITIALISED, HISTORY_SIDEBAR_INITIALISED, NODE,
-    REPLICA_SIDEBAR_INITIALISED,
-};
+use crate::{widgets, NODE};
 use glib::{clone, closure, Object};
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
@@ -17,7 +14,6 @@ use log::error;
 use oku_fs::iroh::docs::CapabilityKind;
 use std::cell::Ref;
 use std::rc::Rc;
-use std::sync::atomic::Ordering;
 use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::WebContext;
 
@@ -32,9 +28,10 @@ impl Window {
     }
 
     pub fn bookmarks_updated(&self) {
+        let imp = self.imp();
+
         let bookmarks_page =
-            get_view_stack_page_by_name("bookmarks".to_string(), &self.imp().side_view_stack)
-                .unwrap();
+            get_view_stack_page_by_name("bookmarks".to_string(), &imp.side_view_stack).unwrap();
         bookmarks_page.child().set_sensitive(false);
         let bookmarks_store = self.bookmarks_store();
         let mut bookmarks = DATABASE.get_bookmarks().unwrap_or_default();
@@ -69,10 +66,20 @@ impl Window {
             }
         });
 
-        let items_changed = BOOKMARK_SIDEBAR_INITIALISED.load(Ordering::Relaxed)
-            && old_store != bookmarks_store.snapshot();
+        let items_changed =
+            imp.bookmarks_sidebar_initialised.get() && old_store != bookmarks_store.snapshot();
 
-        bookmarks_page.set_needs_attention(bookmarks_page.needs_attention() || items_changed);
+        if matches!(get_view_stack_page_by_name(
+            imp.side_view_stack
+                .visible_child_name()
+                .unwrap_or_default()
+                .to_string(),
+                &imp.side_view_stack,
+        ), Some(x) if x == bookmarks_page)
+        {
+            bookmarks_page.set_needs_attention(bookmarks_page.needs_attention() || items_changed);
+        }
+
         bookmarks_page.child().set_sensitive(true);
     }
 
@@ -86,9 +93,10 @@ impl Window {
     }
 
     pub fn history_updated(&self) {
+        let imp = self.imp();
+
         let history_page =
-            get_view_stack_page_by_name("history".to_string(), &self.imp().side_view_stack)
-                .unwrap();
+            get_view_stack_page_by_name("history".to_string(), &imp.side_view_stack).unwrap();
         history_page.child().set_sensitive(false);
         let history_store = self.history_store();
         let mut history_records = DATABASE.get_history_records().unwrap_or_default();
@@ -126,10 +134,19 @@ impl Window {
             }
         });
 
-        let items_changed = HISTORY_SIDEBAR_INITIALISED.load(Ordering::Relaxed)
-            && old_store != history_store.snapshot();
+        let items_changed =
+            imp.history_sidebar_initialised.get() && old_store != history_store.snapshot();
 
-        history_page.set_needs_attention(history_page.needs_attention() || items_changed);
+        if matches!(get_view_stack_page_by_name(
+            imp.side_view_stack
+                .visible_child_name()
+                .unwrap_or_default()
+                .to_string(),
+                &imp.side_view_stack,
+        ), Some(x) if x == history_page)
+        {
+            history_page.set_needs_attention(history_page.needs_attention() || items_changed);
+        }
         history_page.child().set_sensitive(true);
     }
 
@@ -187,13 +204,22 @@ impl Window {
                     }
                 });
 
-                let items_changed = REPLICA_SIDEBAR_INITIALISED.load(Ordering::Relaxed)
+                let items_changed = self.imp().replicas_sidebar_initialised.get()
                     && old_store != replicas_store.snapshot();
                 if let Some(replicas_page) =
                     get_view_stack_page_by_name("replicas".to_string(), &self.imp().side_view_stack)
                 {
-                    replicas_page
-                        .set_needs_attention(replicas_page.needs_attention() || items_changed);
+                    if matches!(get_view_stack_page_by_name(
+                        self.imp().side_view_stack
+                            .visible_child_name()
+                            .unwrap_or_default()
+                            .to_string(),
+                            &self.imp().side_view_stack,
+                    ), Some(x) if x == replicas_page)
+                    {
+                        replicas_page
+                            .set_needs_attention(replicas_page.needs_attention() || items_changed);
+                    }
                     replicas_page.child().set_sensitive(true);
                 }
             }

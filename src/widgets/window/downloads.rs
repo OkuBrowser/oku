@@ -193,7 +193,16 @@ impl Window {
                                 "downloads".to_string(),
                                 &imp.side_view_stack,
                             ) {
-                                downloads_page.set_needs_attention(true)
+                                if matches!(get_view_stack_page_by_name(
+                                    imp.side_view_stack
+                                        .visible_child_name()
+                                        .unwrap_or_default()
+                                        .to_string(),
+                                        &imp.side_view_stack,
+                                ), Some(x) if x == downloads_page)
+                                {
+                                    downloads_page.set_needs_attention(true)
+                                }
                             }
                         }
                     ));

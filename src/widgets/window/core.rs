@@ -1,16 +1,19 @@
 use crate::config::Config;
+use crate::database::DATABASE;
 use crate::widgets::address_entry::AddressEntry;
 use crate::widgets::settings::core::apply_appearance_config;
-use crate::APP_ID;
+use crate::{APP_ID, HOME_REPLICA_SET, NODE};
 use glib::clone;
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
 use libadwaita::{prelude::*, ResponseAppearance};
+use log::{error, info};
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::atomic::Ordering;
 use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::{NetworkSession, WebContext};
 
@@ -24,6 +27,9 @@ pub mod imp {
         pub(crate) config: Config,
         // Window parameters
         pub(crate) is_private: Cell<bool>,
+        pub(crate) bookmarks_sidebar_initialised: Cell<bool>,
+        pub(crate) history_sidebar_initialised: Cell<bool>,
+        pub(crate) replicas_sidebar_initialised: Cell<bool>,
         pub(crate) style_provider: RefCell<gtk::CssProvider>,
         // Navigation bar
         // pub(crate) nav_entry: gtk::SearchEntry,
@@ -246,6 +252,7 @@ impl Window {
         }
 
         this.present();
+        this.watch_all();
 
         this
     }
@@ -551,5 +558,96 @@ impl Window {
         imp.tab_overview.set_child(Some(&imp.split_view));
 
         self.set_content(Some(&imp.tab_overview));
+    }
+
+    pub async fn watch_bookmarks(&self) {
+        self.imp().bookmarks_sidebar_initialised.set(true);
+        let mut bookmark_rx = DATABASE.bookmark_sender.subscribe();
+        loop {
+            bookmark_rx.borrow_and_update();
+            info!("Bookmarks updated … ");
+            let this = self.clone();
+            tokio::task::spawn_blocking(move || this.bookmarks_updated());
+            match bookmark_rx.changed().await {
+                Ok(_) => continue,
+                Err(e) => {
+                    error!("{}", e);
+                    break;
+                }
+            }
+        }
+    }
+
+    pub async fn watch_history(&self) {
+        self.imp().history_sidebar_initialised.set(true);
+        let mut history_rx = DATABASE.history_sender.subscribe();
+        loop {
+            history_rx.borrow_and_update();
+            info!("History updated … ");
+            let this = self.clone();
+            tokio::task::spawn_blocking(move || this.history_updated());
+            match history_rx.changed().await {
+                Ok(_) => continue,
+                Err(e) => {
+                    error!("{}", e);
+                    break;
+                }
+            }
+        }
+    }
+
+    pub async fn watch_replicas(&self) {
+        if let Some(node) = NODE.get() {
+            self.imp().replicas_sidebar_initialised.set(true);
+            let mut replica_rx = node.replica_sender.subscribe();
+            loop {
+                replica_rx.borrow_and_update();
+                info!("Replicas updated … ");
+                let this = self.clone();
+                tokio::spawn(async move { this.replicas_updated().await });
+                HOME_REPLICA_SET.store(node.home_replica().await.is_some(), Ordering::Relaxed);
+                match replica_rx.changed().await {
+                    Ok(_) => continue,
+                    Err(e) => {
+                        error!("{}", e);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    pub async fn watch_okunet_fetch(&self) {
+        if let Some(node) = NODE.get() {
+            let mut okunet_fetch_rx = node.okunet_fetch_sender.subscribe();
+            loop {
+                match *okunet_fetch_rx.borrow_and_update() {
+                    true => {
+                        info!("Fetching content from OkuNet … ");
+                    }
+                    false => {
+                        info!("Done fetching content from OkuNet … ");
+                    }
+                }
+                match okunet_fetch_rx.changed().await {
+                    Ok(_) => continue,
+                    Err(e) => {
+                        error!("{}", e);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn watch_all(&self) {
+        let this = self.clone();
+        tokio::spawn(async move { this.watch_bookmarks().await });
+        let this = self.clone();
+        tokio::spawn(async move { this.watch_history().await });
+        let this = self.clone();
+        tokio::spawn(async move { this.watch_replicas().await });
+        let this = self.clone();
+        tokio::spawn(async move { this.watch_okunet_fetch().await });
     }
 }

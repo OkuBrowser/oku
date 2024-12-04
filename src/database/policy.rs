@@ -1,5 +1,6 @@
 use super::BrowserDatabase;
 use glib::object::ObjectExt;
+use glib::property::PropertySet;
 use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassIsExt;
@@ -15,6 +16,7 @@ use native_model::{native_model, Model};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::sync::LazyLock;
+use webkit2gtk::functions::uri_for_display;
 use webkit2gtk::prelude::PermissionRequestExt;
 
 #[derive(Serialize, Deserialize, Default, PartialEq, Debug, Clone)]
@@ -35,9 +37,6 @@ pub struct PolicySettingRecord {
 
 impl PolicySettingRecord {
     pub fn from_uri(uri: String) -> Self {
-        let uri = webkit2gtk::SecurityOrigin::for_uri(&uri)
-            .to_str()
-            .to_string();
         crate::DATABASE
             .get_policy_setting(uri.clone())
             .ok()
@@ -206,7 +205,10 @@ pub mod imp {
             match pspec.name() {
                 "uri" => {
                     let uri = value.get::<String>().unwrap();
-                    self.uri.replace(uri);
+                    self.uri.set(
+                        html_escape::encode_text(&uri_for_display(&uri).unwrap_or(uri.into()))
+                            .to_string(),
+                    );
                 }
                 "clipboard-policy" => {
                     let clipboard_policy = value.get::<PolicyDecision>().unwrap();
@@ -269,57 +271,78 @@ glib::wrapper! {
 impl From<PolicySettingRecord> for PolicySetting {
     fn from(value: PolicySettingRecord) -> Self {
         let this = Self::default();
-        this.set_properties(&[
-            ("uri", &value.uri),
-            ("clipboard-policy", &value.clipboard_policy),
-            ("device-info-policy", &value.device_info_policy),
-            ("geolocation-policy", &value.geolocation_policy),
-            ("cdm-policy", &value.cdm_policy),
-            ("notification-policy", &value.notification_policy),
-            ("pointer-lock-policy", &value.pointer_lock_policy),
-            ("user-media-policy", &value.user_media_policy),
-            ("data-access-policy", &value.data_access_policy),
-        ]);
+        this.update_from_record(value);
         this
     }
 }
 
 impl Default for PolicySetting {
     fn default() -> Self {
-        let this = imp::PolicySetting::default();
+        let default_record = PolicySettingRecord::default();
         let object = glib::Object::builder::<Self>()
-            .property("uri", this.uri.borrow().to_owned())
-            .property(
-                "clipboard-policy",
-                this.clipboard_policy.borrow().to_owned(),
-            )
-            .property(
-                "device-info-policy",
-                this.device_info_policy.borrow().to_owned(),
-            )
-            .property(
-                "geolocation-policy",
-                this.geolocation_policy.borrow().to_owned(),
-            )
-            .property("cdm-policy", this.cdm_policy.borrow().to_owned())
-            .property(
-                "notification-policy",
-                this.notification_policy.borrow().to_owned(),
-            )
-            .property(
-                "pointer-lock-policy",
-                this.pointer_lock_policy.borrow().to_owned(),
-            )
-            .property(
-                "user-media-policy",
-                this.user_media_policy.borrow().to_owned(),
-            )
-            .property(
-                "data-access-policy",
-                this.data_access_policy.borrow().to_owned(),
-            )
+            .property("uri", &default_record.uri)
+            .property("clipboard-policy", default_record.clipboard_policy)
+            .property("device-info-policy", default_record.device_info_policy)
+            .property("geolocation-policy", default_record.geolocation_policy)
+            .property("cdm-policy", default_record.cdm_policy)
+            .property("notification-policy", default_record.notification_policy)
+            .property("pointer-lock-policy", default_record.pointer_lock_policy)
+            .property("user-media-policy", default_record.user_media_policy)
+            .property("data-access-policy", default_record.data_access_policy)
             .build();
         object
+    }
+}
+
+impl PolicySetting {
+    pub fn update_from_record(&self, record: PolicySettingRecord) {
+        self.set_properties(&[
+            ("uri", &record.uri),
+            ("clipboard-policy", &record.clipboard_policy),
+            ("device-info-policy", &record.device_info_policy),
+            ("geolocation-policy", &record.geolocation_policy),
+            ("cdm-policy", &record.cdm_policy),
+            ("notification-policy", &record.notification_policy),
+            ("pointer-lock-policy", &record.pointer_lock_policy),
+            ("user-media-policy", &record.user_media_policy),
+            ("data-access-policy", &record.data_access_policy),
+        ]);
+    }
+
+    pub fn update(&self, other: PolicySetting) {
+        let other_imp = other.imp();
+        self.set_properties(&[
+            ("uri", &other_imp.uri.borrow().to_owned()),
+            (
+                "clipboard-policy",
+                &other_imp.clipboard_policy.borrow().to_owned(),
+            ),
+            (
+                "device-info-policy",
+                &other_imp.device_info_policy.borrow().to_owned(),
+            ),
+            (
+                "geolocation-policy",
+                &other_imp.geolocation_policy.borrow().to_owned(),
+            ),
+            ("cdm-policy", &other_imp.cdm_policy.borrow().to_owned()),
+            (
+                "notification-policy",
+                &other_imp.notification_policy.borrow().to_owned(),
+            ),
+            (
+                "pointer-lock-policy",
+                &other_imp.pointer_lock_policy.borrow().to_owned(),
+            ),
+            (
+                "user-media-policy",
+                &other_imp.user_media_policy.borrow().to_owned(),
+            ),
+            (
+                "data-access-policy",
+                &other_imp.data_access_policy.borrow().to_owned(),
+            ),
+        ]);
     }
 }
 
@@ -446,6 +469,9 @@ impl BrowserDatabase {
 
     pub fn get_policy_setting(&self, uri: String) -> miette::Result<Option<PolicySettingRecord>> {
         let r = self.database.r_transaction().into_diagnostic()?;
+        if uri.trim().is_empty() {
+            return Err(miette::miette!("Empty URI leads to panic … "));
+        }
         r.get()
             .primary(
                 webkit2gtk::SecurityOrigin::for_uri(&uri)

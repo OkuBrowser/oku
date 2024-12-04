@@ -25,7 +25,7 @@ use ipfs::Ipfs;
 use ipfs::Keypair;
 use ipfs::UninitializedIpfsDefault as UninitializedIpfs;
 use log::error;
-use log::{info, LevelFilter};
+use log::LevelFilter;
 use oku_fs::fs::OkuFs;
 use oku_fs::fuser::BackgroundSession;
 use scheme_handlers::util::handle_request;
@@ -58,12 +58,6 @@ static NODE: OnceLock<OkuFs> = OnceLock::new();
 static HOME_REPLICA_SET: LazyLock<Arc<AtomicBool>> =
     LazyLock::new(|| Arc::new(AtomicBool::new(false)));
 static REPLICAS_MOUNTED: LazyLock<Arc<AtomicBool>> =
-    LazyLock::new(|| Arc::new(AtomicBool::new(false)));
-static REPLICA_SIDEBAR_INITIALISED: LazyLock<Arc<AtomicBool>> =
-    LazyLock::new(|| Arc::new(AtomicBool::new(false)));
-static HISTORY_SIDEBAR_INITIALISED: LazyLock<Arc<AtomicBool>> =
-    LazyLock::new(|| Arc::new(AtomicBool::new(false)));
-static BOOKMARK_SIDEBAR_INITIALISED: LazyLock<Arc<AtomicBool>> =
     LazyLock::new(|| Arc::new(AtomicBool::new(false)));
 
 pub const APP_ID: &str = "io.github.OkuBrowser.oku";
@@ -297,87 +291,6 @@ async fn main() {
             }
         }
     ));
-    application.connect_window_added(clone!(move |_, window| {
-        let window: widgets::window::Window = window.clone().downcast().unwrap();
-        let ctx = glib::MainContext::default();
-        let mut bookmark_rx = DATABASE.bookmark_sender.subscribe();
-        ctx.spawn_local_with_priority(
-            glib::source::Priority::HIGH,
-            clone!(
-                #[weak]
-                window,
-                async move {
-                    BOOKMARK_SIDEBAR_INITIALISED.store(true, Ordering::Relaxed);
-                    loop {
-                        bookmark_rx.borrow_and_update();
-                        info!("Bookmarks updated … ");
-                        let window_clone = window.clone();
-                        tokio::task::spawn_blocking(move || window_clone.bookmarks_updated());
-                        match bookmark_rx.changed().await {
-                            Ok(_) => continue,
-                            Err(e) => {
-                                error!("{}", e);
-                                break;
-                            }
-                        }
-                    }
-                }
-            ),
-        );
-        let mut history_rx = DATABASE.history_sender.subscribe();
-        ctx.spawn_local_with_priority(
-            glib::source::Priority::HIGH,
-            clone!(
-                #[weak]
-                window,
-                async move {
-                    HISTORY_SIDEBAR_INITIALISED.store(true, Ordering::Relaxed);
-                    loop {
-                        history_rx.borrow_and_update();
-                        info!("History updated … ");
-                        let window_clone = window.clone();
-                        tokio::task::spawn_blocking(move || window_clone.history_updated());
-                        match history_rx.changed().await {
-                            Ok(_) => continue,
-                            Err(e) => {
-                                error!("{}", e);
-                                break;
-                            }
-                        }
-                    }
-                }
-            ),
-        );
-
-        if let Some(node) = NODE.get() {
-            let mut replica_rx = node.replica_sender.subscribe();
-            ctx.spawn_local_with_priority(
-                glib::source::Priority::HIGH,
-                clone!(
-                    #[weak]
-                    window,
-                    async move {
-                        REPLICA_SIDEBAR_INITIALISED.store(true, Ordering::Relaxed);
-                        loop {
-                            replica_rx.borrow_and_update();
-                            info!("Replicas updated … ");
-                            let window_clone = window.clone();
-                            tokio::spawn(async move { window_clone.replicas_updated().await });
-                            HOME_REPLICA_SET
-                                .store(node.home_replica().await.is_some(), Ordering::Relaxed);
-                            match replica_rx.changed().await {
-                                Ok(_) => continue,
-                                Err(e) => {
-                                    error!("{}", e);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                ),
-            );
-        }
-    }));
     application.connect_window_removed(clone!(
         #[weak]
         application,

@@ -252,7 +252,7 @@ impl Window {
                             imp.total_matches_label
                                 .set_text(&format!("{} matches", match_count));
                         } else {
-                            imp.total_matches_label.set_text("1 match");
+                            imp.total_matches_label.set_text("");
                         }
                     }
                 ))));

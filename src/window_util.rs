@@ -85,7 +85,7 @@ pub fn update_nav_bar(nav_entry: &AddressEntry, web_view: &webkit2gtk::WebView) 
         url = search_stripped.to_owned();
     }
     nav_entry.set_text(&uri_for_display(&url).unwrap_or_default());
-    nav_entry.update_policy_setting_from_uri(web_view.uri().unwrap_or_default().to_string());
+    nav_entry.update_uri(web_view.uri().unwrap_or_default().to_string());
 }
 
 /// Provide the default configuration for Oku's WebView

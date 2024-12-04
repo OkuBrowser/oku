@@ -16,8 +16,6 @@ To build, please install:
     * Some distributions provide multiple versions of WebKitGTK; look for packages resembling `webkitgtk-6.0`.
 * [`libfuse`](https://github.com/libfuse/libfuse/)
     * It is recommended that you obtain this development package from your distribution.
-* The [Vox static site generator](https://emmyoh.github.io/vox/)
-    * This can be installed using the Rust toolchain by running `cargo install --git https://github.com/emmyoh/vox --features="cli"`.
 
 ### Commands
 
