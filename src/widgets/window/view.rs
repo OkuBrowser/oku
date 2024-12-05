@@ -135,7 +135,14 @@ impl Window {
         if let Some(current_page) = imp.tab_view.selected_page() {
             let current_page_number = imp.tab_view.page_position(&current_page);
             let specific_page = imp.tab_view.nth_page(current_page_number);
-            specific_page.child().downcast().unwrap()
+            specific_page
+                .child()
+                .downcast::<gtk::Overlay>()
+                .unwrap()
+                .child()
+                .unwrap()
+                .downcast()
+                .unwrap()
         } else {
             let web_view = webkit2gtk::WebView::new();
             web_view.load_uri("oku:home");
@@ -241,7 +248,7 @@ impl Window {
                     .build();
                 this.add_action_entries([action_close_tab]);
 
-                let new_view = get_view_from_page(new_page);
+                let (new_view_overlay, new_view) = get_view_from_page(new_page);
                 let find_controller = new_view.find_controller().unwrap();
 
                 let found_text = RefCell::new(Some(find_controller.connect_found_text(clone!(
@@ -256,7 +263,6 @@ impl Window {
                         }
                     }
                 ))));
-
                 let failed_to_find_text =
                     RefCell::new(Some(find_controller.connect_failed_to_find_text(clone!(
                         #[weak]
@@ -265,7 +271,6 @@ impl Window {
                             imp.total_matches_label.set_text("No matches");
                         }
                     ))));
-
                 let show_notification =
                     RefCell::new(Some(new_view.connect_show_notification(clone!(
                         #[weak]
@@ -281,7 +286,6 @@ impl Window {
                             false
                         }
                     ))));
-
                 let close = RefCell::new(Some(new_view.connect_close(clone!(
                     #[weak]
                     new_page,
@@ -296,7 +300,6 @@ impl Window {
                         imp.tab_view.close_page(&new_page);
                     }
                 ))));
-
                 let create = RefCell::new(Some(new_view.connect_create(clone!(
                     #[weak]
                     web_context,
@@ -315,7 +318,6 @@ impl Window {
                         new_related_view.into()
                     }
                 ))));
-
                 let status_message =
                     RefCell::new(Some(new_view.connect_mouse_target_changed(clone!(
                         #[weak]
@@ -334,7 +336,6 @@ impl Window {
                             }
                         }
                     ))));
-
                 let permission_request =
                     RefCell::new(Some(new_view.connect_permission_request(clone!(
                         #[weak]
@@ -349,7 +350,15 @@ impl Window {
                             true
                         }
                     ))));
-
+                let is_web_process_responsive_notify = RefCell::new(Some(
+                    new_view.connect_is_web_process_responsive_notify(clone!(
+                        #[weak]
+                        new_view_overlay,
+                        move |w| {
+                            new_view_overlay.set_visible(!w.is_web_process_responsive());
+                        }
+                    )),
+                ));
                 let title_notify = RefCell::new(Some(new_view.connect_title_notify(clone!(
                     #[weak(rename_to = tab_view)]
                     imp.tab_view,
@@ -405,28 +414,6 @@ impl Window {
                         }
                     }
                 ))));
-                let enter_fullscreen =
-                    RefCell::new(Some(new_view.connect_enter_fullscreen(clone!(
-                        #[weak]
-                        imp,
-                        #[upgrade_or]
-                        false,
-                        move |_w| {
-                            imp.obj().set_fullscreened(true);
-                            true
-                        }
-                    ))));
-                let leave_fullscreen =
-                    RefCell::new(Some(new_view.connect_leave_fullscreen(clone!(
-                        #[weak]
-                        imp,
-                        #[upgrade_or]
-                        false,
-                        move |_w| {
-                            imp.obj().set_fullscreened(false);
-                            true
-                        }
-                    ))));
 
                 // Indicator appearance
                 let is_muted_notify = RefCell::new(Some(new_view.connect_is_muted_notify(clone!(
@@ -526,7 +513,7 @@ impl Window {
                         #[weak]
                         this,
                         move |w| {
-                            let current_page = tab_view.page(w);
+                            let current_page = tab_view.page(w.parent().as_ref().unwrap());
                             current_page.set_loading(w.is_loading());
                             if this.get_view() == *w {
                                 this.update_load_progress(w);
@@ -551,7 +538,7 @@ impl Window {
                         #[weak]
                         this,
                         move |w| {
-                            let current_page = tab_view.page(w);
+                            let current_page = tab_view.page(w.parent().as_ref().unwrap());
                             current_page.set_loading(w.is_loading());
                             if this.get_view() == *w {
                                 if current_page.is_loading() {
@@ -568,7 +555,7 @@ impl Window {
                     #[weak]
                     new_view,
                     move |_, old_page, _page_position| {
-                        let old_view = get_view_from_page(old_page);
+                        let (old_view_overlay, old_view) = get_view_from_page(old_page);
                         if old_view != new_view {
                             // When a page is disconnected from a window, the detached handler runs for all pages in the window.
                             // If we don't stop here, the browser will crash as we'll be disconnecting handlers for unrelated pages that weren't detached.
@@ -599,6 +586,9 @@ impl Window {
                         if let Some(id) = permission_request.take() {
                             old_view.disconnect(id);
                         }
+                        if let Some(id) = is_web_process_responsive_notify.take() {
+                            old_view.disconnect(id);
+                        }
                         if let Some(id) = title_notify.take() {
                             old_view.disconnect(id);
                         }
@@ -606,12 +596,6 @@ impl Window {
                             old_view.disconnect(id);
                         }
                         if let Some(id) = load_changed.take() {
-                            old_view.disconnect(id);
-                        }
-                        if let Some(id) = enter_fullscreen.take() {
-                            old_view.disconnect(id);
-                        }
-                        if let Some(id) = leave_fullscreen.take() {
                             old_view.disconnect(id);
                         }
                         if let Some(id) = is_muted_notify.take() {

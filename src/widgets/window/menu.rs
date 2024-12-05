@@ -1,7 +1,7 @@
 use super::*;
 use crate::widgets;
 use chrono::Utc;
-use glib::clone;
+use glib::{clone, closure};
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
@@ -164,8 +164,30 @@ impl Window {
         self.add_action_entries([action_reset_zoom]);
     }
 
+    pub fn setup_fullscreen_button(&self) {
+        let imp = self.imp();
+
+        self.property_expression("fullscreened")
+            .chain_closure::<String>(closure!(|_: Option<glib::Object>, x: bool| {
+                match x {
+                    true => "unfullscreen-rectangular-symbolic",
+                    false => "fullscreen-rectangular-symbolic",
+                }
+            }))
+            .bind(&imp.fullscreen_button, "icon-name", gtk::Widget::NONE);
+
+        imp.fullscreen_button.connect_clicked(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_fullscreen_button| {
+                this.toggle_fullscreen();
+            }
+        ));
+    }
+
     pub fn setup_menu_buttons_clicked(&self, web_context: &WebContext) {
         self.setup_zoom_buttons_clicked();
+        self.setup_fullscreen_button();
         let imp = self.imp();
 
         imp.menu_button.connect_clicked(clone!(
@@ -176,60 +198,10 @@ impl Window {
             }
         ));
 
-        // Enter Fullscreen button clicked
-        imp.fullscreen_button.connect_clicked(clone!(
-            #[weak(rename_to = this)]
-            self,
-            move |fullscreen_button| {
-                let web_view = this.get_view();
-                if !this.is_fullscreen() {
-                    fullscreen_button.set_icon_name("unfullscreen-rectangular-symbolic");
-                    web_view.evaluate_javascript(
-                        "document.documentElement.requestFullscreen();",
-                        None,
-                        None,
-                        Some(&gio::Cancellable::new()),
-                        move |_| {},
-                    )
-                } else {
-                    fullscreen_button.set_icon_name("fullscreen-rectangular-symbolic");
-                    web_view.evaluate_javascript(
-                        "document.exitFullscreen();",
-                        None,
-                        None,
-                        Some(&gio::Cancellable::new()),
-                        move |_| {},
-                    )
-                }
-            }
-        ));
         let action_fullscreen = gio::ActionEntry::builder("fullscreen")
-            .activate(clone!(
-                #[weak(rename_to = fullscreen_button)]
-                imp.fullscreen_button,
-                move |window: &Self, _, _| {
-                    let web_view = window.get_view();
-                    if !window.is_fullscreen() {
-                        fullscreen_button.set_icon_name("unfullscreen-rectangular-symbolic");
-                        web_view.evaluate_javascript(
-                            "document.documentElement.requestFullscreen();",
-                            None,
-                            None,
-                            Some(&gio::Cancellable::new()),
-                            move |_| {},
-                        )
-                    } else {
-                        fullscreen_button.set_icon_name("fullscreen-rectangular-symbolic");
-                        web_view.evaluate_javascript(
-                            "document.exitFullscreen();",
-                            None,
-                            None,
-                            Some(&gio::Cancellable::new()),
-                            move |_| {},
-                        )
-                    }
-                }
-            ))
+            .activate(clone!(move |window: &Self, _, _| {
+                window.toggle_fullscreen();
+            }))
             .build();
         self.add_action_entries([action_fullscreen]);
 

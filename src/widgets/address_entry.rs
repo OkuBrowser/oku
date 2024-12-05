@@ -2,6 +2,7 @@ use crate::database::policy::PolicyDecision;
 use crate::database::policy::PolicySetting;
 use crate::database::policy::PolicySettingRecord;
 use crate::scheme_handlers::oku_path::OkuPath;
+use crate::window_util::uri_attributes;
 use crate::NODE;
 use glib::clone;
 use glib::closure;
@@ -163,20 +164,7 @@ impl AddressEntry {
 
         this.property_expression("text")
             .chain_closure::<pango::AttrList>(closure!(|_: Option<glib::Object>, x: String| {
-                let attributes = pango::AttrList::new();
-                if let Some(authority_start) = x.find("://") {
-                    let foreground_alpha_dim =
-                        pango::AttrInt::new_foreground_alpha(u16::pow(2, 15));
-                    let mut foreground_alpha_dark = pango::AttrInt::new_foreground_alpha(u16::MAX);
-                    foreground_alpha_dark.set_start_index((authority_start + 3) as u32);
-                    if let Some(authority_end) = x[authority_start + 3..].find("/") {
-                        foreground_alpha_dark
-                            .set_end_index((authority_start + 3 + authority_end) as u32);
-                    }
-                    attributes.insert(foreground_alpha_dim);
-                    attributes.insert(foreground_alpha_dark);
-                }
-                attributes
+                uri_attributes(x)
             }))
             .bind(&this, "attributes", gtk::Widget::NONE);
         this.property_expression("uri")

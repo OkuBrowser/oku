@@ -136,8 +136,12 @@ pub fn new_webkit_settings() -> webkit2gtk::Settings {
 /// # Arguments
 ///
 /// * `page` - The TabPage containing the the WebKit instance
-pub fn get_view_from_page(page: &libadwaita::TabPage) -> webkit2gtk::WebView {
-    page.child().downcast().unwrap()
+pub fn get_view_from_page(page: &libadwaita::TabPage) -> (gtk::Overlay, webkit2gtk::WebView) {
+    let overlay = page.child().downcast::<gtk::Overlay>().unwrap();
+    (
+        overlay.clone(),
+        overlay.child().unwrap().downcast().unwrap(),
+    )
 }
 
 pub fn get_window_from_widget(widget: &impl IsA<gtk::Widget>) -> crate::widgets::window::Window {
@@ -163,7 +167,7 @@ pub fn get_view_stack_page_by_name(
 ///
 /// * `web_view` - The WebKit instance for the tab
 pub fn update_favicon(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebView) {
-    let relevant_page = tab_view.page(web_view);
+    let relevant_page = tab_view.page(web_view.parent().as_ref().unwrap());
     let web_favicon = &web_view.favicon();
     match &web_favicon {
         Some(favicon_texture) => {
@@ -207,7 +211,22 @@ pub fn get_title(web_view: &webkit2gtk::WebView) -> String {
 ///
 /// * `web_view` - The WebKit instance for the tab
 pub fn update_title(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebView) {
-    let relevant_page = tab_view.page(web_view);
+    let relevant_page = tab_view.page(web_view.parent().as_ref().unwrap());
     let title = get_title(web_view);
     relevant_page.set_title(&title);
+}
+
+pub fn uri_attributes(x: String) -> pango::AttrList {
+    let attributes = pango::AttrList::new();
+    if let Some(authority_start) = x.find("://") {
+        let foreground_alpha_dim = pango::AttrInt::new_foreground_alpha(u16::pow(2, 15));
+        let mut foreground_alpha_dark = pango::AttrInt::new_foreground_alpha(u16::MAX);
+        foreground_alpha_dark.set_start_index((authority_start + 3) as u32);
+        if let Some(authority_end) = x[authority_start + 3..].find("/") {
+            foreground_alpha_dark.set_end_index((authority_start + 3 + authority_end) as u32);
+        }
+        attributes.insert(foreground_alpha_dim);
+        attributes.insert(foreground_alpha_dark);
+    }
+    attributes
 }

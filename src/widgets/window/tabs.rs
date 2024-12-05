@@ -41,7 +41,20 @@ impl Window {
         let imp = self.imp();
 
         let new_view = self.new_view(web_context, related_view, initial_request);
-        let new_page = imp.tab_view.append(&new_view);
+
+        let unresponsive_spinner = libadwaita::Spinner::builder()
+            .valign(gtk::Align::Center)
+            .halign(gtk::Align::Center)
+            .hexpand(true)
+            .vexpand(true)
+            .height_request(64)
+            .width_request(64)
+            .visible(false)
+            .build();
+        let new_view_overlay = gtk::Overlay::builder().child(&new_view).build();
+        new_view_overlay.add_overlay(&unresponsive_spinner);
+
+        let new_page = imp.tab_view.append(&new_view_overlay);
         new_page.set_title("New Tab");
         new_page.set_icon(Some(&gio::ThemedIcon::new("globe-symbolic")));
         new_page.set_live_thumbnail(true);
@@ -61,7 +74,7 @@ impl Window {
             #[weak(rename_to = tab_view)]
             imp.tab_view,
             move |_, current_page| {
-                let current_view = get_view_from_page(current_page);
+                let (current_view_overlay, current_view) = get_view_from_page(current_page);
                 if !current_view.is_playing_audio() && !current_view.is_muted() {
                     tab_view.set_page_pinned(current_page, !current_page.is_pinned());
                 } else {

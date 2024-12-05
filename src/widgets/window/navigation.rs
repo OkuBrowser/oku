@@ -1,7 +1,8 @@
 use super::*;
 use crate::database::DATABASE;
-use crate::window_util::connect;
+use crate::window_util::{connect, uri_attributes};
 use glib::clone;
+use glib::closure;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use libadwaita::prelude::*;
@@ -79,6 +80,13 @@ impl Window {
         imp.url_status_outer_box.set_can_target(false);
         imp.url_status_outer_box.set_focusable(false);
         imp.url_status_outer_box.append(&imp.url_status_box);
+
+        imp.url_status
+            .property_expression("label")
+            .chain_closure::<pango::AttrList>(closure!(|_: Option<glib::Object>, x: String| {
+                uri_attributes(x)
+            }))
+            .bind(&imp.url_status, "attributes", gtk::Widget::NONE);
     }
 
     pub fn setup_navigation_buttons(&self) {

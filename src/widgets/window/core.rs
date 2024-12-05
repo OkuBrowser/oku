@@ -31,8 +31,10 @@ pub mod imp {
         pub(crate) history_sidebar_initialised: Cell<bool>,
         pub(crate) replicas_sidebar_initialised: Cell<bool>,
         pub(crate) style_provider: RefCell<gtk::CssProvider>,
+        // Fullscreen overlay
+        pub(crate) fullscreen_overlay_box: gtk::Box,
+        pub(crate) fullscreen_overlay_label: gtk::Label,
         // Navigation bar
-        // pub(crate) nav_entry: gtk::SearchEntry,
         pub(crate) nav_entry: AddressEntry,
         pub(crate) nav_entry_focus: EventControllerFocus,
         pub(crate) suggestions_store: RefCell<Option<Rc<gio::ListStore>>>,
@@ -515,10 +517,12 @@ impl Window {
 
         self.setup_url_status();
         self.setup_progress_bar();
+        self.setup_fullscreen_overlay();
 
         imp.main_overlay.set_vexpand(true);
         imp.main_overlay.set_child(Some(&imp.tab_view));
         imp.main_overlay.add_overlay(&imp.progress_bar);
+        imp.main_overlay.add_overlay(&imp.fullscreen_overlay_box);
         imp.main_overlay.add_overlay(&imp.url_status_outer_box);
 
         imp.main_box.set_orientation(gtk::Orientation::Vertical);
@@ -558,6 +562,71 @@ impl Window {
         imp.tab_overview.set_child(Some(&imp.split_view));
 
         self.set_content(Some(&imp.tab_overview));
+    }
+
+    pub fn setup_fullscreen_overlay(&self) {
+        let imp = self.imp();
+
+        imp.fullscreen_overlay_label
+            .set_label("Press F11 to exit fullscreen … ");
+        imp.fullscreen_overlay_label.add_css_class("title-1");
+        imp.fullscreen_overlay_box
+            .append(&imp.fullscreen_overlay_label);
+        imp.fullscreen_overlay_box.set_valign(gtk::Align::Center);
+        imp.fullscreen_overlay_box.set_halign(gtk::Align::Center);
+        imp.fullscreen_overlay_box.set_can_focus(false);
+        imp.fullscreen_overlay_box.set_can_target(false);
+        imp.fullscreen_overlay_box.add_css_class("osd");
+        imp.fullscreen_overlay_box.add_css_class("toolbar");
+        imp.fullscreen_overlay_box.set_opacity(0.0);
+
+        self.connect_fullscreened_notify(clone!(
+            #[weak]
+            imp,
+            move |this| {
+                match this.is_fullscreen() {
+                    true => this.show_fullscreen_overlay(),
+                    false => imp.fullscreen_overlay_box.set_opacity(0.0),
+                }
+            }
+        ));
+    }
+
+    pub fn show_fullscreen_overlay(&self) {
+        let imp = self.imp();
+
+        let animation = libadwaita::SpringAnimation::new(
+            &imp.fullscreen_overlay_box,
+            0.0,
+            1.0,
+            libadwaita::SpringParams::new(0.75, 75.0, 100.0),
+            libadwaita::CallbackAnimationTarget::new(clone!(
+                #[weak]
+                imp,
+                move |v| {
+                    imp.fullscreen_overlay_box.set_opacity(1.0 - v);
+                }
+            )),
+        );
+        animation.set_clamp(true);
+        animation.play();
+    }
+
+    pub fn toggle_fullscreen(&self) {
+        match self.is_fullscreen() {
+            true => {
+                let this = self.clone();
+                glib::spawn_future_local(this.get_view().evaluate_javascript_future(
+                    "document.exitFullscreen();",
+                    None,
+                    None,
+                ));
+                self.set_fullscreened(false);
+            }
+            false => {
+                self.set_fullscreened(true);
+            }
+        }
     }
 
     pub async fn watch_bookmarks(&self) {
