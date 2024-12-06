@@ -74,7 +74,7 @@ impl Window {
             #[weak(rename_to = tab_view)]
             imp.tab_view,
             move |_, current_page| {
-                let (current_view_overlay, current_view) = get_view_from_page(current_page);
+                let (_current_view_overlay, current_view) = get_view_from_page(current_page);
                 if !current_view.is_playing_audio() && !current_view.is_muted() {
                     tab_view.set_page_pinned(current_page, !current_page.is_pinned());
                 } else {

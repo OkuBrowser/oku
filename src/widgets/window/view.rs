@@ -555,7 +555,7 @@ impl Window {
                     #[weak]
                     new_view,
                     move |_, old_page, _page_position| {
-                        let (old_view_overlay, old_view) = get_view_from_page(old_page);
+                        let (_old_view_overlay, old_view) = get_view_from_page(old_page);
                         if old_view != new_view {
                             // When a page is disconnected from a window, the detached handler runs for all pages in the window.
                             // If we don't stop here, the browser will crash as we'll be disconnecting handlers for unrelated pages that weren't detached.

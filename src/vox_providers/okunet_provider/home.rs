@@ -7,7 +7,7 @@ impl OkuNetProvider {
             .get()
             .ok_or(miette::miette!("No running Oku node … "))?;
 
-        node.refresh_users().await?;
+        tokio::spawn(node.refresh_users());
 
         // Posts
         let me = node.user().await?;

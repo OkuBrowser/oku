@@ -31,6 +31,10 @@ pub mod imp {
         pub(crate) history_sidebar_initialised: Cell<bool>,
         pub(crate) replicas_sidebar_initialised: Cell<bool>,
         pub(crate) style_provider: RefCell<gtk::CssProvider>,
+        // OkuNet fetch overlay
+        pub(crate) okunet_fetch_overlay_box: gtk::Box,
+        pub(crate) okunet_fetch_overlay_spinner: libadwaita::Spinner,
+        pub(crate) okunet_fetch_overlay_label: gtk::Label,
         // Fullscreen overlay
         pub(crate) fullscreen_overlay_box: gtk::Box,
         pub(crate) fullscreen_overlay_label: gtk::Label,
@@ -518,10 +522,12 @@ impl Window {
         self.setup_url_status();
         self.setup_progress_bar();
         self.setup_fullscreen_overlay();
+        self.setup_okunet_fetch_overlay();
 
         imp.main_overlay.set_vexpand(true);
         imp.main_overlay.set_child(Some(&imp.tab_view));
         imp.main_overlay.add_overlay(&imp.progress_bar);
+        imp.main_overlay.add_overlay(&imp.okunet_fetch_overlay_box);
         imp.main_overlay.add_overlay(&imp.fullscreen_overlay_box);
         imp.main_overlay.add_overlay(&imp.url_status_outer_box);
 
@@ -686,17 +692,78 @@ impl Window {
         }
     }
 
+    pub fn setup_okunet_fetch_overlay(&self) {
+        let imp = self.imp();
+
+        imp.okunet_fetch_overlay_label
+            .set_label("Fetching from the OkuNet … ");
+        imp.okunet_fetch_overlay_box
+            .append(&imp.okunet_fetch_overlay_label);
+        imp.okunet_fetch_overlay_box
+            .append(&imp.okunet_fetch_overlay_spinner);
+        imp.okunet_fetch_overlay_box.set_valign(gtk::Align::Start);
+        imp.okunet_fetch_overlay_box.set_halign(gtk::Align::Start);
+        imp.okunet_fetch_overlay_box.set_margin_start(4);
+        imp.okunet_fetch_overlay_box.set_margin_top(4);
+        imp.okunet_fetch_overlay_box.set_margin_bottom(4);
+        imp.okunet_fetch_overlay_box.set_margin_end(4);
+        imp.okunet_fetch_overlay_box.set_can_focus(false);
+        imp.okunet_fetch_overlay_box.set_can_target(false);
+        imp.okunet_fetch_overlay_box.add_css_class("card");
+        imp.okunet_fetch_overlay_box.add_css_class("toolbar");
+        imp.okunet_fetch_overlay_box.set_opacity(0.0);
+    }
+
+    pub fn show_okunet_fetch_overlay(&self) {
+        let imp = self.imp();
+
+        let animation = libadwaita::SpringAnimation::new(
+            &imp.okunet_fetch_overlay_box,
+            0.0,
+            1.0,
+            libadwaita::SpringParams::new(1.0, 15.0, 100.0),
+            libadwaita::CallbackAnimationTarget::new(clone!(
+                #[weak]
+                imp,
+                move |v| {
+                    imp.okunet_fetch_overlay_box.set_opacity(v);
+                }
+            )),
+        );
+        animation.set_clamp(true);
+        animation.play();
+    }
+
+    pub fn hide_okunet_fetch_overlay(&self) {
+        let imp = self.imp();
+
+        let animation = libadwaita::SpringAnimation::new(
+            &imp.okunet_fetch_overlay_box,
+            0.0,
+            1.0,
+            libadwaita::SpringParams::new(1.0, 15.0, 100.0),
+            libadwaita::CallbackAnimationTarget::new(clone!(
+                #[weak]
+                imp,
+                move |v| {
+                    imp.okunet_fetch_overlay_box.set_opacity(1.0 - v);
+                }
+            )),
+        );
+        animation.set_clamp(true);
+        animation.play();
+    }
+
     pub async fn watch_okunet_fetch(&self) {
         if let Some(node) = NODE.get() {
             let mut okunet_fetch_rx = node.okunet_fetch_sender.subscribe();
             loop {
+                let this = self.clone();
                 match *okunet_fetch_rx.borrow_and_update() {
-                    true => {
-                        info!("Fetching content from OkuNet … ");
-                    }
-                    false => {
-                        info!("Done fetching content from OkuNet … ");
-                    }
+                    true => glib::MainContext::default()
+                        .invoke(move || this.show_okunet_fetch_overlay()),
+                    false => glib::MainContext::default()
+                        .invoke(move || this.hide_okunet_fetch_overlay()),
                 }
                 match okunet_fetch_rx.changed().await {
                     Ok(_) => continue,
