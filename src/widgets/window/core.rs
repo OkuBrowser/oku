@@ -35,9 +35,11 @@ pub mod imp {
         pub(crate) okunet_fetch_overlay_box: gtk::Box,
         pub(crate) okunet_fetch_overlay_spinner: libadwaita::Spinner,
         pub(crate) okunet_fetch_overlay_label: gtk::Label,
+        pub(crate) okunet_fetch_overlay_animation: RefCell<Option<libadwaita::SpringAnimation>>,
         // Fullscreen overlay
         pub(crate) fullscreen_overlay_box: gtk::Box,
         pub(crate) fullscreen_overlay_label: gtk::Label,
+        pub(crate) fullscreen_overlay_animation: RefCell<Option<libadwaita::SpringAnimation>>,
         // Navigation bar
         pub(crate) nav_entry: AddressEntry,
         pub(crate) nav_entry_focus: EventControllerFocus,
@@ -601,6 +603,9 @@ impl Window {
     pub fn show_fullscreen_overlay(&self) {
         let imp = self.imp();
 
+        if let Some(animation) = imp.fullscreen_overlay_animation.borrow().as_ref() {
+            animation.pause()
+        }
         let animation = libadwaita::SpringAnimation::new(
             &imp.fullscreen_overlay_box,
             0.0,
@@ -616,6 +621,7 @@ impl Window {
         );
         animation.set_clamp(true);
         animation.play();
+        imp.fullscreen_overlay_animation.replace(Some(animation));
     }
 
     pub fn toggle_fullscreen(&self) {
@@ -717,9 +723,12 @@ impl Window {
     pub fn show_okunet_fetch_overlay(&self) {
         let imp = self.imp();
 
+        if let Some(animation) = imp.okunet_fetch_overlay_animation.borrow().as_ref() {
+            animation.pause()
+        }
         let animation = libadwaita::SpringAnimation::new(
             &imp.okunet_fetch_overlay_box,
-            0.0,
+            imp.okunet_fetch_overlay_box.opacity(),
             1.0,
             libadwaita::SpringParams::new(1.0, 15.0, 100.0),
             libadwaita::CallbackAnimationTarget::new(clone!(
@@ -732,14 +741,18 @@ impl Window {
         );
         animation.set_clamp(true);
         animation.play();
+        imp.okunet_fetch_overlay_animation.replace(Some(animation));
     }
 
     pub fn hide_okunet_fetch_overlay(&self) {
         let imp = self.imp();
 
+        if let Some(animation) = imp.okunet_fetch_overlay_animation.borrow().as_ref() {
+            animation.pause()
+        }
         let animation = libadwaita::SpringAnimation::new(
             &imp.okunet_fetch_overlay_box,
-            0.0,
+            imp.okunet_fetch_overlay_box.opacity(),
             1.0,
             libadwaita::SpringParams::new(1.0, 15.0, 100.0),
             libadwaita::CallbackAnimationTarget::new(clone!(
@@ -752,6 +765,7 @@ impl Window {
         );
         animation.set_clamp(true);
         animation.play();
+        imp.okunet_fetch_overlay_animation.replace(Some(animation));
     }
 
     pub async fn watch_okunet_fetch(&self) {
