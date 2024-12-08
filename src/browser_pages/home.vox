@@ -8,24 +8,22 @@ title = "Oku"
 
 {% markdown %}
 
+### [User guide →]({{ global.site }}/guide)
+
 #### Make & share your own sites.
 
-- Oku lets you create *replicas*, virtual drives that you can share online.
-- Replicas can contain anything, including photos, videos, or documents.
-- You can put a site in a replica and share it with the world.
+- Oku lets you create [*replicas*]({{ global.site }}/guide/Replicas.html), sites that live on your computer and are published online instantly.
+- You can share editing rights to your replicas with your friends and collaborate in real-time.
 
-#### *Your* data on *your* machine.
+#### Create your own invite-only social network.
 
-- Replicas are sent with *tickets*.
-- A *read-only ticket* can be used to view, but not edit, your replica.
-- A *read & write ticket* can be used to view or edit your replica.
-- Sites can keep your data with you in a replica by asking for a read & write ticket.
+- Via [the *OkuNet*]({{ global.site }}/guide/OkuNet.html), you can share [*notes*]({{ global.site }}/guide/Notes.html) you take on pages you've seen.
+- Your feed shows notes from users you follow and whoever they follow; you're in control of what you see.
 
-#### Build your own space on the Internet, independent from social media platforms.
+#### Keep your searches on-device.
 
-- Replicas can be viewed by their ID.
-- Every time you visit a new replica, your browser saves its ID.
-- When you update a replica, those with its ID will see the newest version.
+- When your computer learns about new sites shared over the OkuNet, it can search through them.
+- Your searches are done on your computer, privately.
 
 ---
 
@@ -33,6 +31,6 @@ title = "Oku"
 
 Oku is free and open-source software, [accepting code contributions on GitHub]({{ global.browser_repository }}).
 
-[Learn more about Oku →]({{ global.site }}/about)
+Oku is supported by [donations from users like you]({{ global.sponsor_link }}).
 
 {% endmarkdown %}

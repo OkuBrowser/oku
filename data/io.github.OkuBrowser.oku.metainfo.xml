@@ -13,7 +13,8 @@
   <url type="homepage">https://okubrowser.github.io</url>
   <url type="bugtracker">https://github.com/OkuBrowser/oku/issues</url>
   <url type="donation">https://github.com/sponsors/emmyoh</url>
-  <url type="faq">https://okubrowser.github.io/about</url>
+  <url type="faq">https://okubrowser.github.io/faq</url>
+  <url type="contribute">https://okubrowser.github.io/contribute</url>
   <url type="vcs-browser">https://github.com/OkuBrowser/oku</url>
   <branding>
     <color type="primary" scheme_preference="light">#bf4040</color>
@@ -25,9 +26,9 @@
     -->
   <content_rating type="oars-1.1" />
   <releases>
-    <release version="0.1.1" date="2024-11-30">
+    <release version="0.1.1" date="2024-12-08">
       <description>
-        <p>Added download manager to library. Performance improvements.</p>
+        <p>Added download manager to library. Added toolbox to address bar. Added overlays for entering fullscreen, fetching from the OkuNet, and when a page is unresponsive.</p>
       </description>
     </release>
     <release version="0.1.0" date="2024-11-12">
@@ -50,27 +51,31 @@
       <caption>Library page showing browser history</caption>
     </screenshot>
     <screenshot xml:lang="en">
-      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/okunet_me.png</image>
-      <caption>Example OkuNet profile</caption>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/okunet_home.png</image>
+      <caption>An OkuNet home feed</caption>
     </screenshot>
     <screenshot xml:lang="en">
-      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/page.png</image>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/okunet_me.png</image>
+      <caption>An OkuNet profile</caption>
+    </screenshot>
+    <screenshot xml:lang="en">
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/page.png</image>
       <caption>Web page</caption>
     </screenshot>
     <screenshot xml:lang="en">
-      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/replicas.png</image>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/replicas.png</image>
       <caption>Library page showing replicas</caption>
     </screenshot>
     <screenshot xml:lang="en">
-      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/settings.png</image>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/settings.png</image>
       <caption>Browser settings</caption>
     </screenshot>
     <screenshot xml:lang="en">
-      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/tab_overview.png</image>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/tab_overview.png</image>
       <caption>Tab overview</caption>
     </screenshot>
     <screenshot xml:lang="en">
-      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/light/writing_note.png</image>
+      <image>https://raw.githubusercontent.com/OkuBrowser/okubrowser.github.io/refs/heads/main/assets/screenshots/dark/note_editor.png</image>
       <caption>Writing a note</caption>
     </screenshot>
   </screenshots>
