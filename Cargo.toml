@@ -14,7 +14,7 @@ resolver = "2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-chrono = { version = "0.4.38", features = ["unstable-locales", "serde"] }
+chrono = { version = "0.4.39", features = ["unstable-locales", "serde"] }
 cid = "0.11.1"
 directories-next = "2.0.0"
 futures = "0.3.31"
