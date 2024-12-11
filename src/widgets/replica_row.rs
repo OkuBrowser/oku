@@ -25,11 +25,10 @@ use libadwaita::prelude::ActionRowExt;
 use libadwaita::prelude::PreferencesRowExt;
 use libadwaita::subclass::prelude::*;
 use log::error;
-use oku_fs::iroh::base::ticket::Ticket;
-use oku_fs::iroh::client::docs::ShareMode;
-use oku_fs::iroh::docs::NamespaceId;
+use oku_fs::iroh_base::ticket::Ticket;
+use oku_fs::iroh_docs::rpc::client::docs::ShareMode;
+use oku_fs::iroh_docs::NamespaceId;
 use std::cell::RefCell;
-use std::str::FromStr;
 use std::sync::atomic::Ordering;
 use std::sync::LazyLock;
 
@@ -153,7 +152,10 @@ impl ReplicaRow {
             move |_| {
                 if let Some(node) = NODE.get() {
                     let new_home_replica = match this.home() {
-                        false => Some(NamespaceId::from_str(&this.id()).unwrap()),
+                        false => Some(NamespaceId::from(
+                            oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(&this.id())
+                                .unwrap_or_default(),
+                        )),
                         true => None,
                     };
                     if let Err(e) = node.set_home_replica(new_home_replica) {
@@ -197,7 +199,7 @@ impl ReplicaRow {
                             if let Some(node) = NODE.get() {
                                 if let Ok(ticket) = node
                                     .create_document_ticket(
-                                        NamespaceId::from_str(&this.id()).unwrap(),
+                                        NamespaceId::from(oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(&this.id()).unwrap_or_default()),
                                         ShareMode::Read,
                                     )
                                     .await
@@ -239,7 +241,7 @@ impl ReplicaRow {
                             if let Some(node) = NODE.get() {
                                 if let Ok(ticket) = node
                                     .create_document_ticket(
-                                        NamespaceId::from_str(&this.id()).unwrap(),
+                                        NamespaceId::from(oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(&this.id()).unwrap_or_default()),
                                         ShareMode::Write,
                                     )
                                     .await
@@ -281,7 +283,14 @@ impl ReplicaRow {
                             if let Some(node) = NODE.get() {
                                 match node
                                     .fetch_replica_by_id(
-                                        NamespaceId::from_str(&this.id()).unwrap(),
+                                        NamespaceId::from(
+                                            oku_fs::iroh_base::base32::parse_array_hex_or_base32::<
+                                                32,
+                                            >(
+                                                &this.id()
+                                            )
+                                            .unwrap_or_default(),
+                                        ),
                                         None,
                                     )
                                     .await
@@ -318,7 +327,12 @@ impl ReplicaRow {
                         async move {
                             if let Some(node) = NODE.get() {
                                 match node
-                                    .sync_replica(NamespaceId::from_str(&this.id()).unwrap())
+                                    .sync_replica(NamespaceId::from(
+                                        oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(
+                                            &this.id(),
+                                        )
+                                        .unwrap_or_default(),
+                                    ))
                                     .await
                                 {
                                     Ok(_) => (),
@@ -351,7 +365,12 @@ impl ReplicaRow {
                         async move {
                             if let Some(node) = NODE.get() {
                                 match node
-                                    .delete_replica(NamespaceId::from_str(&this.id()).unwrap())
+                                    .delete_replica(NamespaceId::from(
+                                        oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(
+                                            &this.id(),
+                                        )
+                                        .unwrap_or_default(),
+                                    ))
                                     .await
                                 {
                                     Ok(_) => (),
@@ -404,7 +423,9 @@ impl ReplicaRow {
         let imp = self.imp();
 
         imp.id.replace(id.to_string());
-        self.set_title(&NamespaceId::from_str(id).unwrap().fmt_short());
+        self.set_title(&oku_fs::iroh_base::base32::fmt_short(NamespaceId::from(
+            oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(id).unwrap_or_default(),
+        )));
     }
 
     pub fn set_writable(&self, writable: bool) {

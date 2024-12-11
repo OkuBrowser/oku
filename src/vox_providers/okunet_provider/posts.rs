@@ -4,7 +4,7 @@ use miette::IntoDiagnostic;
 use oku_fs::{
     database::{posts::OkuPost, users::OkuIdentity, users::OkuUser},
     fs::entry_key_to_path,
-    iroh::docs::AuthorId,
+    iroh_docs::AuthorId,
 };
 use std::{collections::HashSet, path::PathBuf, str::FromStr};
 use vox::provider::VoxProvider;
@@ -14,14 +14,9 @@ impl OkuNetProvider {
         let node = NODE
             .get()
             .ok_or(miette::miette!("No running Oku node … "))?;
-        let author = match node
-            .default_author()
-            .await
-            .map_err(|e| miette::miette!("{}", e))?
-            == post.entry.author()
-        {
+        let author = match node.is_me(&post.entry.author()) {
             true => "me".to_string(),
-            false => post.entry.author().to_string(),
+            false => oku_fs::iroh_base::base32::fmt(post.entry.author()),
         };
         let key_path = entry_key_to_path(post.entry.key())?;
         let relative_key_path = key_path.strip_prefix("/").into_diagnostic()?;
@@ -64,7 +59,7 @@ impl OkuNetProvider {
             identity
         } else {
             OkuIdentity {
-                name: user.author_id.to_string(),
+                name: oku_fs::iroh_base::base32::fmt(user.author_id),
                 following: HashSet::new(),
                 blocked: HashSet::new(),
             }
@@ -84,8 +79,11 @@ impl OkuNetProvider {
                 .collect::<Vec<_>>()
                 .into(),
         );
-        table.insert("author_id".into(), user.author_id.to_string().into());
-        table.insert("by_me".into(), node.is_me(&user.author_id).await.into());
+        table.insert(
+            "author_id".into(),
+            oku_fs::iroh_base::base32::fmt(user.author_id).into(),
+        );
+        table.insert("by_me".into(), node.is_me(&user.author_id).into());
         table.insert(
             "author".into(),
             toml::Table::try_from(author_identity)

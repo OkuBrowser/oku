@@ -11,7 +11,7 @@ use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use libadwaita::prelude::*;
 use log::error;
-use oku_fs::iroh::docs::CapabilityKind;
+use oku_fs::iroh_docs::CapabilityKind;
 use std::cell::Ref;
 use std::rc::Rc;
 use webkit2gtk::prelude::WebViewExt;
@@ -175,11 +175,14 @@ impl Window {
                     .filter_map(|x| x.clone().downcast::<ReplicaItem>().ok())
                     .enumerate()
                 {
-                    match replicas.iter().position(|x| x.0.to_string() == item.id()) {
+                    match replicas
+                        .iter()
+                        .position(|x| oku_fs::iroh_base::base32::fmt(x.0) == item.id())
+                    {
                         Some(replica_index) => {
                             let (replica, capability_kind) = replicas[replica_index];
                             item.set_properties(&[
-                                ("id", &replica.to_string()),
+                                ("id", &oku_fs::iroh_base::base32::fmt(replica)),
                                 (
                                     "writable",
                                     &matches!(capability_kind, CapabilityKind::Write),
@@ -197,7 +200,7 @@ impl Window {
                     let replicas_store = this.replicas_store();
                     for (replica, capability_kind) in replicas.iter() {
                         replicas_store.append(&ReplicaItem::new(
-                            replica.to_string(),
+                            oku_fs::iroh_base::base32::fmt(replica),
                             matches!(capability_kind, CapabilityKind::Write),
                             matches!(home_replica, Some(x) if x == *replica),
                         ));

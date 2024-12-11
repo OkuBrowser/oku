@@ -25,11 +25,11 @@ pub async fn node_scheme_handler(request: SchemeRequest) -> miette::Result<impl 
         .ok_or(miette::miette!("Oku node has not yet started … "))?;
     match url_path {
         HivePath::ByTicket(ticket, replica_path) => node
-            .fetch_file_with_ticket(&ticket, replica_path)
+            .fetch_file_with_ticket(&ticket, replica_path, None)
             .await
             .map_err(|e| miette::miette!("{}", e)),
         HivePath::ById(namespace_id, replica_path) => node
-            .fetch_file(namespace_id, replica_path)
+            .fetch_file(namespace_id, replica_path, None)
             .await
             .map_err(|e| miette::miette!("{}", e)),
     }

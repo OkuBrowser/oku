@@ -283,7 +283,7 @@ impl NoteEditor {
                         let post_at_url = if let Ok(oku_path) = OkuPath::parse(url.clone()) {
                             match oku_path {
                                 OkuPath::User(author_id, Some(path)) => {
-                                    if node.is_me(&author_id).await {
+                                    if node.is_me(&author_id) {
                                         node.post(format!("{}.toml", path.to_string_lossy()).into())
                                             .await
                                             .ok()

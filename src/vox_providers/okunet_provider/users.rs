@@ -2,7 +2,7 @@ use super::core::OkuNetProvider;
 use crate::NODE;
 use oku_fs::{
     database::{posts::OkuPost, users::OkuUser},
-    iroh::docs::AuthorId,
+    iroh_docs::AuthorId,
 };
 use vox::provider::VoxProvider;
 
@@ -14,7 +14,7 @@ impl OkuNetProvider {
     ) -> miette::Result<toml::Table> {
         let user_name = match &user.identity {
             Some(identity) => identity.name.clone(),
-            None => user.author_id.to_string(),
+            None => oku_fs::iroh_base::base32::fmt(user.author_id),
         };
         let node = NODE
             .get()
@@ -26,7 +26,7 @@ impl OkuNetProvider {
                 let mut followed_user_table = toml::Table::new();
                 followed_user_table.insert(
                     "id".into(),
-                    followed_user_information.author_id.to_string().into(),
+                    oku_fs::iroh_base::base32::fmt(followed_user_information.author_id).into(),
                 );
                 match followed_user_information.identity {
                     Some(discovered_identity) => {
@@ -36,7 +36,7 @@ impl OkuNetProvider {
                             discovered_identity
                                 .following
                                 .into_iter()
-                                .map(|x| x.to_string())
+                                .map(oku_fs::iroh_base::base32::fmt)
                                 .collect::<Vec<_>>()
                                 .into(),
                         );
@@ -44,7 +44,8 @@ impl OkuNetProvider {
                     None => {
                         followed_user_table.insert(
                             "name".into(),
-                            followed_user_information.author_id.to_string().into(),
+                            oku_fs::iroh_base::base32::fmt(followed_user_information.author_id)
+                                .into(),
                         );
                         followed_user_table.insert("following".into(), Vec::<String>::new().into());
                     }
@@ -59,7 +60,10 @@ impl OkuNetProvider {
             format!("{}.html", user.author_id).into(),
         );
         table.insert("title".into(), user_name.into());
-        table.insert("author_id".into(), user.author_id.to_string().into());
+        table.insert(
+            "author_id".into(),
+            oku_fs::iroh_base::base32::fmt(user.author_id).into(),
+        );
         table.insert(
             "is_followed".into(),
             node.is_followed(&user.author_id).await.into(),
@@ -68,9 +72,12 @@ impl OkuNetProvider {
             "is_blocked".into(),
             node.is_blocked(&user.author_id).await.into(),
         );
-        table.insert("is_me".into(), node.is_me(&user.author_id).await.into());
+        table.insert("is_me".into(), node.is_me(&user.author_id).into());
         if !posts.is_empty() {
-            table.insert("depends".into(), vec![user.author_id.to_string()].into());
+            table.insert(
+                "depends".into(),
+                vec![oku_fs::iroh_base::base32::fmt(user.author_id)].into(),
+            );
         } else {
             table.insert("empty".into(), Vec::<String>::new().into());
         }
@@ -92,7 +99,7 @@ impl OkuNetProvider {
         }
         let page_path = format!("{}.vox", user.author_id);
         let include_argument = if !user_posts.is_empty() {
-            user.author_id.to_string()
+            oku_fs::iroh_base::base32::fmt(user.author_id)
         } else {
             "empty".into()
         };

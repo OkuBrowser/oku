@@ -2,7 +2,7 @@ use crate::widgets::address_entry::AddressEntry;
 use glib::object::{Cast, IsA};
 use gtk::{prelude::EditableExt, prelude::WidgetExt};
 use log::error;
-use oku_fs::iroh::docs::{DocTicket, NamespaceId};
+use oku_fs::iroh_docs::DocTicket;
 use std::{path::PathBuf, str::FromStr};
 use webkit2gtk::{functions::uri_for_display, prelude::WebViewExt};
 
@@ -59,7 +59,8 @@ pub fn is_hive_uri(nav_text: &str) -> bool {
     if let Some(first_component) = components.next() {
         let first_component_string = first_component.as_os_str().to_str().unwrap_or_default();
         DocTicket::from_str(first_component_string).is_ok()
-            || NamespaceId::from_str(first_component_string).is_ok()
+            || oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(first_component_string)
+                .is_ok()
     } else {
         false
     }

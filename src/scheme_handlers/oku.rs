@@ -11,7 +11,7 @@ use libadwaita::{
     ResponseAppearance,
 };
 use log::error;
-use oku_fs::iroh::docs::AuthorId;
+use oku_fs::iroh_docs::AuthorId;
 use std::{path::PathBuf, sync::atomic::Ordering};
 use webkit2gtk::{functions::uri_for_display, prelude::WebViewExt};
 

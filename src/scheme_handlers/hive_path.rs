@@ -1,4 +1,4 @@
-use oku_fs::iroh::docs::{DocTicket, NamespaceId};
+use oku_fs::iroh_docs::{DocTicket, NamespaceId};
 use std::{path::PathBuf, str::FromStr};
 
 #[derive(Debug, Clone)]
@@ -25,8 +25,14 @@ impl HivePath {
             .unwrap_or("/".into());
         if let Ok(ticket) = DocTicket::from_str(&first_component.to_string_lossy()) {
             Ok(Self::ByTicket(Box::new(ticket), replica_path))
-        } else if let Ok(namespace_id) = NamespaceId::from_str(&first_component.to_string_lossy()) {
-            Ok(Self::ById(namespace_id, replica_path))
+        } else if let Ok(namespace_id_bytes) = oku_fs::iroh_base::base32::parse_array_hex_or_base32::<
+            32,
+        >(&first_component.to_string_lossy())
+        {
+            Ok(Self::ById(
+                NamespaceId::from(namespace_id_bytes),
+                replica_path,
+            ))
         } else {
             Err(miette::miette!(
                 "{:?} does not contain a replica ID or ticket … ",

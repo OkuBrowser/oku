@@ -1,6 +1,6 @@
 use miette::IntoDiagnostic;
-use oku_fs::iroh::docs::AuthorId;
-use std::{path::PathBuf, str::FromStr};
+use oku_fs::iroh_docs::AuthorId;
+use std::path::PathBuf;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum OkuPath {
@@ -43,8 +43,8 @@ impl OkuPath {
                     .map(|x| OkuPath::Tag(x.to_string_lossy().to_string()))
                     .unwrap_or(OkuPath::Tags),
                 "me" => OkuPath::Me(replica_path),
-                "follow" => OkuPath::ToggleFollow(
-                    AuthorId::from_str(
+                "follow" => OkuPath::ToggleFollow(AuthorId::from(
+                    oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(
                         second_component
                             .ok_or(miette::miette!("Missing author ID … "))?
                             .as_os_str()
@@ -52,10 +52,10 @@ impl OkuPath {
                             .to_string()
                             .as_str(),
                     )
-                    .map_err(|e| miette::miette!("{}", e))?,
-                ),
-                "block" => OkuPath::ToggleBlock(
-                    AuthorId::from_str(
+                    .unwrap_or_default(),
+                )),
+                "block" => OkuPath::ToggleBlock(AuthorId::from(
+                    oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(
                         second_component
                             .ok_or(miette::miette!("Missing author ID … "))?
                             .as_os_str()
@@ -63,8 +63,8 @@ impl OkuPath {
                             .to_string()
                             .as_str(),
                     )
-                    .map_err(|e| miette::miette!("{}", e))?,
-                ),
+                    .unwrap_or_default(),
+                )),
                 "delete" => {
                     OkuPath::Delete(replica_path.ok_or(miette::miette!("Missing post path … "))?)
                 }
@@ -76,14 +76,16 @@ impl OkuPath {
                         .to_string(),
                 ),
                 _ => OkuPath::User(
-                    AuthorId::from_str(
-                        first_component
-                            .as_os_str()
-                            .to_string_lossy()
-                            .to_string()
-                            .as_str(),
-                    )
-                    .map_err(|e| miette::miette!("{}", e))?,
+                    AuthorId::from(
+                        oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(
+                            first_component
+                                .as_os_str()
+                                .to_string_lossy()
+                                .to_string()
+                                .as_str(),
+                        )
+                        .unwrap_or_default(),
+                    ),
                     replica_path,
                 ),
             },
