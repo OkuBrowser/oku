@@ -105,7 +105,8 @@ impl Settings {
         if let Some(node) = NODE.get() {
             imp.author_row
                 .set_subtitle(&oku_fs::iroh_base::base32::fmt(node.default_author()));
-            match HOME_REPLICA_SET.load(Ordering::Relaxed) {
+            let home_replica_set = HOME_REPLICA_SET.load(Ordering::Relaxed);
+            match home_replica_set {
                 true => {
                     let ctx = glib::MainContext::default();
                     ctx.spawn_local(clone!(
@@ -133,10 +134,9 @@ impl Settings {
                             ));
                         }));
                 }
-                false => {
-                    imp.display_name_row.set_sensitive(false);
-                }
+                false => imp.display_name_row.set_text(""),
             }
+            imp.display_name_row.set_sensitive(home_replica_set);
         }
     }
 
@@ -240,11 +240,14 @@ impl Settings {
                                 clone!(
                                     #[strong]
                                     node,
+                                    #[weak]
+                                    this,
                                     move |destination| {
                                         let exported_user_toml = destination
                                             .ok()
                                             .and_then(|x| x.path())
                                             .and_then(|x| std::fs::read_to_string(x).ok());
+                                        this.imp().okunet_group.set_sensitive(false);
                                         if let Some(exported_user_toml) = exported_user_toml {
                                             glib::spawn_future_local(clone!(async move {
                                                 if let Err(e) =
@@ -254,6 +257,7 @@ impl Settings {
                                                 }
                                             }));
                                         }
+                                        this.imp().okunet_group.set_sensitive(true);
                                     }
                                 ),
                             )

@@ -35,7 +35,11 @@ impl OkuNetProvider {
         };
         match tag {
             Some(tag) => format!("{}/{}.vox", tag, post_id),
-            None => format!("{}/{}.vox", post.entry.author(), post_id),
+            None => format!(
+                "{}/{}.vox",
+                oku_fs::iroh_base::base32::fmt(post.entry.author()),
+                post_id
+            ),
         }
     }
     pub async fn get_post_frontmatter(

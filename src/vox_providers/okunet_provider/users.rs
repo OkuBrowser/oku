@@ -57,7 +57,7 @@ impl OkuNetProvider {
         table.insert("layout".into(), "default".into());
         table.insert(
             "permalink".into(),
-            format!("{}.html", user.author_id).into(),
+            format!("{}.html", oku_fs::iroh_base::base32::fmt(user.author_id)).into(),
         );
         table.insert("title".into(), user_name.into());
         table.insert(
@@ -97,7 +97,7 @@ impl OkuNetProvider {
         for post in user_posts.iter() {
             self.create_post_page(user, post, None).await?;
         }
-        let page_path = format!("{}.vox", user.author_id);
+        let page_path = format!("{}.vox", oku_fs::iroh_base::base32::fmt(user.author_id));
         let include_argument = if !user_posts.is_empty() {
             oku_fs::iroh_base::base32::fmt(user.author_id)
         } else {
@@ -123,7 +123,10 @@ impl OkuNetProvider {
         let user = node.get_or_fetch_user(author_id).await?;
         let posts = node.posts_from_user(&user).await?;
         self.create_profile_page(&user, Some(posts)).await?;
-        self.render_and_get(format!("output/{}.html", user.author_id))
+        self.render_and_get(format!(
+            "output/{}.html",
+            oku_fs::iroh_base::base32::fmt(user.author_id)
+        ))
     }
 
     pub async fn view_self(&self) -> miette::Result<String> {
@@ -133,6 +136,9 @@ impl OkuNetProvider {
         let me = node.user().await?;
         let posts = node.posts_from_user(&me).await.ok();
         self.create_profile_page(&me, posts).await?;
-        self.render_and_get(format!("output/{}.html", me.author_id))
+        self.render_and_get(format!(
+            "output/{}.html",
+            oku_fs::iroh_base::base32::fmt(me.author_id)
+        ))
     }
 }

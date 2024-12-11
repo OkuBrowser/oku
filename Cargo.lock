@@ -5521,7 +5521,7 @@ dependencies = [
 [[package]]
 name = "oku-fs"
 version = "0.1.0"
-source = "git+https://github.com/OkuBrowser/oku-fs#53f258de415082ff82a7ea660db5700ed99cabed"
+source = "git+https://github.com/OkuBrowser/oku-fs#665548acc27fe5280a33c82e8b6d1e570bc3d3fb"
 dependencies = [
  "anyhow",
  "bs58",
