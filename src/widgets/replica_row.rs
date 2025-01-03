@@ -153,12 +153,12 @@ impl ReplicaRow {
                 if let Some(node) = NODE.get() {
                     let new_home_replica = match this.home() {
                         false => Some(NamespaceId::from(
-                            oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(&this.id())
+                            oku_fs::fs::util::parse_array_hex_or_base32::<32>(&this.id())
                                 .unwrap_or_default(),
                         )),
                         true => None,
                     };
-                    if let Err(e) = node.set_home_replica(new_home_replica) {
+                    if let Err(e) = node.set_home_replica(&new_home_replica) {
                         error!("{}", e);
                     }
                 }
@@ -199,8 +199,8 @@ impl ReplicaRow {
                             if let Some(node) = NODE.get() {
                                 if let Ok(ticket) = node
                                     .create_document_ticket(
-                                        NamespaceId::from(oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(&this.id()).unwrap_or_default()),
-                                        ShareMode::Read,
+                                        &NamespaceId::from(oku_fs::fs::util::parse_array_hex_or_base32::<32>(&this.id()).unwrap_or_default()),
+                                        &ShareMode::Read,
                                     )
                                     .await
                                 {
@@ -241,8 +241,8 @@ impl ReplicaRow {
                             if let Some(node) = NODE.get() {
                                 if let Ok(ticket) = node
                                     .create_document_ticket(
-                                        NamespaceId::from(oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(&this.id()).unwrap_or_default()),
-                                        ShareMode::Write,
+                                        &NamespaceId::from(oku_fs::fs::util::parse_array_hex_or_base32::<32>(&this.id()).unwrap_or_default()),
+                                        &ShareMode::Write,
                                     )
                                     .await
                                 {
@@ -283,15 +283,13 @@ impl ReplicaRow {
                             if let Some(node) = NODE.get() {
                                 match node
                                     .fetch_replica_by_id(
-                                        NamespaceId::from(
-                                            oku_fs::iroh_base::base32::parse_array_hex_or_base32::<
-                                                32,
-                                            >(
-                                                &this.id()
+                                        &NamespaceId::from(
+                                            oku_fs::fs::util::parse_array_hex_or_base32::<32>(
+                                                &this.id(),
                                             )
                                             .unwrap_or_default(),
                                         ),
-                                        None,
+                                        &None,
                                     )
                                     .await
                                 {
@@ -327,8 +325,8 @@ impl ReplicaRow {
                         async move {
                             if let Some(node) = NODE.get() {
                                 match node
-                                    .sync_replica(NamespaceId::from(
-                                        oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(
+                                    .sync_replica(&NamespaceId::from(
+                                        oku_fs::fs::util::parse_array_hex_or_base32::<32>(
                                             &this.id(),
                                         )
                                         .unwrap_or_default(),
@@ -365,8 +363,8 @@ impl ReplicaRow {
                         async move {
                             if let Some(node) = NODE.get() {
                                 match node
-                                    .delete_replica(NamespaceId::from(
-                                        oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(
+                                    .delete_replica(&NamespaceId::from(
+                                        oku_fs::fs::util::parse_array_hex_or_base32::<32>(
                                             &this.id(),
                                         )
                                         .unwrap_or_default(),
@@ -423,8 +421,8 @@ impl ReplicaRow {
         let imp = self.imp();
 
         imp.id.replace(id.to_string());
-        self.set_title(&oku_fs::iroh_base::base32::fmt_short(NamespaceId::from(
-            oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(id).unwrap_or_default(),
+        self.set_title(&oku_fs::fs::util::fmt_short(NamespaceId::from(
+            oku_fs::fs::util::parse_array_hex_or_base32::<32>(id).unwrap_or_default(),
         )));
     }
 

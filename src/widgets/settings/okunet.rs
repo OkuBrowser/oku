@@ -104,7 +104,7 @@ impl Settings {
 
         if let Some(node) = NODE.get() {
             imp.author_row
-                .set_subtitle(&oku_fs::iroh_base::base32::fmt(node.default_author()));
+                .set_subtitle(&oku_fs::fs::util::fmt(node.default_author()));
             let home_replica_set = HOME_REPLICA_SET.load(Ordering::Relaxed);
             match home_replica_set {
                 true => {
@@ -124,9 +124,8 @@ impl Settings {
                                 #[weak]
                                 display_name_row,
                                 async move {
-                                    if let Err(e) = node
-                                        .set_display_name(display_name_row.text().to_string())
-                                        .await
+                                    if let Err(e) =
+                                        node.set_display_name(&display_name_row.text().into()).await
                                     {
                                         error!("{}", e);
                                     }
@@ -251,7 +250,7 @@ impl Settings {
                                         if let Some(exported_user_toml) = exported_user_toml {
                                             glib::spawn_future_local(clone!(async move {
                                                 if let Err(e) =
-                                                    node.import_user_toml(exported_user_toml).await
+                                                    node.import_user_toml(&exported_user_toml).await
                                                 {
                                                     error!("{}", e);
                                                 }

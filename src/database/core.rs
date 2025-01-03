@@ -52,7 +52,7 @@ impl BrowserDatabase {
     ) -> miette::Result<Vec<SuggestionItem>> {
         let history_records = Self::search_history_records(query_string.clone(), None)?;
         let bookmarks = Self::search_bookmarks(query_string.clone(), None)?;
-        let okunet_posts = OkuDatabase::search_posts(query_string.clone(), None)?;
+        let okunet_posts = OkuDatabase::search_posts(&query_string, &None)?;
 
         let history_record_suggestions: Vec<_> = history_records
             .into_iter()

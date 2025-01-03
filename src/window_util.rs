@@ -59,8 +59,7 @@ pub fn is_hive_uri(nav_text: &str) -> bool {
     if let Some(first_component) = components.next() {
         let first_component_string = first_component.as_os_str().to_str().unwrap_or_default();
         DocTicket::from_str(first_component_string).is_ok()
-            || oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(first_component_string)
-                .is_ok()
+            || oku_fs::fs::util::parse_array_hex_or_base32::<32>(first_component_string).is_ok()
     } else {
         false
     }

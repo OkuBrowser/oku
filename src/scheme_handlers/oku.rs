@@ -92,17 +92,22 @@ pub fn delete(request: SchemeRequest, replica_path: PathBuf) -> miette::Result<(
                 match response {
                     "cancel" => (),
                     "delete" => {
-                        let node = node.clone();
-                        let replica_path = replica_path.clone();
-                        let request = request.clone();
-                        ctx.spawn_local(clone!(async move {
-                            if let Err(e) = node.delete_post(replica_path).await {
-                                error!("{}", e);
-                            } else {
-                                let web_view = request.0.web_view().unwrap();
-                                web_view.reload_bypass_cache();
+                        ctx.spawn_local(clone!(
+                            #[strong]
+                            node,
+                            #[strong]
+                            replica_path,
+                            #[strong]
+                            request,
+                            async move {
+                                if let Err(e) = node.delete_post(&replica_path).await {
+                                    error!("{}", e);
+                                } else {
+                                    let web_view = request.0.web_view().unwrap();
+                                    web_view.reload_bypass_cache();
+                                }
                             }
-                        }));
+                        ));
                     }
                     _ => {
                         unreachable!()
@@ -119,7 +124,7 @@ pub async fn toggle_follow(author_id: AuthorId) -> miette::Result<()> {
     let node = NODE
         .get()
         .ok_or(miette::miette!("No running Oku node … "))?;
-    node.toggle_follow(author_id).await?;
+    node.toggle_follow(&author_id).await?;
     Ok(())
 }
 
@@ -127,7 +132,7 @@ pub async fn toggle_block(author_id: AuthorId) -> miette::Result<()> {
     let node = NODE
         .get()
         .ok_or(miette::miette!("No running Oku node … "))?;
-    node.toggle_block(author_id).await?;
+    node.toggle_block(&author_id).await?;
     Ok(())
 }
 

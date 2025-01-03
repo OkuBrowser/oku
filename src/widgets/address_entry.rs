@@ -312,7 +312,7 @@ impl AddressEntry {
                     }
                 }
                 Ok(OkuPath::User(author_id, None)) => {
-                    if let Err(e) = node.fetch_user(author_id).await {
+                    if let Err(e) = node.fetch_user(&author_id).await {
                         error!("{}", e);
                     }
                 }
@@ -323,7 +323,7 @@ impl AddressEntry {
                             .strip_suffix(".html")
                             .unwrap_or(&path.to_string_lossy())
                     );
-                    if let Err(e) = node.fetch_post(author_id, post_path.into()).await {
+                    if let Err(e) = node.fetch_post(&author_id, &post_path.into()).await {
                         error!("{}", e);
                     }
                 }

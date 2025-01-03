@@ -44,7 +44,7 @@ impl OkuPath {
                     .unwrap_or(OkuPath::Tags),
                 "me" => OkuPath::Me(replica_path),
                 "follow" => OkuPath::ToggleFollow(AuthorId::from(
-                    oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(
+                    oku_fs::fs::util::parse_array_hex_or_base32::<32>(
                         second_component
                             .ok_or(miette::miette!("Missing author ID … "))?
                             .as_os_str()
@@ -55,7 +55,7 @@ impl OkuPath {
                     .unwrap_or_default(),
                 )),
                 "block" => OkuPath::ToggleBlock(AuthorId::from(
-                    oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(
+                    oku_fs::fs::util::parse_array_hex_or_base32::<32>(
                         second_component
                             .ok_or(miette::miette!("Missing author ID … "))?
                             .as_os_str()
@@ -77,7 +77,7 @@ impl OkuPath {
                 ),
                 _ => OkuPath::User(
                     AuthorId::from(
-                        oku_fs::iroh_base::base32::parse_array_hex_or_base32::<32>(
+                        oku_fs::fs::util::parse_array_hex_or_base32::<32>(
                             first_component
                                 .as_os_str()
                                 .to_string_lossy()

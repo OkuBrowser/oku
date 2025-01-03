@@ -30,7 +30,7 @@ impl OkuNetProvider {
         Ok(())
     }
     pub async fn search(&self, query: String) -> miette::Result<String> {
-        let search_results = OkuDatabase::search_posts(query.clone(), None)?;
+        let search_results = OkuDatabase::search_posts(&query, &None)?;
         for post in search_results.iter() {
             self.create_post_page(&post.user(), post, None).await?;
         }

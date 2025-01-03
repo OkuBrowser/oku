@@ -25,9 +25,8 @@ impl HivePath {
             .unwrap_or("/".into());
         if let Ok(ticket) = DocTicket::from_str(&first_component.to_string_lossy()) {
             Ok(Self::ByTicket(Box::new(ticket), replica_path))
-        } else if let Ok(namespace_id_bytes) = oku_fs::iroh_base::base32::parse_array_hex_or_base32::<
-            32,
-        >(&first_component.to_string_lossy())
+        } else if let Ok(namespace_id_bytes) =
+            oku_fs::fs::util::parse_array_hex_or_base32::<32>(&first_component.to_string_lossy())
         {
             Ok(Self::ById(
                 NamespaceId::from(namespace_id_bytes),

@@ -1,6 +1,6 @@
 use super::core::OkuNetProvider;
 use crate::NODE;
-use oku_fs::database::posts::OkuPost;
+use oku_fs::database::posts::core::OkuPost;
 use vox::provider::VoxProvider;
 
 impl OkuNetProvider {
@@ -27,7 +27,7 @@ impl OkuNetProvider {
         let node = NODE
             .get()
             .ok_or(miette::miette!("No running Oku node … "))?;
-        let tag_posts = node.all_posts_with_tag(tag.clone()).await;
+        let tag_posts = node.all_posts_with_tag(&tag).await;
         for post in tag_posts.iter() {
             self.create_post_page(&post.user(), post, Some(tag.clone()))
                 .await?;

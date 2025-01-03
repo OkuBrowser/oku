@@ -177,12 +177,12 @@ impl Window {
                 {
                     match replicas
                         .iter()
-                        .position(|x| oku_fs::iroh_base::base32::fmt(x.0) == item.id())
+                        .position(|x| oku_fs::fs::util::fmt(x.0) == item.id())
                     {
                         Some(replica_index) => {
                             let (replica, capability_kind) = replicas[replica_index];
                             item.set_properties(&[
-                                ("id", &oku_fs::iroh_base::base32::fmt(replica)),
+                                ("id", &oku_fs::fs::util::fmt(replica)),
                                 (
                                     "writable",
                                     &matches!(capability_kind, CapabilityKind::Write),
@@ -200,7 +200,7 @@ impl Window {
                     let replicas_store = this.replicas_store();
                     for (replica, capability_kind) in replicas.iter() {
                         replicas_store.append(&ReplicaItem::new(
-                            oku_fs::iroh_base::base32::fmt(replica),
+                            oku_fs::fs::util::fmt(replica),
                             matches!(capability_kind, CapabilityKind::Write),
                             matches!(home_replica, Some(x) if x == *replica),
                         ));

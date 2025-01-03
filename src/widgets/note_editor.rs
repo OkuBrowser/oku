@@ -21,7 +21,7 @@ use libadwaita::prelude::PreferencesRowExt;
 use libadwaita::prelude::*;
 use libadwaita::subclass::dialog::AdwDialogImpl;
 use log::error;
-use oku_fs::database::posts::OkuNote;
+use oku_fs::database::posts::core::OkuNote;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::atomic::Ordering;
@@ -284,15 +284,17 @@ impl NoteEditor {
                             match oku_path {
                                 OkuPath::User(author_id, Some(path)) => {
                                     if node.is_me(&author_id) {
-                                        node.post(format!("{}.toml", path.to_string_lossy()).into())
-                                            .await
-                                            .ok()
+                                        node.post(
+                                            &format!("{}.toml", path.to_string_lossy()).into(),
+                                        )
+                                        .await
+                                        .ok()
                                     } else {
                                         None
                                     }
                                 }
                                 OkuPath::Me(Some(path)) => node
-                                    .post(format!("{}.toml", path.to_string_lossy()).into())
+                                    .post(&format!("{}.toml", path.to_string_lossy()).into())
                                     .await
                                     .ok(),
                                 _ => None,
@@ -301,8 +303,8 @@ impl NoteEditor {
                             None
                         };
                         let post_from_url = {
-                            let path = OkuNote::suggested_post_path_from_url(url);
-                            node.post(format!("{}.toml", path).into()).await.ok()
+                            let path = OkuNote::suggested_post_path_from_url(&url);
+                            node.post(&format!("{}.toml", path).into()).await.ok()
                         };
                         if let Some(oku_post) = post_at_url.or(post_from_url) {
                             imp.url_entry.set_text(oku_post.note.url.as_ref());
@@ -333,11 +335,13 @@ impl NoteEditor {
                                             Ok(parsed_url) => {
                                                 match node
                                                     .create_or_modify_post(
-                                                        None,
-                                                        parsed_url,
-                                                        this.title_property(),
-                                                        this.body(),
-                                                        HashSet::from_iter(this.tags().into_iter()),
+                                                        &None,
+                                                        &parsed_url,
+                                                        &this.title_property(),
+                                                        &this.body(),
+                                                        &HashSet::from_iter(
+                                                            this.tags().into_iter(),
+                                                        ),
                                                     )
                                                     .await
                                                 {
