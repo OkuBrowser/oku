@@ -1,6 +1,9 @@
+use std::collections::HashSet;
+
 use super::core::OkuNetProvider;
 use crate::NODE;
 use oku_fs::database::posts::core::OkuPost;
+use rayon::iter::FromParallelIterator;
 use vox::provider::VoxProvider;
 
 impl OkuNetProvider {
@@ -27,7 +30,12 @@ impl OkuNetProvider {
         let node = NODE
             .get()
             .ok_or(miette::miette!("No running Oku node … "))?;
-        let tag_posts = node.all_posts_with_tag(&tag).await;
+        let tag_posts = node
+            .posts_with_tags(
+                &Vec::from_par_iter(node.all_posts().await),
+                &HashSet::from_par_iter(vec![tag.clone()]),
+            )
+            .await;
         for post in tag_posts.iter() {
             self.create_post_page(&post.user(), post, Some(tag.clone()))
                 .await?;
@@ -59,7 +67,7 @@ impl OkuNetProvider {
         let node = NODE
             .get()
             .ok_or(miette::miette!("No running Oku node … "))?;
-        let tags = node.all_tags().await;
+        let tags = node.all_tags(&node.all_posts().await).await;
         for tag in tags {
             self.create_tag_page(tag.clone()).await?;
         }

@@ -103,12 +103,20 @@ impl Settings {
         let imp = self.imp();
 
         if let Some(node) = NODE.get() {
-            imp.author_row
-                .set_subtitle(&oku_fs::fs::util::fmt(node.default_author()));
+            let ctx = glib::MainContext::default();
+            ctx.spawn_local(clone!(
+                #[weak]
+                imp,
+                #[strong]
+                node,
+                async move {
+                    imp.author_row
+                        .set_subtitle(&oku_fs::fs::util::fmt(node.default_author().await));
+                }
+            ));
             let home_replica_set = HOME_REPLICA_SET.load(Ordering::Relaxed);
             match home_replica_set {
                 true => {
-                    let ctx = glib::MainContext::default();
                     ctx.spawn_local(clone!(
                         #[weak]
                         imp,

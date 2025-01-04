@@ -17,7 +17,7 @@ impl OkuNetProvider {
         let node = NODE
             .get()
             .ok_or(miette::miette!("No running Oku node … "))?;
-        let author = match node.is_me(&post.entry.author()) {
+        let author = match node.is_me(&post.entry.author()).await {
             true => "me".to_string(),
             false => oku_fs::fs::util::fmt(post.entry.author()),
         };
@@ -90,7 +90,7 @@ impl OkuNetProvider {
             "author_id".into(),
             oku_fs::fs::util::fmt(user.author_id).into(),
         );
-        table.insert("by_me".into(), node.is_me(&user.author_id).into());
+        table.insert("by_me".into(), node.is_me(&user.author_id).await.into());
         table.insert(
             "author".into(),
             toml::Table::try_from(author_identity)

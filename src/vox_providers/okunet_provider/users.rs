@@ -71,7 +71,7 @@ impl OkuNetProvider {
             "is_blocked".into(),
             node.is_blocked(&user.author_id).await.into(),
         );
-        table.insert("is_me".into(), node.is_me(&user.author_id).into());
+        table.insert("is_me".into(), node.is_me(&user.author_id).await.into());
         if !posts.is_empty() {
             table.insert(
                 "depends".into(),
