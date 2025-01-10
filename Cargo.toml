@@ -29,7 +29,7 @@ oku-fs = { git = "https://github.com/OkuBrowser/oku-fs", features = ["fuse"] }
 # oku-fs = { path = "/home/emil/Documents/GitHub/oku-fs", features = ["fuse"] }
 pango = { version = "*" }
 url = "2.5.4"
-tokio = { version = "1.42.0", features = ["full"] }
+tokio = { version = "1.43.0", features = ["full"] }
 tokio-stream = "0.1.17"
 webkit2gtk = { version = "*", package = "webkit6", features = ["v2_44"] }
 tree_magic_mini = { version = "3.1.6", features = ["with-gpl-data"] }
