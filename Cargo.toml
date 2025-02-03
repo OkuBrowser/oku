@@ -39,7 +39,7 @@ log = "0.4.25"
 toml = "0.8.19"
 serde = "1.0.217"
 uuid = { version = "1.12.1", features = ["v7", "fast-rng", "serde"] }
-miette = "7.4.0"
+miette = "7.5.0"
 html-escape = "0.2.13"
 bytes = "1.9.0"
 native_db = "0.8.1"
