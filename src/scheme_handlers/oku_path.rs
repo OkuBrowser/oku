@@ -51,8 +51,7 @@ impl OkuPath {
                             .to_string_lossy()
                             .to_string()
                             .as_str(),
-                    )
-                    .unwrap_or_default(),
+                    )?,
                 )),
                 "block" => OkuPath::ToggleBlock(AuthorId::from(
                     oku_fs::fs::util::parse_array_hex_or_base32::<32>(
@@ -62,8 +61,7 @@ impl OkuPath {
                             .to_string_lossy()
                             .to_string()
                             .as_str(),
-                    )
-                    .unwrap_or_default(),
+                    )?,
                 )),
                 "delete" => {
                     OkuPath::Delete(replica_path.ok_or(miette::miette!("Missing post path … "))?)
@@ -76,16 +74,13 @@ impl OkuPath {
                         .to_string(),
                 ),
                 _ => OkuPath::User(
-                    AuthorId::from(
-                        oku_fs::fs::util::parse_array_hex_or_base32::<32>(
-                            first_component
-                                .as_os_str()
-                                .to_string_lossy()
-                                .to_string()
-                                .as_str(),
-                        )
-                        .unwrap_or_default(),
-                    ),
+                    AuthorId::from(oku_fs::fs::util::parse_array_hex_or_base32::<32>(
+                        first_component
+                            .as_os_str()
+                            .to_string_lossy()
+                            .to_string()
+                            .as_str(),
+                    )?),
                     replica_path,
                 ),
             },

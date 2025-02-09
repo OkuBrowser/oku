@@ -51,5 +51,6 @@
     <file preprocess="xml-stripblanks">folder-open-symbolic.svg</file>
     <file preprocess="xml-stripblanks">shapes-symbolic.svg</file>
     <file preprocess="xml-stripblanks">entry-clear-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">wrench-wide-symbolic.svg</file>
   </gresource>
 </gresources>

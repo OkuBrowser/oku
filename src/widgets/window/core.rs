@@ -4,7 +4,6 @@ use crate::widgets::address_entry::AddressEntry;
 use crate::widgets::settings::core::apply_appearance_config;
 use crate::{APP_ID, HOME_REPLICA_SET, NODE};
 use glib::clone;
-use glib::closure;
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
@@ -720,14 +719,14 @@ impl Window {
         imp.okunet_fetch_overlay_box.add_css_class("toolbar");
         imp.okunet_fetch_overlay_box.set_opacity(0.0);
 
-        imp.okunet_fetch_overlay_box
-            .property_expression("opacity")
-            .chain_closure::<bool>(closure!(|_: Option<glib::Object>, x: f64| { x == 0.0 }))
-            .bind(
-                &imp.nav_entry.imp().okunet_refresh_button,
-                "sensitive",
-                gtk::Widget::NONE,
-            );
+        // imp.okunet_fetch_overlay_box
+        //     .property_expression("opacity")
+        //     .chain_closure::<bool>(closure!(|_: Option<glib::Object>, x: f64| { x == 0.0 }))
+        //     .bind(
+        //         &imp.nav_entry.imp().okunet_refresh_button,
+        //         "sensitive",
+        //         gtk::Widget::NONE,
+        //     );
     }
 
     pub fn show_okunet_fetch_overlay(&self) {
