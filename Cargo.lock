@@ -6947,7 +6947,7 @@ dependencies = [
 [[package]]
 name = "oku-fs"
 version = "0.1.0"
-source = "git+https://github.com/OkuBrowser/oku-fs#95e84d78d92794e497cc8c51773f556347215bbe"
+source = "git+https://github.com/OkuBrowser/oku-fs#34f79d129a38288e0f986d07ac8dcd5e2c5d16c4"
 dependencies = [
  "anyhow",
  "bs58",
@@ -11448,7 +11448,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "static_assertions",
 ]
 
