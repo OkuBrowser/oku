@@ -125,6 +125,9 @@ glib::wrapper! {
     @extends libadwaita::Dialog, gtk::Widget;
 }
 
+unsafe impl Send for NoteEditor {}
+unsafe impl Sync for NoteEditor {}
+
 impl NoteEditor {
     pub fn new(window: Option<&super::window::Window>, bookmark: Option<Bookmark>) -> Self {
         let this: Self = glib::Object::builder::<Self>().build();
@@ -319,48 +322,67 @@ impl NoteEditor {
 
         match HOME_REPLICA_SET.load(Ordering::Relaxed) {
             true => {
+                let window_clone = window.cloned();
                 imp.save_post_button.connect_clicked(clone!(
                     #[weak]
                     this,
+                    #[strong]
+                    window_clone,
                     move |_| {
-                        let ctx = glib::MainContext::default();
-                        ctx.spawn_local_with_priority(
-                            glib::source::Priority::HIGH,
-                            clone!(
-                                #[weak]
-                                this,
-                                async move {
-                                    if let Some(node) = NODE.get() {
-                                        match url::Url::parse(&this.url()) {
-                                            Ok(parsed_url) => {
-                                                match node
-                                                    .create_or_modify_post(
-                                                        &None,
-                                                        &parsed_url,
-                                                        &this.title_property(),
-                                                        &this.body(),
-                                                        &HashSet::from_iter(
-                                                            this.tags().into_iter(),
-                                                        ),
-                                                    )
-                                                    .await
-                                                {
-                                                    Ok(_) => {
-                                                        this.close();
+                        // let ctx = glib::MainContext::default();
+                        // ctx.spawn_local_with_priority(
+                        //     glib::source::Priority::HIGH,
+                        tokio::spawn(clone!(
+                            #[weak]
+                            this,
+                            #[strong]
+                            window_clone,
+                            async move {
+                                if let Some(node) = NODE.get() {
+                                    match url::Url::parse(&this.url()) {
+                                        Ok(parsed_url) => {
+                                            if let Some(window) = window_clone {
+                                                let data = bytes::Bytes::from(
+                                                    window.get_data().await.unwrap_or_default(),
+                                                );
+                                                let url = parsed_url.clone();
+                                                tokio::spawn(async move {
+                                                    match node
+                                                        .create_post_embedding(&None, &url, &data)
+                                                        .await
+                                                    {
+                                                        Ok(hash) => {
+                                                            println!("Embedding hash: {hash:?}")
+                                                        }
+                                                        Err(e) => error!("{e}"),
                                                     }
-                                                    Err(e) => {
-                                                        error!("{}", e);
-                                                    }
+                                                });
+                                            }
+                                            match node
+                                                .create_or_modify_post(
+                                                    &None,
+                                                    &parsed_url,
+                                                    &this.title_property(),
+                                                    &this.body(),
+                                                    &HashSet::from_iter(this.tags().into_iter()),
+                                                )
+                                                .await
+                                            {
+                                                Ok(_) => {
+                                                    this.close();
+                                                }
+                                                Err(e) => {
+                                                    error!("{}", e);
                                                 }
                                             }
-                                            Err(e) => {
-                                                error!("{}", e);
-                                            }
+                                        }
+                                        Err(e) => {
+                                            error!("{}", e);
                                         }
                                     }
                                 }
-                            ),
-                        );
+                            }
+                        ));
                     }
                 ));
             }

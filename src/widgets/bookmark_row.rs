@@ -1,3 +1,4 @@
+use crate::bookmark_item::BookmarkItem;
 use crate::database::Bookmark;
 use crate::database::DATABASE;
 use crate::window_util::get_window_from_widget;
@@ -14,10 +15,10 @@ use glib::ParamSpecBoxed;
 use glib::ParamSpecObject;
 use glib::ParamSpecString;
 use glib::Value;
-use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
 use gtk::prelude::ListBoxRowExt;
 use gtk::prelude::WidgetExt;
+use gtk::prelude::{BoxExt, GObjectPropertyExpressionExt};
 use gtk::subclass::prelude::*;
 use libadwaita::prelude::ActionRowExt;
 use libadwaita::prelude::PreferencesRowExt;
@@ -135,6 +136,28 @@ glib::wrapper! {
 impl Default for BookmarkRow {
     fn default() -> Self {
         glib::Object::new()
+    }
+}
+
+impl From<&BookmarkItem> for BookmarkRow {
+    fn from(bookmark_item: &BookmarkItem) -> Self {
+        let obj = Self::default();
+        bookmark_item
+            .property_expression("url")
+            .bind(&obj, "url", gtk::Widget::NONE);
+        bookmark_item
+            .property_expression("title")
+            .bind(&obj, "title-property", gtk::Widget::NONE);
+        bookmark_item
+            .property_expression("body")
+            .bind(&obj, "body", gtk::Widget::NONE);
+        bookmark_item
+            .property_expression("tags")
+            .bind(&obj, "tags", gtk::Widget::NONE);
+        bookmark_item
+            .property_expression("favicon")
+            .bind(&obj, "favicon", gtk::Widget::NONE);
+        obj
     }
 }
 

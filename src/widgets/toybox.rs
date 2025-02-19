@@ -1,7 +1,9 @@
+use crate::bookmark_item::BookmarkItem;
 use crate::database::policy::PolicyDecision;
 use crate::database::policy::PolicySetting;
 use crate::database::policy::PolicySettingRecord;
 use crate::scheme_handlers::oku_path::OkuPath;
+use crate::widgets::bookmark_row::BookmarkRow;
 use crate::NODE;
 use glib::clone;
 use glib::closure;
@@ -42,6 +44,11 @@ pub mod imp {
         // Toolbox page
         pub(crate) toolbox_scrolled_window: gtk::ScrolledWindow,
         pub(crate) toolbox_content: gtk::Box,
+        // Recommendations
+        pub(crate) recommendation_box: gtk::Box,
+        pub(crate) recommendation_carousel: libadwaita::Carousel,
+        pub(crate) recommendation_carousel_indicators: libadwaita::CarouselIndicatorDots,
+        pub(crate) no_recommendation_label: gtk::Label,
         // OkuNet
         pub(crate) okunet_box: gtk::Box,
         pub(crate) okunet_refresh_button: gtk::Button,
@@ -174,6 +181,7 @@ impl Toybox {
 
         this.setup_content();
         this.setup_toolbox();
+        this.setup_recommendations(&window);
 
         let uri = window
             .and_then(|x| x.get_view().uri().map(|y| y.to_string()))
@@ -195,6 +203,12 @@ impl Toybox {
             "Toolbox",
             "wrench-wide-symbolic",
         );
+        imp.view_stack.add_titled_with_icon(
+            &imp.recommendation_box,
+            Some("recommendations"),
+            "Suggestions",
+            "wrench-wide-symbolic",
+        );
 
         imp.view_switcher.set_stack(Some(&imp.view_stack));
         imp.view_switcher
@@ -211,6 +225,67 @@ impl Toybox {
         self.set_child(Some(&imp.content));
         self.set_follows_content_size(true);
         self.set_presentation_mode(libadwaita::DialogPresentationMode::Auto);
+    }
+
+    pub fn add_similar(&self, window_opt: &Option<&super::window::Window>) {
+        if let Some(node) = NODE.get() {
+            if let Some(window_obj) = *window_opt {
+                let this = self.clone();
+                let window = window_obj.clone();
+                tokio::spawn(async move {
+                    let data = bytes::Bytes::from(window.get_data().await.unwrap_or_default());
+                    let urls = node.nearest_urls(&data, 10).unwrap_or_default();
+                    if urls.is_empty() {
+                        this.imp()
+                            .no_recommendation_label
+                            .set_label("No browsing suggestions … ");
+                        this.imp().no_recommendation_label.set_margin_top(24);
+                        this.imp().no_recommendation_label.set_margin_bottom(24);
+                        this.imp().no_recommendation_label.add_css_class("title-2");
+                        this.imp().recommendation_carousel.set_visible(false);
+                    } else {
+                        this.imp().no_recommendation_label.set_visible(false);
+                    }
+                    for url in urls {
+                        let opengraph_object = opengraph::scraper::extract(
+                            &mut std::io::Cursor::new(&data),
+                            opengraph::scraper::Opts::default(),
+                        );
+                        let (title, description) = match opengraph_object {
+                            Ok(og_obj) => (og_obj.title, og_obj.description.unwrap_or_default()),
+                            Err(e) => {
+                                error!("{e}");
+                                (Default::default(), Default::default())
+                            }
+                        };
+                        let item = BookmarkItem::new(
+                            url.to_string(),
+                            title,
+                            description,
+                            Default::default(),
+                            &window.favicon_database(),
+                        );
+                        let row = BookmarkRow::from(&item);
+                        this.imp().recommendation_carousel.append(&row);
+                    }
+                });
+            }
+        }
+    }
+
+    pub fn setup_recommendations(&self, window: &Option<&super::window::Window>) {
+        let imp = self.imp();
+
+        imp.recommendation_carousel.set_spacing(8);
+        imp.recommendation_carousel_indicators
+            .set_carousel(Some(&imp.recommendation_carousel));
+        imp.recommendation_box.append(&imp.no_recommendation_label);
+        imp.recommendation_box.append(&imp.recommendation_carousel);
+        imp.recommendation_box
+            .append(&imp.recommendation_carousel_indicators);
+        imp.recommendation_box
+            .set_orientation(gtk::Orientation::Vertical);
+        self.add_similar(window);
     }
 
     pub fn setup_toolbox(&self) {

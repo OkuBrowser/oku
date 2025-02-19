@@ -1,6 +1,7 @@
 use super::*;
 use crate::database::policy::PolicySettingRecord;
 use crate::database::{HistoryRecord, DATABASE};
+use crate::scheme_handlers::view_source::Resource;
 use crate::window_util::{
     get_title, get_view_from_page, new_webkit_settings, update_favicon, update_nav_bar,
     update_title,
@@ -148,6 +149,18 @@ impl Window {
             web_view.load_uri("oku:home");
             web_view
         }
+    }
+
+    pub async fn get_data(&self) -> miette::Result<Vec<u8>> {
+        let resource = Resource(
+            self.get_view()
+                .main_resource()
+                .ok_or(miette::miette!("No resource loaded to view source of … "))?,
+        );
+        glib::spawn_future(resource.data().await)
+            .await
+            .map_err(|e| miette::miette!("{}", e))?
+            .map_err(|e| miette::miette!("{}", e))
     }
 
     pub fn favicon_database(&self) -> FaviconDatabase {
