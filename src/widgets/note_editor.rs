@@ -306,8 +306,8 @@ impl NoteEditor {
                             None
                         };
                         let post_from_url = {
-                            let path = OkuNote::suggested_post_path_from_url(&url);
-                            node.post(&format!("{}.toml", path).into()).await.ok()
+                            let path = OkuNote::post_path_from_url(&url);
+                            node.post(&path.to_string().into()).await.ok()
                         };
                         if let Some(oku_post) = post_at_url.or(post_from_url) {
                             imp.url_entry.set_text(oku_post.note.url.as_ref());
@@ -348,7 +348,7 @@ impl NoteEditor {
                                                 let url = parsed_url.clone();
                                                 tokio::spawn(async move {
                                                     match node
-                                                        .create_post_embedding(&None, &url, &data)
+                                                        .create_post_embedding(&url, &data)
                                                         .await
                                                     {
                                                         Ok(hash) => {
@@ -360,7 +360,6 @@ impl NoteEditor {
                                             }
                                             match node
                                                 .create_or_modify_post(
-                                                    &None,
                                                     &parsed_url,
                                                     &this.title_property(),
                                                     &this.body(),

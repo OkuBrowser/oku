@@ -3,7 +3,21 @@ name = "oku"
 version = "0.1.1"
 authors = ["Emil Sayahi <limesayahi@gmail.com>"]
 edition = "2021"
-exclude = ["/.github/**/*", "/.cargo/**/*", "/branding/**/*", "/rust-toolchain", "/.gitignore", "/.whitesource", "/renovate.json", "/CODE_OF_CONDUCT.md", "/CONTRIBUTING.md", "/LICENSE.md", "/SECURITY.md", "/COPYING", "/NOTICE"]
+exclude = [
+    "/.github/**/*",
+    "/.cargo/**/*",
+    "/branding/**/*",
+    "/rust-toolchain",
+    "/.gitignore",
+    "/.whitesource",
+    "/renovate.json",
+    "/CODE_OF_CONDUCT.md",
+    "/CONTRIBUTING.md",
+    "/LICENSE.md",
+    "/SECURITY.md",
+    "/COPYING",
+    "/NOTICE",
+]
 license = "AGPL-3.0-or-later"
 description = "Browse & express yourself"
 repository = "https://github.com/OkuBrowser/oku"
@@ -22,8 +36,10 @@ gdk = { version = "*", package = "gdk4", features = ["v4_14"] }
 gio = { version = "*", features = ["v2_80"] }
 glib = { version = "*", features = ["v2_80"] }
 glib-macros = { version = "*" }
-gtk = { version = "*", package = "gtk4", features = ["gnome_47"], default-features = false }
-ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", rev = "c80e24e73124fa40c2168760eef3b837888e9ae7", package = "rust-ipfs"}
+gtk = { version = "*", package = "gtk4", features = [
+    "gnome_47",
+], default-features = false }
+ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", rev = "c80e24e73124fa40c2168760eef3b837888e9ae7", package = "rust-ipfs" }
 libadwaita = { version = "*", features = ["v1_6", "gio_v2_80"] }
 oku-fs = { git = "https://github.com/OkuBrowser/oku-fs", features = ["fuse"] }
 # oku-fs = { path = "/home/emil/Documents/GitHub/oku-fs", features = ["fuse"] }
@@ -49,7 +65,7 @@ tantivy = "0.22.0"
 # vox = { path = "/home/emil/Documents/GitHub/vox", features = ["ram_provider"] }
 vox = { git = "https://github.com/emmyoh/vox", features = ["ram_provider"] }
 bs58 = "0.5.1"
-showfile = { version = "0.1.1", features = ["gio"], default-features = false}
+showfile = { version = "0.1.1", features = ["gio"], default-features = false }
 opengraph = "0.2.4"
 
 [profile.release]
@@ -62,10 +78,26 @@ debug = 0
 section = "utility"
 priority = "optional"
 assets = [
-    ["target/x86_64-unknown-linux-gnu/release/oku", "usr/bin/", "755"],
-    ["README.md", "usr/share/doc/oku/README", "644"],
-    ["COPYING", "usr/share/doc/oku/COPYING", "644"],
-    ["data/hicolor/**/*", "/usr/share/icons/hicolor/", "644"],
+    [
+        "target/x86_64-unknown-linux-gnu/release/oku",
+        "usr/bin/",
+        "755",
+    ],
+    [
+        "README.md",
+        "usr/share/doc/oku/README",
+        "644",
+    ],
+    [
+        "COPYING",
+        "usr/share/doc/oku/COPYING",
+        "644",
+    ],
+    [
+        "data/hicolor/**/*",
+        "/usr/share/icons/hicolor/",
+        "644",
+    ],
 ]
 
 [package.metadata.rpm]
