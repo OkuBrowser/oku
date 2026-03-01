@@ -17,7 +17,7 @@ impl Settings {
 
         imp.import_author_button
             .set_icon_name("system-switch-user-symbolic");
-        imp.import_author_button.add_css_class("circular");
+        // imp.import_author_button.add_css_class("circular");
         imp.import_author_button.add_css_class("linked");
         imp.import_author_button
             .set_tooltip_text(Some("Import user credentials"));
@@ -36,7 +36,7 @@ impl Settings {
         ));
 
         imp.export_author_button.set_icon_name("user-info-symbolic");
-        imp.export_author_button.add_css_class("circular");
+        // imp.export_author_button.add_css_class("circular");
         imp.export_author_button.add_css_class("linked");
         imp.export_author_button
             .set_tooltip_text(Some("Export user credentials"));

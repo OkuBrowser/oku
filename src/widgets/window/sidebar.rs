@@ -180,14 +180,15 @@ impl Window {
                         .position(|x| oku_fs::fs::util::fmt(x.0) == item.id())
                     {
                         Some(replica_index) => {
-                            let (replica, capability_kind) = replicas[replica_index];
+                            let (replica, capability_kind, is_home_replica) =
+                                replicas[replica_index];
                             item.set_properties(&[
                                 ("id", &oku_fs::fs::util::fmt(replica)),
                                 (
                                     "writable",
                                     &matches!(capability_kind, CapabilityKind::Write),
                                 ),
-                                ("home", &matches!(home_replica, Some(x) if x == replica)),
+                                ("home", &is_home_replica),
                             ]);
                             replicas.remove(replica_index);
                         }
@@ -198,11 +199,11 @@ impl Window {
                 let this = self.clone();
                 ctx.invoke(move || {
                     let replicas_store = this.replicas_store();
-                    for (replica, capability_kind) in replicas.iter() {
+                    for (replica, capability_kind, is_home_replica) in replicas.iter() {
                         replicas_store.append(&ReplicaItem::new(
                             oku_fs::fs::util::fmt(replica),
                             matches!(capability_kind, CapabilityKind::Write),
-                            matches!(home_replica, Some(x) if x == *replica),
+                            *is_home_replica,
                         ));
                     }
                 });

@@ -291,25 +291,25 @@ impl DownloadRow {
         ));
 
         imp.open_button.set_icon_name("external-link-symbolic");
-        imp.open_button.add_css_class("circular");
+        // imp.open_button.add_css_class("circular");
         imp.open_button.set_vexpand(false);
         imp.open_button.set_hexpand(false);
 
         imp.open_parent_button.set_icon_name("folder-open-symbolic");
-        imp.open_parent_button.add_css_class("circular");
+        // imp.open_parent_button.add_css_class("circular");
         imp.open_parent_button.add_css_class("linked");
         imp.open_parent_button.set_vexpand(false);
         imp.open_parent_button.set_hexpand(false);
 
         imp.retry_button
             .set_icon_name("arrow-circular-top-right-symbolic");
-        imp.retry_button.add_css_class("circular");
+        // imp.retry_button.add_css_class("circular");
         imp.retry_button.add_css_class("linked");
         imp.retry_button.set_vexpand(false);
         imp.retry_button.set_hexpand(false);
 
         imp.cancel_button.set_icon_name("window-close-symbolic");
-        imp.cancel_button.add_css_class("circular");
+        // imp.cancel_button.add_css_class("circular");
         imp.cancel_button.add_css_class("linked");
         imp.cancel_button.set_vexpand(false);
         imp.cancel_button.set_hexpand(false);

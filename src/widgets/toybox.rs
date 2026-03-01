@@ -207,7 +207,7 @@ impl Toybox {
             &imp.recommendation_box,
             Some("recommendations"),
             "Suggestions",
-            "wrench-wide-symbolic",
+            "explore2-symbolic",
         );
 
         imp.view_switcher.set_stack(Some(&imp.view_stack));

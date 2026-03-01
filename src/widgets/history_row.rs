@@ -148,7 +148,7 @@ impl HistoryRow {
         let imp = self.imp();
 
         imp.copy_url_button.set_icon_name("copy-symbolic");
-        imp.copy_url_button.add_css_class("circular");
+        // imp.copy_url_button.add_css_class("circular");
         imp.copy_url_button.add_css_class("linked");
         imp.copy_url_button.set_vexpand(false);
         imp.copy_url_button.set_hexpand(false);
@@ -171,7 +171,7 @@ impl HistoryRow {
         ));
 
         imp.delete_button.set_icon_name("user-trash-symbolic");
-        imp.delete_button.add_css_class("circular");
+        // imp.delete_button.add_css_class("circular");
         imp.delete_button.add_css_class("destructive-action");
         imp.delete_button.set_vexpand(false);
         imp.delete_button.set_hexpand(false);

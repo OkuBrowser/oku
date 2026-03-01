@@ -238,7 +238,9 @@ async fn main() {
             #[weak]
             application,
             async move {
-                tokio::signal::ctrl_c().await.unwrap();
+                if let Err(e) = tokio::signal::ctrl_c().await {
+                    error!("{e}");
+                }
                 application.quit();
             }
         ));

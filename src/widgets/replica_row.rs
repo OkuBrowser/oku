@@ -6,6 +6,7 @@ use gdk::prelude::DisplayExt;
 use gio::prelude::ApplicationExt;
 use glib::clone;
 use glib::object::CastNone;
+use glib::object::ObjectExt;
 use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassExt;
@@ -40,7 +41,7 @@ pub mod imp {
         pub(crate) id: RefCell<String>,
         pub(crate) writable: RefCell<bool>,
         pub(crate) home: RefCell<bool>,
-        pub(crate) home_button: gtk::Button,
+        pub(crate) home_avatar: libadwaita::Avatar,
         pub(crate) open_button: gtk::Button,
         pub(crate) read_ticket_button: gtk::Button,
         pub(crate) write_ticket_button: gtk::Button,
@@ -141,32 +142,13 @@ impl ReplicaRow {
     pub fn setup(&self) {
         let imp = self.imp();
 
-        imp.home_button.set_icon_name("user-home-symbolic");
-        imp.home_button.add_css_class("circular");
-        imp.home_button.set_vexpand(false);
-        imp.home_button.set_hexpand(false);
-        imp.home_button.set_valign(gtk::Align::Center);
-        imp.home_button.connect_clicked(clone!(
-            #[weak(rename_to = this)]
-            self,
-            move |_| {
-                if let Some(node) = NODE.get() {
-                    let new_home_replica = match this.home() {
-                        false => Some(NamespaceId::from(
-                            oku_fs::fs::util::parse_array_hex_or_base32::<32>(&this.id())
-                                .unwrap_or_default(),
-                        )),
-                        true => None,
-                    };
-                    if let Err(e) = node.set_home_replica(&new_home_replica) {
-                        error!("{}", e);
-                    }
-                }
-            }
-        ));
+        imp.home_avatar.set_icon_name(Some("user-home-symbolic"));
+        imp.home_avatar.set_hexpand(true);
+        imp.home_avatar.set_vexpand(true);
+        imp.home_avatar.add_css_class("accent");
 
         imp.open_button.set_icon_name("external-link-symbolic");
-        imp.open_button.add_css_class("circular");
+        // imp.open_button.add_css_class("circular");
         imp.open_button.set_vexpand(false);
         imp.open_button.set_hexpand(false);
         imp.open_button
@@ -346,7 +328,7 @@ impl ReplicaRow {
         ));
 
         imp.delete_button.set_icon_name("user-trash-symbolic");
-        imp.delete_button.add_css_class("circular");
+        // imp.delete_button.add_css_class("circular");
         imp.delete_button.add_css_class("destructive-action");
         imp.delete_button.set_vexpand(false);
         imp.delete_button.set_hexpand(false);
@@ -394,10 +376,31 @@ impl ReplicaRow {
         imp.button_box.set_halign(gtk::Align::End);
         imp.button_box.add_css_class("linked");
 
+        self.bind_property("home", &imp.home_avatar, "visible")
+            .bidirectional()
+            .build();
+        self.bind_property("home", &imp.delete_button, "visible")
+            .invert_boolean()
+            .build();
+
+        self.bind_property("writable", &imp.write_ticket_button, "visible")
+            .bidirectional()
+            .build();
+
+        self.bind_property("id", self, "title")
+            .bidirectional()
+            .transform_to(|_, id: &str| {
+                Some(oku_fs::fs::util::fmt_short(NamespaceId::from(
+                    oku_fs::fs::util::parse_array_hex_or_base32::<32>(id).unwrap_or_default(),
+                )))
+            })
+            .transform_from(|_, id: Option<&str>| id)
+            .build();
+
         let content_box: gtk::Box = self.child().and_downcast().unwrap();
         content_box.set_hexpand(true);
 
-        self.add_prefix(&imp.home_button);
+        self.add_prefix(&imp.home_avatar);
         self.add_suffix(&imp.button_box);
         self.set_margin_bottom(4);
         self.set_title_lines(1);
@@ -421,27 +424,17 @@ impl ReplicaRow {
         let imp = self.imp();
 
         imp.id.replace(id.to_string());
-        self.set_title(&oku_fs::fs::util::fmt_short(NamespaceId::from(
-            oku_fs::fs::util::parse_array_hex_or_base32::<32>(id).unwrap_or_default(),
-        )));
     }
 
     pub fn set_writable(&self, writable: bool) {
         let imp = self.imp();
 
         imp.writable.replace(writable);
-        imp.write_ticket_button.set_visible(writable);
     }
 
     pub fn set_home(&self, home: bool) {
         let imp = self.imp();
 
         imp.home.replace(home);
-        let (old_class, new_class) = match home {
-            true => ("accent", "warning"),
-            false => ("warning", "accent"),
-        };
-        imp.home_button.remove_css_class(old_class);
-        imp.home_button.add_css_class(new_class);
     }
 }
