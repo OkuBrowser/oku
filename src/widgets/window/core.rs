@@ -197,8 +197,8 @@ pub mod imp {
 
 glib::wrapper! {
     pub struct Window(ObjectSubclass<imp::Window>)
-    @extends libadwaita::ApplicationWindow, gtk::ApplicationWindow, gtk::Window, gtk::Widget,
-    @implements gio::ActionMap, gio::ActionGroup;
+    @extends libadwaita::ApplicationWindow, gtk::ApplicationWindow, gtk::Window, gtk::Widget, gtk::ShortcutManager, gtk::Root, gtk::Native,
+    @implements gio::ActionMap, gio::ActionGroup, gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
 }
 
 unsafe impl Send for Window {}
@@ -808,5 +808,22 @@ impl Window {
         tokio::spawn(async move { this.watch_replicas().await });
         let this = self.clone();
         tokio::spawn(async move { this.watch_okunet_fetch().await });
+    }
+
+    pub async fn download_uri(
+        &self,
+        web_context: &WebContext,
+        uri: &str,
+    ) -> miette::Result<Vec<u8>> {
+        let view = self.new_view(web_context, None, None);
+        view.load_uri(uri);
+        Ok(view
+            .save_future(webkit2gtk::SaveMode::Mhtml)
+            .await
+            .map_err(|e| miette::miette!("{e}"))?
+            .read_all_future(Vec::new(), glib::Priority::DEFAULT)
+            .await
+            .map_err(|(_, e)| miette::miette!("{e}"))?
+            .0)
     }
 }

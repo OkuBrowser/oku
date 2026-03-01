@@ -46,7 +46,7 @@ pub mod imp {
 
 glib::wrapper! {
     pub struct Settings(ObjectSubclass<imp::Settings>)
-    @extends libadwaita::PreferencesDialog, libadwaita::Dialog, gtk::Widget;
+    @extends libadwaita::PreferencesDialog, libadwaita::Dialog, gtk::Widget, gtk::ConstraintTarget, gtk::Buildable, gtk::Accessible;
 }
 
 pub fn apply_appearance_config(

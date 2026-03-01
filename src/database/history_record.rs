@@ -81,7 +81,7 @@ impl HistoryRecord {
 impl From<HistoryRecord> for TantivyDocument {
     fn from(value: HistoryRecord) -> Self {
         let mut doc = TantivyDocument::default();
-        doc.add_text(HISTORY_RECORD_SCHEMA.1["id"], value.id);
+        doc.add_text(HISTORY_RECORD_SCHEMA.1["id"], value.id.to_string());
         doc.add_text(HISTORY_RECORD_SCHEMA.1["original_uri"], value.original_uri);
         doc.add_text(HISTORY_RECORD_SCHEMA.1["uri"], value.uri);
         if let Some(title) = value.title {

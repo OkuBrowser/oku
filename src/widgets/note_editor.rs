@@ -122,7 +122,7 @@ pub mod imp {
 
 glib::wrapper! {
     pub struct NoteEditor(ObjectSubclass<imp::NoteEditor>)
-    @extends libadwaita::Dialog, gtk::Widget;
+    @extends libadwaita::Dialog, gtk::Widget, gtk::ConstraintTarget, gtk::Buildable, gtk::Accessible;
 }
 
 unsafe impl Send for NoteEditor {}

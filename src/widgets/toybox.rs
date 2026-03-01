@@ -145,7 +145,7 @@ pub mod imp {
 
 glib::wrapper! {
     pub struct Toybox(ObjectSubclass<imp::Toybox>)
-    @extends libadwaita::Dialog, gtk::Widget;
+    @extends libadwaita::Dialog, gtk::Widget, gtk::ConstraintTarget, gtk::Buildable, gtk::Accessible;
 }
 
 unsafe impl Send for Toybox {}
@@ -234,8 +234,8 @@ impl Toybox {
                 let window = window_obj.clone();
                 tokio::spawn(async move {
                     let data = bytes::Bytes::from(window.get_data().await.unwrap_or_default());
-                    let urls = node.nearest_urls(&data, 10).unwrap_or_default();
-                    if urls.is_empty() {
+                    let archives = node.nearest_archives(&data, 10).unwrap_or_default();
+                    if archives.is_empty() {
                         this.imp()
                             .no_recommendation_label
                             .set_label("No browsing suggestions … ");
@@ -246,9 +246,13 @@ impl Toybox {
                     } else {
                         this.imp().no_recommendation_label.set_visible(false);
                     }
-                    for url in urls {
+                    for (author_id, uri) in archives {
+                        let archive = node
+                            .fetch_archive(&author_id, &uri)
+                            .await
+                            .unwrap_or_default();
                         let opengraph_object = opengraph::scraper::extract(
-                            &mut std::io::Cursor::new(&data),
+                            &mut std::io::Cursor::new(&archive),
                             opengraph::scraper::Opts::default(),
                         );
                         let (title, description) = match opengraph_object {
@@ -259,7 +263,7 @@ impl Toybox {
                             }
                         };
                         let item = BookmarkItem::new(
-                            url.to_string(),
+                            uri,
                             title,
                             description,
                             Default::default(),

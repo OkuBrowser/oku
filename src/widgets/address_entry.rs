@@ -123,7 +123,7 @@ pub mod imp {
 
 glib::wrapper! {
     pub struct AddressEntry(ObjectSubclass<imp::AddressEntry>)
-    @extends gtk::Entry, gtk::Widget, gtk::Editable;
+    @extends gtk::Entry, gtk::Widget, gtk::Editable, gtk::CellEditable, gtk::ConstraintTarget, gtk::Buildable, gtk::Accessible;
 }
 
 impl Default for AddressEntry {

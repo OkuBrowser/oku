@@ -23,45 +23,45 @@ description = "Browse & express yourself"
 repository = "https://github.com/OkuBrowser/oku"
 homepage = "https://okubrowser.github.io/"
 readme = "README.md"
-resolver = "2"
+resolver = "3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-chrono = { version = "0.4.39", features = ["unstable-locales", "serde"] }
+chrono = { version = "0.4.44", features = ["unstable-locales", "serde"] }
 cid = "0.11.1"
 directories-next = "2.0.0"
-futures = "0.3.31"
-gdk = { version = "*", package = "gdk4", features = ["v4_14"] }
-gio = { version = "*", features = ["v2_80"] }
-glib = { version = "*", features = ["v2_80"] }
-glib-macros = { version = "*" }
-gtk = { version = "*", package = "gtk4", features = [
+futures = "0.3.32"
+gdk = { version = "0.10.3", package = "gdk4", features = ["v4_14"] }
+gio = { version = "0.21.5", features = ["v2_80"] }
+glib = { version = "0.21.5", features = ["v2_80"] }
+glib-macros = { version = "0.21.5" }
+gtk = { version = "0.10.3", package = "gtk4", features = [
     "gnome_47",
 ], default-features = false }
-ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", rev = "c80e24e73124fa40c2168760eef3b837888e9ae7", package = "rust-ipfs" }
-libadwaita = { version = "*", features = ["v1_6", "gio_v2_80"] }
-oku-fs = { git = "https://github.com/OkuBrowser/oku-fs", features = ["fuse"] }
-# oku-fs = { path = "/home/emil/Documents/GitHub/oku-fs", features = ["fuse"] }
-pango = { version = "*" }
-url = "2.5.4"
-tokio = { version = "1.43.0", features = ["full"] }
-tokio-stream = "0.1.17"
-webkit2gtk = { version = "*", package = "webkit6", features = ["v2_44"] }
-tree_magic_mini = { version = "3.1.6", features = ["with-gpl-data"] }
-open = "5.3.2"
-env_logger = "0.11.6"
-log = "0.4.25"
-toml = "0.8.19"
-serde = "1.0.217"
-uuid = { version = "1.12.1", features = ["v7", "fast-rng", "serde"] }
-miette = "7.4.0"
+ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", rev = "5d442873fcf9a33571bc2a26f5d3a64bfc4ff71f", package = "rust-ipfs" }
+libadwaita = { version = "0.8.1", features = ["v1_6", "gio_v2_80"] }
+# oku-fs = { git = "https://github.com/OkuBrowser/oku-fs", features = ["fuse"] }
+oku-fs = { path = "/home/emil/Documents/GitHub/oku-fs", features = ["fuse"] }
+pango = { version = "0.21.5" }
+url = "2.5.8"
+tokio = { version = "1.49.0", features = ["full"] }
+tokio-stream = "0.1.18"
+webkit2gtk = { version = "0.5.0", package = "webkit6", features = ["v2_44"] }
+tree_magic_mini = { version = "3.2.2", features = ["with-gpl-data"] }
+open = "5.3.3"
+env_logger = "0.11.9"
+log = "0.4.29"
+toml = "0.9.8"
+serde = "1.0.228"
+uuid = { version = "1.21.0", features = ["v7", "fast-rng", "serde"] }
+miette = "7.6.0"
 html-escape = "0.2.13"
-bytes = "1.9.0"
-native_db = "0.8.1"
+bytes = "1.11.1"
+native_db = "0.8.2"
 native_model = "0.4.20"
-rayon = "1.10.0"
-tantivy = "0.22.0"
+rayon = "1.11.0"
+tantivy = "0.25.0"
 # vox = { path = "/home/emil/Documents/GitHub/vox", features = ["ram_provider"] }
 vox = { git = "https://github.com/emmyoh/vox", features = ["ram_provider"] }
 bs58 = "0.5.1"

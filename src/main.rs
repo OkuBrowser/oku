@@ -21,9 +21,9 @@ use env_logger::Builder;
 use gio::prelude::*;
 use glib_macros::clone;
 use gtk::prelude::GtkApplicationExt;
+use ipfs::builder::DefaultIpfsBuilder as UninitializedIpfs;
 use ipfs::Ipfs;
 use ipfs::Keypair;
-use ipfs::UninitializedIpfsDefault as UninitializedIpfs;
 use log::error;
 use log::LevelFilter;
 use oku_fs::fs::OkuFs;
@@ -31,6 +31,7 @@ use oku_fs::fuser::BackgroundSession;
 use scheme_handlers::util::handle_request;
 use scheme_handlers::util::RequestScheme;
 use scheme_handlers::util::SchemeRequest;
+use std::net::Ipv4Addr;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -154,23 +155,33 @@ async fn create_ipfs_client() -> Ipfs {
     let keypair = Keypair::generate_ed25519();
 
     // Initialize the repo and start a daemon
-    let ipfs: Ipfs = UninitializedIpfs::new()
+    let ipfs: Ipfs = UninitializedIpfs::with_keypair(&keypair)
+        .unwrap_or(UninitializedIpfs::new())
         .with_default()
-        .set_keypair(&keypair)
-        .add_listening_addr("/ip4/0.0.0.0/tcp/0".parse().unwrap())
+        .enable_tcp()
+        .enable_memory_transport()
+        .add_listening_addr(
+            "/ip4/0.0.0.0/tcp/0"
+                .parse()
+                .unwrap_or(Ipv4Addr::new(0, 0, 0, 0).into()),
+        )
         .with_mdns()
         .with_relay(true)
         .with_relay_server(Default::default())
         .with_upnp()
         .with_rendezvous_server()
-        .listen_as_external_addr()
+        .with_autonat()
         .fd_limit(ipfs::FDLimit::Max)
         .start()
         .await
         .unwrap();
 
-    ipfs.default_bootstrap().await.unwrap();
-    ipfs.bootstrap().await.unwrap();
+    if let Err(e) = ipfs.default_bootstrap().await {
+        error!("{e}");
+    }
+    if let Err(e) = ipfs.bootstrap().await {
+        error!("{e}");
+    }
 
     ipfs
 }
@@ -230,21 +241,21 @@ async fn main() {
             if application.register(Some(&gio::Cancellable::new())).is_ok() {
                 application.open(&[], "false,true");
             }
-            return -1;
+            return std::ops::ControlFlow::Continue(());
         }
-        if let Some(initial_uri) = dict.lookup::<String>("new-window").unwrap() {
+        if let Some(initial_uri) = dict.lookup::<String>("new-window").unwrap_or(None) {
             if application.register(Some(&gio::Cancellable::new())).is_ok() {
                 let file = gio::File::for_uri(&initial_uri);
                 application.open(&[file], "false,false");
             }
         };
-        if let Some(initial_uri) = dict.lookup::<String>("new-private-window").unwrap() {
+        if let Some(initial_uri) = dict.lookup::<String>("new-private-window").unwrap_or(None) {
             if application.register(Some(&gio::Cancellable::new())).is_ok() {
                 let file = gio::File::for_uri(&initial_uri);
                 application.open(&[file], "true,false");
             }
         };
-        -1
+        std::ops::ControlFlow::Continue(())
     }));
     application.connect_open(clone!(
         #[weak]

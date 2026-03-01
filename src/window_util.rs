@@ -100,7 +100,6 @@ pub fn new_webkit_settings() -> webkit2gtk::Settings {
     settings.set_enable_back_forward_navigation_gestures(true);
     settings.set_enable_caret_browsing(false);
     settings.set_enable_developer_extras(true);
-    settings.set_enable_dns_prefetching(true);
     settings.set_enable_encrypted_media(true);
     settings.set_enable_fullscreen(true);
     settings.set_enable_html5_database(true);

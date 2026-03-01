@@ -120,3 +120,4 @@ src/browser_pages/output/
 *-keyspace
 .fastembed_cache
 .idea
+*.zebra
