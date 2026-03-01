@@ -24,6 +24,7 @@ use gtk::prelude::GtkApplicationExt;
 use ipfs::builder::DefaultIpfsBuilder as UninitializedIpfs;
 use ipfs::Ipfs;
 use ipfs::Keypair;
+use log::debug;
 use log::error;
 use log::LevelFilter;
 use oku_fs::fs::OkuFs;
@@ -64,10 +65,14 @@ static REPLICAS_MOUNTED: LazyLock<Arc<AtomicBool>> =
 pub const APP_ID: &str = "io.github.OkuBrowser.oku";
 
 async fn create_web_context() -> (WebContext, Option<BackgroundSession>, Ipfs) {
+    debug!("Creating Oku client … ");
     let (node, mount_handle) = create_oku_client().await;
+    debug!("Oku client created");
     NODE.get_or_init(|| node.clone());
     REPLICAS_MOUNTED.store(mount_handle.is_some(), Ordering::Relaxed);
+    debug!("Creating IPFS client … ");
     let ipfs = create_ipfs_client().await;
+    debug!("IPFS client created");
 
     let web_context = WebContext::builder().build();
     web_context.register_uri_scheme(
@@ -158,7 +163,7 @@ async fn create_ipfs_client() -> Ipfs {
     let ipfs: Ipfs = UninitializedIpfs::with_keypair(&keypair)
         .unwrap_or(UninitializedIpfs::new())
         .with_default()
-        .enable_tcp()
+        // .enable_tcp()
         .enable_memory_transport()
         .add_listening_addr(
             "/ip4/0.0.0.0/tcp/0"
@@ -224,7 +229,9 @@ async fn main() {
         None,
     );
 
+    debug!("Creating web context … ");
     let (web_context, mount_handle, ipfs) = create_web_context().await;
+    debug!("Web context created");
     application.connect_activate(clone!(move |application| {
         let ctx = glib::MainContext::default();
         ctx.spawn_local(clone!(
