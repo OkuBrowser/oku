@@ -143,8 +143,9 @@ impl ReplicaRow {
         let imp = self.imp();
 
         imp.home_avatar.set_icon_name(Some("user-home-symbolic"));
-        imp.home_avatar.set_hexpand(true);
-        imp.home_avatar.set_vexpand(true);
+        imp.home_avatar.set_size(32);
+        imp.home_avatar.set_hexpand(false);
+        imp.home_avatar.set_vexpand(false);
         imp.home_avatar.add_css_class("accent");
 
         imp.open_button.set_icon_name("external-link-symbolic");

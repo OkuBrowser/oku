@@ -205,7 +205,7 @@ impl NoteEditor {
         imp.save_bookmark_button
             .set_child(Some(&imp.save_bookmark_button_content));
         imp.save_bookmark_button.add_css_class("linked");
-        imp.save_bookmark_button.add_css_class("pill");
+        // imp.save_bookmark_button.add_css_class("pill");
         imp.save_bookmark_button.connect_clicked(clone!(
             #[weak]
             this,
@@ -235,7 +235,7 @@ impl NoteEditor {
         imp.save_post_button
             .set_child(Some(&imp.save_post_button_content));
         imp.save_post_button.add_css_class("linked");
-        imp.save_post_button.add_css_class("pill");
+        // imp.save_post_button.add_css_class("pill");
 
         imp.save_buttons.append(&imp.save_bookmark_button);
         imp.save_buttons.append(&imp.save_post_button);
