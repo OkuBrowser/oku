@@ -1,0 +1,69 @@
+name: Rust
+on:
+  push:
+    branches: [ "master" ]
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  build_documentation:
+    name: Build documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: x86_64-unknown-linux-gnu
+          default: true
+          profile: default
+      - name: Checkout codebase
+        uses: actions/checkout@v4
+      - name: Generate documentation
+        run: time cargo doc --no-deps
+      - name: Fix permissions
+        run: |
+          chmod -c -R +rX "target/doc/" | while read line; do
+            echo "::warning title=Invalid file permissions automatically fixed::$line"
+          done
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "target/doc/"
+  deploy_documentation:
+    needs: build_documentation
+    name: Deploy documentation to GitHub Pages
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+  apply_suggestions:
+    name: Format code, apply compiler suggestions
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout codebase
+      uses: actions/checkout@v4
+    - name: Setup Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        components: clippy, rustfmt
+        profile: minimal
+    - name: Format
+      run: cargo fmt
+    - name: Apply compiler suggestions
+      run: |
+        cargo fix --edition --edition-idioms --allow-dirty
+        cargo clippy --fix --allow-dirty
+    - name: Commit changes to code, if any
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        git diff --quiet && git diff --staged --quiet || git commit -am "chore: Format and apply compiler suggestions."
+        git push

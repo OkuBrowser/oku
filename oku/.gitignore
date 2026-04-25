@@ -121,12 +121,3 @@ src/browser_pages/output/
 .fastembed_cache
 .idea
 *.zebra
-
-## Oku
-.oku
-target-old/
-tree.txt
-test/
-*_old.rs
-.idea
-test_mount/
