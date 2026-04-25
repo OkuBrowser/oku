@@ -75,8 +75,7 @@ impl OkuFsConfig {
         self.republish_delay
             .try_lock()
             .ok()
-            .map(|x| x.to_owned())
-            .flatten()
+            .and_then(|x| x.to_owned())
             .unwrap_or(DEFAULT_REPUBLISH_DELAY)
     }
 
@@ -102,8 +101,7 @@ impl OkuFsConfig {
         self.initial_publish_delay
             .try_lock()
             .ok()
-            .map(|x| x.to_owned())
-            .flatten()
+            .and_then(|x| x.to_owned())
             .unwrap_or(DEFAULT_INITIAL_PUBLISH_DELAY)
     }
 

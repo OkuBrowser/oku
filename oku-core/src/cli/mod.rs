@@ -53,11 +53,11 @@ impl FromStr for ShareModeSerializable {
     }
 }
 
-impl Into<ShareMode> for ShareModeSerializable {
-    fn into(self) -> ShareMode {
-        match self {
-            Self::Read => ShareMode::Read,
-            Self::Write => ShareMode::Write,
+impl From<ShareModeSerializable> for ShareMode {
+    fn from(val: ShareModeSerializable) -> Self {
+        match val {
+            ShareModeSerializable::Read => ShareMode::Read,
+            ShareModeSerializable::Write => ShareMode::Write,
         }
     }
 }

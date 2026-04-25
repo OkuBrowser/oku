@@ -320,7 +320,7 @@ impl Window {
                     this,
                     #[upgrade_or_panic]
                     move |w, navigation_action| {
-                        let mut navigation_action = navigation_action.clone();
+                        let navigation_action = navigation_action.clone();
                         let new_related_view = this
                             .new_tab_page(
                                 &web_context,

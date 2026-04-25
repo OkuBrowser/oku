@@ -161,7 +161,7 @@ async fn create_ipfs_client() -> Ipfs {
 
     // Initialize the repo and start a daemon
     let ipfs: Ipfs = UninitializedIpfs::with_keypair(&keypair)
-        .unwrap_or(UninitializedIpfs::new())
+        .unwrap_or_default()
         .with_default()
         // .enable_tcp()
         .enable_memory_transport()

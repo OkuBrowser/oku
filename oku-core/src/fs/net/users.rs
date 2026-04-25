@@ -136,7 +136,7 @@ impl OkuFs {
                 .author_list()
                 .await
                 .map_err(|e| miette::miette!(e))?
-                .any(|x| async move { x.map_or(false, |x| x == *given_author_id) })
+                .any(|x| async move { x.is_ok_and(|x| x == *given_author_id) })
                 .await;
             if !is_known_author_id {
                 return Err(miette::miette!("Cannot create home replica for authors whose private key is unknown (author ID: {})", crate::fs::util::fmt_short(given_author_id)));
@@ -177,7 +177,7 @@ impl OkuFs {
             Some(CapabilityKind::Read) => None,
             None => None,
         };
-        if let None = home_replica_exists {
+        if home_replica_exists.is_none() {
             debug!("Home replica does not exist; creating … ");
             self.create_home_replica(&None).await.ok()
         } else {

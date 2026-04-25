@@ -25,7 +25,7 @@ use std::time::SystemTime;
 ///
 /// `true` if the path is empty or `/`, `false` otherwise.
 pub fn is_root_path(path: &Path) -> bool {
-    path.is_empty() || path == &PathBuf::from("/")
+    path.is_empty() || path == "/"
 }
 
 /// Parse a FUSE path to retrieve the replica and path.
@@ -333,7 +333,7 @@ impl OkuFs {
                 };
                 let root_size_estimate = self.get_size().await?;
                 Ok(StatFs {
-                    total_files: total_files,
+                    total_files,
                     block_size: 512,
                     max_filename_length: 256,
                     total_blocks: root_size_estimate / 512,

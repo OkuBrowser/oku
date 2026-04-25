@@ -214,6 +214,6 @@ impl OkuFs {
     ///
     /// A handle referencing the mounted file system; joining or dropping the handle will unmount the file system and shutdown the node.
     pub fn mount(&self, path: PathBuf) -> miette::Result<fuser::BackgroundSession> {
-        easy_fuser::spawn_mount(self.clone(), path, &vec![], 4).into_diagnostic()
+        easy_fuser::spawn_mount(self.clone(), path, &[], 4).into_diagnostic()
     }
 }

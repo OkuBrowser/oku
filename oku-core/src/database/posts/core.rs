@@ -102,7 +102,7 @@ impl From<OkuPost> for TantivyDocument {
             POST_SCHEMA.1["path"],
             String::from_utf8_lossy(value.entry.key()),
         );
-        doc.add_text(POST_SCHEMA.1["url"], value.note.url.to_string());
+        doc.add_text(POST_SCHEMA.1["url"], &value.note.url);
         doc.add_text(POST_SCHEMA.1["title"], value.note.title);
         doc.add_text(POST_SCHEMA.1["body"], value.note.body);
         for tag in value.note.tags {

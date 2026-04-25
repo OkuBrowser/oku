@@ -18,7 +18,7 @@ use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::WebContext;
 
 impl Window {
-    pub fn bookmarks_store(&self) -> Ref<gio::ListStore> {
+    pub fn bookmarks_store(&self) -> Ref<'_, gio::ListStore> {
         let bookmarks_store = self.imp().bookmarks_store.borrow();
 
         Ref::map(bookmarks_store, |bookmarks_store| {
@@ -83,7 +83,7 @@ impl Window {
         bookmarks_page.child().set_sensitive(true);
     }
 
-    pub fn history_store(&self) -> Ref<gio::ListStore> {
+    pub fn history_store(&self) -> Ref<'_, gio::ListStore> {
         let history_store = self.imp().history_store.borrow();
 
         Ref::map(history_store, |history_store| {
@@ -150,7 +150,7 @@ impl Window {
         history_page.child().set_sensitive(true);
     }
 
-    pub fn replicas_store(&self) -> Ref<gio::ListStore> {
+    pub fn replicas_store(&self) -> Ref<'_, gio::ListStore> {
         let replicas_store = self.imp().replicas_store.borrow();
 
         Ref::map(replicas_store, |replicas_store| {
@@ -167,7 +167,7 @@ impl Window {
         }
         if let Some(node) = NODE.get() {
             if let Ok(mut replicas) = node.list_replicas().await {
-                let home_replica = node.home_replica().await;
+                let _home_replica = node.home_replica().await;
                 let replicas_store = self.replicas_store();
                 let old_store = replicas_store.snapshot();
                 for (item_index, item) in old_store

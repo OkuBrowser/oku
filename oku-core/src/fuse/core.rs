@@ -43,7 +43,7 @@ impl FuseHandler<PathBuf> for OkuFs {
     fn access(&self, _req: &RequestInfo, file_id: PathBuf, mode: AccessMask) -> FuseResult<()> {
         let file_id = normalise_path(&file_id);
         debug!("[access] file_id = {file_id:?}, mode = {mode:#06o}");
-        return FuseResult::Ok(());
+        FuseResult::Ok(())
     }
 
     fn statfs(&self, _req: &RequestInfo, file_id: PathBuf) -> FuseResult<StatFs> {

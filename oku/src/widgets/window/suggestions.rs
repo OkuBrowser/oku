@@ -10,7 +10,7 @@ use std::rc::Rc;
 use webkit2gtk::functions::uri_for_display;
 
 impl Window {
-    pub fn suggestions_store(&self) -> Ref<gio::ListStore> {
+    pub fn suggestions_store(&self) -> Ref<'_, gio::ListStore> {
         let suggestions_store = self.imp().suggestions_store.borrow();
 
         Ref::map(suggestions_store, |suggestions_store| {

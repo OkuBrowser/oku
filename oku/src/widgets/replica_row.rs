@@ -23,7 +23,6 @@ use gtk::prelude::ListBoxRowExt;
 use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::*;
 use libadwaita::prelude::ActionRowExt;
-use libadwaita::prelude::PreferencesRowExt;
 use libadwaita::subclass::prelude::*;
 use log::error;
 use oku_core::iroh_docs::api::protocol::ShareMode;

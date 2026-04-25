@@ -122,7 +122,7 @@ impl OkuFs {
                     (
                         x,
                         y,
-                        (&authors).contains(&AuthorId::from(x.as_bytes()))
+                        authors.contains(&AuthorId::from(x.as_bytes()))
                             && matches!(y, CapabilityKind::Write),
                     )
                 })

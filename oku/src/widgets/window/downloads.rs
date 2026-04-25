@@ -9,7 +9,7 @@ use std::rc::Rc;
 use webkit2gtk::Download;
 
 impl Window {
-    pub fn downloads_store(&self) -> Ref<gio::ListStore> {
+    pub fn downloads_store(&self) -> Ref<'_, gio::ListStore> {
         let downloads_store = self.imp().downloads_store.borrow();
 
         Ref::map(downloads_store, |downloads_store| {
