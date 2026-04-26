@@ -14,6 +14,7 @@ use std::ffi::OsString;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::SystemTime;
+use tokio::runtime::Handle;
 
 /// Returns whether or not the given path is the root path.
 ///
@@ -363,5 +364,9 @@ impl OkuFs {
                 })
             }
         }
+    }
+
+    pub(super) fn get_handle(&self) -> miette::Result<Handle> {
+        self.handle.clone().ok_or(miette::miette!("No FUSE handle"))
     }
 }

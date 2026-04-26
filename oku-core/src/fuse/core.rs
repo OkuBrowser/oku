@@ -15,8 +15,9 @@ impl FuseHandler<PathBuf> for OkuFs {
     }
 
     fn destroy(&self) {
-        self.handle
-            .block_on(async move { self.clone().shutdown().await });
+        if let Some(handle) = &self.handle {
+            handle.block_on(async move { self.clone().shutdown().await });
+        }
         info!("Node unmounting … ");
     }
 
@@ -47,9 +48,13 @@ impl FuseHandler<PathBuf> for OkuFs {
     }
 
     fn statfs(&self, _req: &RequestInfo, file_id: PathBuf) -> FuseResult<StatFs> {
+        let handle = self.get_handle().map_err(|e| {
+            error!("[statfs]: {e}");
+            PosixError::new(ErrorKind::FileNotFound, e.to_string())
+        })?;
         let file_id = normalise_path(&file_id);
         trace!("[statfs] file_id = {file_id:?}");
-        self.handle
+        handle
             .block_on(async { self.get_fs_entry_stats(&file_id).await })
             .map_err(|e| {
                 error!("[statfs]: {e}");

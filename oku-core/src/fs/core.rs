@@ -49,7 +49,7 @@ impl OkuFs {
     ///
     /// A running instance of an Oku file system.
     pub async fn start(
-        #[cfg(feature = "fuse")] handle: &Handle,
+        #[cfg(feature = "fuse")] handle: Option<&Handle>,
         #[cfg(feature = "persistent")] persistent: bool,
     ) -> anyhow::Result<Self> {
         let mdns = iroh::address_lookup::mdns::MdnsAddressLookup::builder();
@@ -75,9 +75,22 @@ impl OkuFs {
         let blobs = BlobsProtocol::new(&store, None);
 
         let gossip = Gossip::builder().spawn(endpoint.clone());
-        let docs = iroh_docs::protocol::Docs::persistent(NODE_PATH.clone())
-            .spawn(endpoint.clone(), store, gossip.clone())
-            .await?;
+        cfg_if::cfg_if!(
+            if #[cfg(any(feature = "persistent"))] {
+                let docs = match persistent {
+                    true => iroh_docs::protocol::Docs::persistent(NODE_PATH.clone())
+                        .spawn(endpoint.clone(), store, gossip.clone())
+                        .await?,
+                    false => iroh_docs::protocol::Docs::memory()
+                        .spawn(endpoint.clone(), store, gossip.clone())
+                        .await?
+                };
+            } else {
+                let docs = iroh_docs::protocol::Docs::memory()
+                    .spawn(endpoint.clone(), store, gossip.clone())
+                    .await?;
+            }
+        );
 
         let router = iroh::protocol::Router::builder(endpoint.clone())
             .accept(iroh_blobs::ALPN, blobs.clone())
@@ -102,11 +115,20 @@ impl OkuFs {
             #[cfg(feature = "fuse")]
             fuse_handler: DebugIgnore::from(Arc::new(DefaultFuseHandler::new())),
             #[cfg(feature = "fuse")]
-            handle: handle.clone(),
+            handle: handle.cloned(),
             dht: mainline::Dht::server()?.as_async(),
         };
         let oku_core_clone = oku_core.clone();
-        let config = OkuFsConfig::load_or_create_config().unwrap_or_default();
+        cfg_if::cfg_if!(
+            if #[cfg(any(feature = "persistent"))] {
+                let config = match persistent {
+                    true => OkuFsConfig::load_or_create_config().unwrap_or_default(),
+                    false => OkuFsConfig::default()
+                };
+            } else {
+                let config = OkuFsConfig::default();
+            }
+        );
         let republish_delay = config.get_republish_delay();
         let initial_publish_delay = config.get_initial_publish_delay();
 

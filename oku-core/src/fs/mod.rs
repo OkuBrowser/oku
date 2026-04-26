@@ -25,6 +25,8 @@ pub mod replica;
 /// Useful functions for implementing the Oku file system.
 pub mod util;
 
+mod file_test;
+
 /// The path on disk where the file system is stored.
 pub const FS_PATH: &str = ".oku";
 pub(crate) static NODE_PATH: LazyLock<PathBuf> =
@@ -48,6 +50,6 @@ pub struct OkuFs {
     pub(crate) fuse_handler: DebugIgnore<Arc<DefaultFuseHandler>>,
     #[cfg(feature = "fuse")]
     /// A Tokio runtime handle to perform asynchronous operations with.
-    pub(crate) handle: Handle,
+    pub(crate) handle: Option<Handle>,
     pub(crate) dht: mainline::async_dht::AsyncDht,
 }
