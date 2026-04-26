@@ -149,7 +149,7 @@ async fn create_web_context() -> (WebContext, Option<BackgroundSession>, Ipfs) {
 }
 
 async fn create_oku_client() -> (OkuFs, Option<BackgroundSession>) {
-    let node = OkuFs::start(&Handle::current()).await.unwrap();
+    let node = OkuFs::start(&Handle::current(), true).await.unwrap();
     let node_clone = node.clone();
     let _ = std::fs::remove_dir_all(MOUNT_DIR.to_path_buf());
     let _ = std::fs::create_dir_all(MOUNT_DIR.to_path_buf());

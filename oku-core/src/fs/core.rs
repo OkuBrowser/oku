@@ -2,7 +2,9 @@ use super::*;
 use crate::config::OkuFsConfig;
 use bytes::Bytes;
 use iroh::protocol::ProtocolHandler;
-use iroh_blobs::{store::fs::FsStore, BlobsProtocol};
+#[cfg(feature = "persistent")]
+use iroh_blobs::store::fs::FsStore;
+use iroh_blobs::{api::Store, store::mem::MemStore, BlobsProtocol};
 use iroh_docs::Author;
 use iroh_gossip::Gossip;
 use log::{error, info};
@@ -41,10 +43,15 @@ impl OkuFs {
     ///
     /// * `handle` - If compiling with the `fuse` feature, a Tokio runtime handle is required.
     ///
+    /// * `persistent` - If compiling with the `persistent` feature, a boolean indicating whether to persist replicas to the filesystem or to keep them in memory.
+    ///
     /// # Returns
     ///
     /// A running instance of an Oku file system.
-    pub async fn start(#[cfg(feature = "fuse")] handle: &Handle) -> anyhow::Result<Self> {
+    pub async fn start(
+        #[cfg(feature = "fuse")] handle: &Handle,
+        #[cfg(feature = "persistent")] persistent: bool,
+    ) -> anyhow::Result<Self> {
         let mdns = iroh::address_lookup::mdns::MdnsAddressLookup::builder();
         let dht_discovery = iroh::address_lookup::DhtAddressLookup::builder();
 
@@ -54,13 +61,22 @@ impl OkuFs {
             .bind()
             .await?;
 
-        let store = FsStore::load(NODE_PATH.clone()).await?;
+        cfg_if::cfg_if!(
+            if #[cfg(any(feature = "persistent"))] {
+                let store: Store = match persistent {
+                    true => Store::from(FsStore::load(NODE_PATH.clone()).await?),
+                    false => MemStore::new().into()
+                };
+            } else {
+                let store: Store = MemStore::new().into();
+            }
+        );
 
         let blobs = BlobsProtocol::new(&store, None);
 
         let gossip = Gossip::builder().spawn(endpoint.clone());
         let docs = iroh_docs::protocol::Docs::persistent(NODE_PATH.clone())
-            .spawn(endpoint.clone(), store.into(), gossip.clone())
+            .spawn(endpoint.clone(), store, gossip.clone())
             .await?;
 
         let router = iroh::protocol::Router::builder(endpoint.clone())

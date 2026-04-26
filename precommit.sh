@@ -6,5 +6,6 @@ cargo fmt --all
 cargo check -p oku-core
 cargo check -p oku-core --features="cli"
 cargo check -p oku-core --features="fuse"
-cargo check -p oku-core --features="cli,fuse"
+cargo check -p oku-core --features="persistent"
+cargo check -p oku-core --features="cli,fuse,persistent"
 cargo check -p oku

@@ -78,5 +78,7 @@ humantime = "2.3.0"
 
 [features]
 default = []
+persistent = []
 fuse = ["dep:libc", "dep:fuse_mt", "dep:fuser", "dep:easy_fuser"]
 cli = ["dep:clap", "dep:env_logger", "dep:jiff"]
+

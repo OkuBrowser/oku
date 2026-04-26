@@ -353,9 +353,9 @@ pub async fn main() -> miette::Result<()> {
     cfg_if::cfg_if! {
         if #[cfg(any(feature = "fuse"))] {
             let handle = Handle::current();
-            let node = OkuFs::start(&handle).await.map_err(|e| miette::miette!("{}", e))?;
+            let node = OkuFs::start(&handle, #[cfg(feature = "persistent")] true).await.map_err(|e| miette::miette!("{}", e))?;
         } else {
-            let node = OkuFs::start().await.map_err(|e| miette::miette!("{}", e))?;
+            let node = OkuFs::start(#[cfg(feature = "persistent")] true).await.map_err(|e| miette::miette!("{}", e))?;
         }
     };
 

@@ -5,4 +5,5 @@ cargo fmt
 cargo check
 cargo check --features="cli"
 cargo check --features="fuse"
-cargo check --features="cli,fuse"
+cargo check --features="persistent"
+cargo check --features="cli,fuse,persistent"
