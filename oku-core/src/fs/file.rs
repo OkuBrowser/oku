@@ -186,6 +186,45 @@ impl OkuFs {
         Ok(entry)
     }
 
+    /// Gets the Iroh entries for a file.
+    ///
+    /// # Arguments
+    ///
+    /// * `namespace_id` - The ID of the replica containing the file.
+    ///
+    /// * `path` - The path of the file.
+    ///
+    /// # Returns
+    ///
+    /// The entries in the file.
+    pub async fn get_entries(
+        &self,
+        namespace_id: &NamespaceId,
+        path: &PathBuf,
+    ) -> miette::Result<Vec<Entry>> {
+        let file_key = path_to_entry_key(path);
+        let docs_client = &self.docs;
+        let document = docs_client
+            .open(*namespace_id)
+            .await
+            .map_err(|e| {
+                error!("{}", e);
+                OkuFsError::CannotOpenReplica
+            })?
+            .ok_or(OkuFsError::FsEntryNotFound)?;
+        let query = iroh_docs::store::Query::key_exact(file_key).build();
+        let entries_stream = document.get_many(query).await.map_err(|e| {
+            error!("{}", e);
+            OkuFsError::CannotListFiles
+        })?;
+        pin_mut!(entries_stream);
+        let entries: Vec<Entry> = entries_stream
+            .filter_map(|entry| async move { entry.ok() })
+            .collect()
+            .await;
+        Ok(entries)
+    }
+
     /// Determines the oldest timestamp of a file.
     ///
     /// # Arguments
