@@ -8,4 +8,9 @@ cargo check -p oku-core --features="cli"
 cargo check -p oku-core --features="fuse"
 cargo check -p oku-core --features="persistent"
 cargo check -p oku-core --features="cli,fuse,persistent"
+cargo test -p oku-core
+cargo test -p oku-core --features="cli"
+cargo test -p oku-core --features="fuse"
+cargo test -p oku-core --features="persistent"
+cargo test -p oku-core --features="cli,fuse,persistent"
 cargo check -p oku
