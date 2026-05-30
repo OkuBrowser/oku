@@ -152,7 +152,7 @@ impl OkuFs {
             EmbeddingModality::Audio => {
                 let db = self.audio_database()?;
                 let results = db
-                    .query_documents(&[bytes.clone()], number_of_results)
+                    .query_documents(std::slice::from_ref(bytes), number_of_results)
                     .map_err(|e| miette::miette!("{e}"))?;
                 Ok(results
                     .into_read_only()
@@ -168,7 +168,7 @@ impl OkuFs {
             EmbeddingModality::Image => {
                 let db = self.image_database()?;
                 let results = db
-                    .query_documents(&[bytes.clone()], number_of_results)
+                    .query_documents(std::slice::from_ref(bytes), number_of_results)
                     .map_err(|e| miette::miette!("{e}"))?;
                 Ok(results
                     .into_read_only()
@@ -184,7 +184,7 @@ impl OkuFs {
             EmbeddingModality::Text => {
                 let db = self.text_database()?;
                 let results = db
-                    .query_documents(&[bytes.clone()], number_of_results)
+                    .query_documents(std::slice::from_ref(bytes), number_of_results)
                     .map_err(|e| miette::miette!("{e}"))?;
                 Ok(results
                     .into_read_only()

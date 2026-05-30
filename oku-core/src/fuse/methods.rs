@@ -129,7 +129,7 @@ impl OkuFs {
         let (new_namespace_id, new_replica_path) = parse_fuse_path(&new_path)
             .map(|x| x.ok_or(miette::miette!("Cannot rename root directory")))??;
         match path_type {
-            fuser::FileType::RegularFile => {
+            easy_fuser::prelude::FileKind::RegularFile => {
                 let (new_hash, files_moved) = handle.block_on(async {
                     self.move_file(
                         &old_namespace_id,
@@ -142,7 +142,7 @@ impl OkuFs {
                 info!("File {old_path:?} moved to {new_path:?} (files moved: {files_moved}, new hash: {new_hash})");
                 Ok(())
             }
-            fuser::FileType::Directory => {
+            easy_fuser::prelude::FileKind::Directory => {
                 let (new_hashes, files_moved) = handle.block_on(async {
                     self.move_directory(
                         &old_namespace_id,
