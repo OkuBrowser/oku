@@ -1,6 +1,5 @@
 use super::*;
 use crate::{APP_ID, VERSION};
-use gtk::prelude::GtkWindowExt;
 use libadwaita::prelude::*;
 
 fn make_shortcut(action_name: &str, accelerator: &str, title: &str) -> libadwaita::ShortcutsItem {
