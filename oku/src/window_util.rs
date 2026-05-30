@@ -104,7 +104,6 @@ pub fn new_webkit_settings() -> webkit2gtk::Settings {
     settings.set_enable_fullscreen(true);
     settings.set_enable_html5_database(true);
     settings.set_enable_html5_local_storage(true);
-    settings.set_enable_hyperlink_auditing(true);
     settings.set_enable_javascript(true);
     settings.set_enable_javascript_markup(true);
     settings.set_enable_media(true);
