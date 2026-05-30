@@ -187,7 +187,7 @@ impl ReplicaRow {
                                     .await
                                 {
                                     let clipboard = gdk::Display::default().unwrap().clipboard();
-                                    clipboard.set_text(&ticket.serialize());
+                                    clipboard.set_text(&ticket.encode_string());
                                     let window = get_window_from_widget(&this);
                                     let app = window.application().unwrap();
                                     let notification = gio::Notification::new("Read-only replica ticket copied");
@@ -229,7 +229,7 @@ impl ReplicaRow {
                                     .await
                                 {
                                     let clipboard = gdk::Display::default().unwrap().clipboard();
-                                    clipboard.set_text(&ticket.serialize());
+                                    clipboard.set_text(&ticket.encode_string());
                                     let window = get_window_from_widget(&this);
                                     let app = window.application().unwrap();
                                     let notification = gio::Notification::new("Read & write replica ticket copied");

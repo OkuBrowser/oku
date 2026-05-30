@@ -28,7 +28,7 @@ use log::debug;
 use log::error;
 use log::LevelFilter;
 use oku_core::fs::OkuFs;
-use oku_core::fuser::BackgroundSession;
+use oku_core::fuse_prelude::BackgroundSession;
 use scheme_handlers::util::handle_request;
 use scheme_handlers::util::RequestScheme;
 use scheme_handlers::util::SchemeRequest;

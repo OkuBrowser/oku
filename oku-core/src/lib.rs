@@ -18,7 +18,7 @@ pub mod fs;
 pub mod fuse;
 
 #[cfg(feature = "fuse")]
-pub use easy_fuser::prelude::*;
+pub use easy_fuser::prelude as fuse_prelude;
 pub use iroh;
 pub use iroh_base;
 pub use iroh_blobs;

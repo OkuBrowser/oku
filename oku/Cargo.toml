@@ -32,22 +32,22 @@ chrono = { version = "0.4.44", features = ["unstable-locales", "serde"] }
 cid = "0.11.3"
 directories-next = "2.0.0"
 futures = "0.3.32"
-gdk = { version = "0.11.2", package = "gdk4", features = ["v4_14"] }
-gio = { version = "0.22.6", features = ["v2_80"] }
-glib = { version = "0.22.7", features = ["v2_80"] }
+gdk = { version = "0.11.2", package = "gdk4", features = ["v4_22"] }
+gio = { version = "0.22.6", features = ["v2_88"] }
+glib = { version = "0.22.7", features = ["v2_88"] }
 glib-macros = { version = "0.22.6" }
 gtk = { version = "0.11.3", package = "gtk4", features = [
-    "gnome_47",
+    "gnome_50", "v4_22"
 ], default-features = false }
 ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", rev = "eae2225b89bddf6518d1647387a5695e5d0da1f0", package = "rust-ipfs" }
-libadwaita = { version = "0.9.1", features = ["v1_6", "gio_v2_80"] }
+libadwaita = { version = "0.9.1", features = ["gtk_v4_22", "v1_9", "gio_v2_80"] }
 # oku-fs = { git = "https://github.com/OkuBrowser/oku-fs", features = ["fuse"] }
-oku-core = { path = "../oku-core", features = ["fuse"] }
+oku-core = { path = "../oku-core", features = ["fuse", "persistent"] }
 pango = { version = "0.22.6" }
 url = "2.5.8"
 tokio = { version = "1.52.3", features = ["full"] }
 tokio-stream = "0.1.18"
-webkit2gtk = { version = "0.6.1", package = "webkit6", features = ["v2_44"] }
+webkit2gtk = { version = "0.6.1", package = "webkit6", features = ["v2_52"] }
 tree_magic_mini = { version = "3.2.2", features = ["with-gpl-data"] }
 open = "5.3.5"
 env_logger = "0.11.10"
