@@ -144,5 +144,6 @@ impl Window {
         shortcuts_window.add(tabs_group);
         shortcuts_window.add(view_group);
         shortcuts_window.add(general_group);
+        shortcuts_window.present(gtk::Widget::NONE);
     }
 }
