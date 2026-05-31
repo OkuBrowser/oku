@@ -3,7 +3,7 @@ mod tests {
     use std::{path::PathBuf, str::FromStr};
 
     #[tokio::test]
-    async fn test_files() -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_one_file_operations() -> Result<(), Box<dyn std::error::Error>> {
         let file_contents = "Hello, World!";
         let file_path = PathBuf::from_str("/test.txt")?;
         let node = crate::fs::OkuFs::start(
@@ -31,8 +31,28 @@ mod tests {
 
         // Test entry retrieval
         let file_entry = node.get_entry(&replica_id, &file_path).await?;
-        assert_eq!(Some(file_entry), file_list.first().cloned());
+        assert_eq!(Some(&file_entry), file_list.first());
+
+        // Test retrieving all entries from a file
+        let file_entries = node.get_entries(&replica_id, &file_path).await?;
+        assert_eq!(Some(&file_entry), file_entries.first());
+
+        // Test retrieving oldest timestamp
+        let oldest_timestamp = node
+            .get_oldest_entry_timestamp(&replica_id, &file_path)
+            .await?;
+        assert_eq!(file_entry.timestamp(), oldest_timestamp);
 
         Ok(())
     }
+
+    // #[tokio::test]
+    // async fn test_one_file_move() -> Result<(), Box<dyn std::error::Error>> {
+    //     todo!();
+    // }
+
+    // #[tokio::test]
+    // async fn test_multiple_file_operations() -> Result<(), Box<dyn std::error::Error>> {
+    //     todo!();
+    // }
 }
