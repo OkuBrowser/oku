@@ -17,6 +17,7 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use rayon::slice::ParallelSliceMut;
 use std::cmp::Reverse;
 use std::collections::HashSet;
+use std::fmt::Display;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -32,11 +33,11 @@ enum ShareModeSerializable {
     Write,
 }
 
-impl ToString for ShareModeSerializable {
-    fn to_string(&self) -> String {
+impl Display for ShareModeSerializable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Read => "Read".into(),
-            Self::Write => "Write".into(),
+            Self::Read => write!(f, "Read"),
+            Self::Write => write!(f, "Write"),
         }
     }
 }
@@ -350,14 +351,15 @@ fn parse_author_id(value: &str) -> miette::Result<AuthorId> {
 pub async fn main() -> miette::Result<()> {
     miette::set_panic_hook();
     let cli = Cli::parse();
-    cfg_if::cfg_if! {
-        if #[cfg(any(feature = "fuse"))] {
+    cfg_select! {
+        feature = "fuse" => {
             let handle = Handle::current();
             let node = OkuFs::start(Some(&handle), #[cfg(feature = "persistent")] true).await.map_err(|e| miette::miette!("{}", e))?;
-        } else {
+        },
+        _ => {
             let node = OkuFs::start(#[cfg(feature = "persistent")] true).await.map_err(|e| miette::miette!("{}", e))?;
         }
-    };
+    }
 
     let verbosity_level = match cli.verbosity {
         0 => LevelFilter::Error,
@@ -405,7 +407,7 @@ pub async fn main() -> miette::Result<()> {
                 let ticket = node
                     .create_document_ticket(&replica_id, &share_mode.into())
                     .await?;
-                println!("{}", ticket.serialize());
+                println!("{}", ticket.encode_string());
             }
             FsCommands::ListReplicas => {
                 let replicas = node.list_replicas().await?;
@@ -499,8 +501,16 @@ pub async fn main() -> miette::Result<()> {
                 mount_handle.join();
             }
             FsCommands::SetRepublishDelay { republish_delay } => {
-                let config = OkuFsConfig::load_or_create_config()?;
+                let config = cfg_select! {
+                    feature = "persistent" => {
+                        OkuFsConfig::load_or_create_config()?
+                    },
+                    _ => {
+                        OkuFsConfig::default()
+                    }
+                };
                 config.set_republish_delay(&republish_delay)?;
+                #[cfg(feature = "persistent")]
                 config.save()?;
                 info!(
                     "Set republish delay to {}.",
@@ -510,8 +520,16 @@ pub async fn main() -> miette::Result<()> {
             FsCommands::SetInitialPublishDelay {
                 initial_publish_delay,
             } => {
-                let config = OkuFsConfig::load_or_create_config()?;
+                let config = cfg_select! {
+                    feature = "persistent" => {
+                        OkuFsConfig::load_or_create_config()?
+                    },
+                    _ => {
+                        OkuFsConfig::default()
+                    }
+                };
                 config.set_initial_publish_delay(&initial_publish_delay)?;
+                #[cfg(feature = "persistent")]
                 config.save()?;
                 info!(
                     "Set initial publish delay to {}.",

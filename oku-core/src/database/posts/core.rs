@@ -1,28 +1,33 @@
 use super::super::core::*;
 use super::super::users::*;
+#[cfg(feature = "persistent")]
 use crate::fs::FS_PATH;
 use iroh_docs::sync::Entry;
 use iroh_docs::AuthorId;
+#[cfg(feature = "persistent")]
 use log::error;
 use native_db::*;
 use native_model::{native_model, Model};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
+#[cfg(feature = "persistent")]
+use std::path::PathBuf;
 use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf,
     str::FromStr,
     sync::{Arc, LazyLock},
     time::SystemTime,
 };
+#[cfg(feature = "persistent")]
+use tantivy::{directory::MmapDirectory, Directory};
 use tantivy::{
-    directory::MmapDirectory,
     schema::{Field, Schema, Value, FAST, STORED, TEXT},
-    Directory, Index, IndexReader, IndexWriter, TantivyDocument, Term,
+    Index, IndexReader, IndexWriter, TantivyDocument, Term,
 };
 use tokio::sync::Mutex;
 use url::Url;
 
+#[cfg(feature = "persistent")]
 pub(crate) static POST_INDEX_PATH: LazyLock<PathBuf> =
     LazyLock::new(|| PathBuf::from(FS_PATH).join("POST_INDEX"));
 pub(crate) static POST_SCHEMA: LazyLock<(Schema, HashMap<&str, Field>)> = LazyLock::new(|| {
@@ -50,12 +55,19 @@ pub(crate) static POST_SCHEMA: LazyLock<(Schema, HashMap<&str, Field>)> = LazyLo
     (schema, fields)
 });
 pub(crate) static POST_INDEX: LazyLock<Index> = LazyLock::new(|| {
-    if let Err(e) = std::fs::create_dir_all(&*POST_INDEX_PATH) {
-        error!("{e}");
+    cfg_select! {
+        feature = "persistent" => {
+            if let Err(e) = std::fs::create_dir_all(&*POST_INDEX_PATH) {
+                error!("{e}");
+            }
+            let mmap_directory: Box<dyn Directory> =
+                Box::new(MmapDirectory::open(&*POST_INDEX_PATH).unwrap());
+            Index::open_or_create(mmap_directory, POST_SCHEMA.0.clone()).unwrap()
+        }
+        _ => {
+            Index::create_in_ram(POST_SCHEMA.0.clone())
+        }
     }
-    let mmap_directory: Box<dyn Directory> =
-        Box::new(MmapDirectory::open(&*POST_INDEX_PATH).unwrap());
-    Index::open_or_create(mmap_directory, POST_SCHEMA.0.clone()).unwrap()
 });
 pub(crate) static POST_INDEX_READER: LazyLock<IndexReader> =
     LazyLock::new(|| POST_INDEX.reader().unwrap());

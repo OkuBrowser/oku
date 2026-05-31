@@ -1,4 +1,4 @@
-#![feature(path_is_empty)]
+#![cfg_attr(feature = "fuse", feature(path_is_empty))]
 #![doc = include_str!("../README.md")]
 // #![feature(doc_auto_cfg)]
 #![warn(missing_docs)]
@@ -18,7 +18,7 @@ pub mod fs;
 pub mod fuse;
 
 #[cfg(feature = "fuse")]
-pub use fuser;
+pub use easy_fuser::prelude as fuse_prelude;
 pub use iroh;
 pub use iroh_base;
 pub use iroh_blobs;

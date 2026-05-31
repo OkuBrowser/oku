@@ -4,9 +4,11 @@ use debug_ignore::DebugIgnore;
 use easy_fuser::templates::DefaultFuseHandler;
 use iroh_blobs::BlobsProtocol;
 use iroh_docs::protocol::Docs;
+#[cfg(feature = "persistent")]
 use std::path::PathBuf;
 #[cfg(feature = "fuse")]
 use std::sync::Arc;
+#[cfg(feature = "persistent")]
 use std::sync::LazyLock;
 #[cfg(feature = "fuse")]
 use tokio::runtime::Handle;
@@ -27,8 +29,10 @@ pub mod util;
 
 mod file_test;
 
+#[cfg(feature = "persistent")]
 /// The path on disk where the file system is stored.
 pub const FS_PATH: &str = ".oku";
+#[cfg(feature = "persistent")]
 pub(crate) static NODE_PATH: LazyLock<PathBuf> =
     LazyLock::new(|| PathBuf::from(FS_PATH).join("node"));
 

@@ -366,7 +366,7 @@ impl OkuFs {
         tokio::pin!(get_stream);
         let mut tickets = Vec::new();
         while let Some(mutable_item) = get_stream.next().await {
-            let ticket = DocTicket::from_bytes(mutable_item.value())?;
+            let ticket = DocTicket::decode_bytes(mutable_item.value())?;
             let ticket_namespace_id = &ticket.capability.id();
             if ticket_namespace_id != namespace_id {
                 error!("Ticket is for replica with ID {}, but claims to be for replica with ID {}; ignoring ticket … ", crate::fs::util::fmt(ticket_namespace_id), crate::fs::util::fmt(namespace_id));

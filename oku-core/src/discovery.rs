@@ -36,7 +36,7 @@ impl OkuFs {
         let ticket = self
             .create_document_ticket(namespace_id, &ShareMode::Read)
             .await?
-            .to_bytes();
+            .encode_bytes();
         let newest_timestamp = self
             .get_newest_timestamp_in_folder(namespace_id, &PathBuf::from("/"))
             .await? as i64;

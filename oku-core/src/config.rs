@@ -1,16 +1,20 @@
-use crate::{
-    discovery::{DEFAULT_INITIAL_PUBLISH_DELAY, DEFAULT_REPUBLISH_DELAY},
-    fs::FS_PATH,
-};
+use crate::discovery::{DEFAULT_INITIAL_PUBLISH_DELAY, DEFAULT_REPUBLISH_DELAY};
+#[cfg(feature = "persistent")]
+use crate::fs::FS_PATH;
+#[cfg(feature = "persistent")]
 use log::error;
-use miette::{miette, IntoDiagnostic};
+use miette::miette;
+#[cfg(feature = "persistent")]
+use miette::IntoDiagnostic;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "persistent")]
+use std::{path::PathBuf, sync::LazyLock};
 use std::{
-    path::PathBuf,
-    sync::{Arc, LazyLock, Mutex},
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
+#[cfg(feature = "persistent")]
 pub(crate) static CONFIG_PATH: LazyLock<PathBuf> =
     LazyLock::new(|| PathBuf::from(FS_PATH).join("config.toml"));
 
@@ -33,6 +37,7 @@ impl Default for OkuFsConfig {
 }
 
 impl OkuFsConfig {
+    #[cfg(feature = "persistent")]
     /// Loads the configuration of the file system from disk, or creates a new configuration if none exists.
     ///
     /// # Returns
@@ -59,6 +64,7 @@ impl OkuFsConfig {
         }
     }
 
+    #[cfg(feature = "persistent")]
     /// Writes the configuration to disk.
     pub fn save(&self) -> miette::Result<()> {
         let config_toml = toml::to_string_pretty(&self).into_diagnostic()?;

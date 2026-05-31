@@ -7,7 +7,3 @@ codegen-units = 1
 opt-level = 3
 lto = true
 debug = 0
-
-[patch.crates-io]
-iroh-base = { package = "iroh-base", git = 'https://github.com/emmyoh/iroh.git', rev = "487cd333668a8deea07b26103383b040fc6718b7" }
-mainline = { package = "mainline", git = "https://github.com/emmyoh/mainline", rev  = "43224637f8217fc31213e32f87c52b81930a5940" }

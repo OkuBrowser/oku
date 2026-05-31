@@ -52,8 +52,8 @@ impl OkuFs {
         #[cfg(feature = "fuse")] handle: Option<&Handle>,
         #[cfg(feature = "persistent")] persistent: bool,
     ) -> anyhow::Result<Self> {
-        let mdns = iroh::address_lookup::mdns::MdnsAddressLookup::builder();
-        let dht_discovery = iroh::address_lookup::DhtAddressLookup::builder();
+        let mdns = iroh_mdns_address_lookup::MdnsAddressLookup::builder();
+        let dht_discovery = iroh_mainline_address_lookup::DhtAddressLookup::builder();
 
         let endpoint = iroh::Endpoint::builder(iroh::endpoint::presets::N0)
             .address_lookup(mdns)
@@ -251,7 +251,7 @@ impl OkuFs {
     /// # Returns
     ///
     /// A handle referencing the mounted file system; joining or dropping the handle will unmount the file system and shutdown the node.
-    pub fn mount(&self, path: PathBuf) -> miette::Result<fuser::BackgroundSession> {
+    pub fn mount(&self, path: PathBuf) -> miette::Result<easy_fuser::prelude::BackgroundSession> {
         easy_fuser::spawn_mount(self.clone(), path, &[], 4).into_diagnostic()
     }
 }

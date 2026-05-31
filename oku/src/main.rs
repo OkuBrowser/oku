@@ -28,7 +28,7 @@ use log::debug;
 use log::error;
 use log::LevelFilter;
 use oku_core::fs::OkuFs;
-use oku_core::fuser::BackgroundSession;
+use oku_core::fuse_prelude::BackgroundSession;
 use scheme_handlers::util::handle_request;
 use scheme_handlers::util::RequestScheme;
 use scheme_handlers::util::SchemeRequest;
@@ -196,7 +196,7 @@ async fn create_ipfs_client() -> Ipfs {
 async fn main() {
     match gio::Resource::load("resources.gresource") {
         Ok(res) => gio::resources_register(&res),
-        Err(e) => error!("{}", e),
+        Err(e) => error!("Failed to load resource bundle: {}", e),
     }
 
     let mut builder = Builder::new();

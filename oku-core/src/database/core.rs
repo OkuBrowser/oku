@@ -1,11 +1,15 @@
 use super::dht::*;
 use super::posts::core::OkuPost;
 use super::users::*;
+#[cfg(feature = "persistent")]
 use crate::fs::FS_PATH;
 use miette::IntoDiagnostic;
 use native_db::*;
-use std::{path::PathBuf, sync::LazyLock};
+#[cfg(feature = "persistent")]
+use std::path::PathBuf;
+use std::sync::LazyLock;
 
+#[cfg(feature = "persistent")]
 pub(crate) static DATABASE_PATH: LazyLock<PathBuf> =
     LazyLock::new(|| PathBuf::from(FS_PATH).join("OKU_FS_DATABASE"));
 /// An Oku node's database.
@@ -30,11 +34,20 @@ impl OkuDatabase {
     ///
     /// An Oku database.
     pub fn new() -> miette::Result<Self> {
-        Ok(Self {
-            database: native_db::Builder::new()
-                .create(&MODELS, &*DATABASE_PATH)
-                .into_diagnostic()?,
-        })
+        cfg_select! {
+            feature = "persistent" => {
+                Ok(Self {
+                        database: native_db::Builder::new()
+                            .create(&MODELS, &*DATABASE_PATH)
+                            .into_diagnostic()?,
+                    })
+                },
+            _ => {
+                Ok(Self{
+                    database: native_db::Builder::new().create_in_memory(&MODELS).into_diagnostic()?
+                })
+            }
+        }
     }
 
     /// Perform a database migration.
