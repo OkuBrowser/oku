@@ -3,7 +3,7 @@ mod tests {
     use std::{path::PathBuf, str::FromStr};
 
     #[tokio::test]
-    async fn test_one_file_operations() -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_one_file_basic_operations() -> Result<(), Box<dyn std::error::Error>> {
         let file_contents = "Hello, World!";
         let file_path = PathBuf::from_str("/test.txt")?;
         let node = crate::fs::OkuFs::start(
@@ -46,13 +46,73 @@ mod tests {
         Ok(())
     }
 
-    // #[tokio::test]
-    // async fn test_one_file_move() -> Result<(), Box<dyn std::error::Error>> {
-    //     todo!();
-    // }
+    #[tokio::test]
+    async fn test_one_file_move() -> Result<(), Box<dyn std::error::Error>> {
+        let file_contents = "Hello, World!";
+        let first_file_path = PathBuf::from_str("/test.txt")?;
+        let second_file_path = PathBuf::from_str("/dir/test.txt")?;
+
+        let node = crate::fs::OkuFs::start(
+            #[cfg(feature = "fuse")]
+            None,
+            #[cfg(feature = "persistent")]
+            false,
+        )
+        .await?;
+        let replica_a = node.create_replica().await?;
+        let replica_b = node.create_replica().await?;
+
+        // The replicas begin with no files
+        let replica_a_list_one = node.list_files(&replica_a, &None).await?;
+        let replica_b_list_one = node.list_files(&replica_b, &None).await?;
+        assert_eq!(0, replica_a_list_one.len());
+        assert_eq!(0, replica_b_list_one.len());
+
+        // Add a file to replica A
+        let file_hash = node
+            .create_or_modify_file(&replica_a, &first_file_path, file_contents)
+            .await?;
+        assert_eq!(
+            node.read_file(&replica_a, &first_file_path).await?,
+            file_contents
+        );
+        let replica_a_list_two = node.list_files(&replica_a, &None).await?;
+        let replica_b_list_two = node.list_files(&replica_b, &None).await?;
+        assert_eq!(1, replica_a_list_two.len());
+        assert_eq!(0, replica_b_list_two.len());
+
+        // Move it to replica B
+        let (first_moved_file_hash, _) = node
+            .move_file(&replica_a, &first_file_path, &replica_b, &first_file_path)
+            .await?;
+        assert_eq!(file_hash, first_moved_file_hash);
+        assert_eq!(
+            node.read_file(&replica_b, &first_file_path).await?,
+            file_contents
+        );
+        let replica_a_list_three = node.list_files(&replica_a, &None).await?;
+        let replica_b_list_three = node.list_files(&replica_b, &None).await?;
+        assert_eq!(0, replica_a_list_three.len());
+        assert_eq!(1, replica_b_list_three.len());
+
+        // Move it within replica B
+        let (second_moved_file_hash, _) = node
+            .move_file(&replica_b, &first_file_path, &replica_b, &second_file_path)
+            .await?;
+        assert_eq!(file_hash, second_moved_file_hash);
+        assert_eq!(
+            node.read_file(&replica_b, &second_file_path).await?,
+            file_contents
+        );
+        let replica_a_list_four = node.list_files(&replica_a, &None).await?;
+        let replica_b_list_four = node.list_files(&replica_b, &None).await?;
+        assert_eq!(0, replica_a_list_four.len());
+        assert_eq!(1, replica_b_list_four.len());
+        Ok(())
+    }
 
     // #[tokio::test]
-    // async fn test_multiple_file_operations() -> Result<(), Box<dyn std::error::Error>> {
+    // async fn test_multiple_file_basic_operations() -> Result<(), Box<dyn std::error::Error>> {
     //     todo!();
     // }
 }
