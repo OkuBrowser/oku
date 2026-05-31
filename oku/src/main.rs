@@ -196,7 +196,7 @@ async fn create_ipfs_client() -> Ipfs {
 async fn main() {
     match gio::Resource::load("resources.gresource") {
         Ok(res) => gio::resources_register(&res),
-        Err(e) => error!("{}", e),
+        Err(e) => error!("Failed to load resource bundle: {}", e),
     }
 
     let mut builder = Builder::new();
