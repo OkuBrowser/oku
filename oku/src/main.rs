@@ -8,6 +8,7 @@ pub mod bookmark_item;
 pub mod config;
 pub mod database;
 pub mod history_item;
+pub mod okunet;
 pub mod replica_item;
 pub mod scheme_handlers;
 pub mod suggestion_item;

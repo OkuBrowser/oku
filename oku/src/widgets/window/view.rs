@@ -396,7 +396,7 @@ impl Window {
                     move |w, load_event| {
                         let title = get_title(w);
                         match imp.is_private.get() {
-                            true => this.set_title(Some(&format!("{} — Private", &title))),
+                            true => this.set_title(Some(&format!("{} — Private", title))),
                             false => this.set_title(Some(&title)),
                         }
                         update_favicon(tab_view, w);
