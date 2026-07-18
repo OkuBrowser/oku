@@ -76,10 +76,6 @@ impl FuseHandler for OkuFs {
     }
 
     async fn statfs(&self, _req: &RequestInfo, file_id: Self::TId) -> FuseResult<StatFs> {
-        let _handle = self.get_handle().map_err(|e| {
-            error!("[statfs]: {e}");
-            PosixError::new(ErrorKind::FileNotFound, e.to_string())
-        })?;
         let file_id = normalise_path(&file_id);
         trace!("[statfs] file_id = {file_id:?}");
         self.get_fs_entry_stats(&file_id).await.map_err(|e| {
@@ -96,7 +92,7 @@ impl FuseHandler for OkuFs {
     ) -> FuseResult<FileAttribute> {
         let file_id = normalise_path(&file_id);
         debug!("[getattr] file_id = {file_id:?}, file_handle = {file_handle:?}");
-        self.getattr(file_id).map_err(|e| {
+        self.getattr(file_id).await.map_err(|e| {
             error!("[getattr]: {e}");
             PosixError::new(ErrorKind::FileNotFound, e.to_string())
         })
@@ -116,7 +112,7 @@ impl FuseHandler for OkuFs {
         debug!(
             "[read] file_id = {file_id:?}, file_handle = {file_handle:?}, seek = {seek:?}, size = {size}"
         );
-        self.read(file_id, seek).map_err(|e| {
+        self.read(file_id, seek).await.map_err(|e| {
             error!("[read]: {e}");
             PosixError::new(ErrorKind::FileNotFound, e.to_string())
         })
@@ -130,7 +126,7 @@ impl FuseHandler for OkuFs {
     ) -> FuseResult<Vec<(OsString, <Self::TId as FileIdType>::MinimalMetadata)>> {
         let file_id = normalise_path(&file_id);
         debug!("[readdir] file_id = {file_id:?}, file_handle = {file_handle:?}");
-        self.readdir(file_id).map_err(|e| {
+        self.readdir(file_id).await.map_err(|e| {
             error!("[readdir]: {e}");
             PosixError::new(ErrorKind::FileNotFound, e.to_string())
         })
@@ -144,7 +140,7 @@ impl FuseHandler for OkuFs {
     ) -> FuseResult<()> {
         let parent_id = normalise_path(&parent_id);
         debug!("[rmdir] parent_id = {parent_id:?}, name = {name:?}");
-        self.rmdir(parent_id, name).map_err(|e| {
+        self.rmdir(parent_id, name).await.map_err(|e| {
             error!("[rmdir]: {e}");
             PosixError::new(ErrorKind::FileNotFound, e.to_string())
         })
@@ -166,6 +162,7 @@ impl FuseHandler for OkuFs {
         let parent_id = normalise_path(&parent_id);
         debug!("[create] parent_id = {parent_id:?}, name = {name:?}, mode = {mode}, umask = {umask}, flags = {flags:?}");
         self.create(req, parent_id, name, mode, umask, flags)
+            .await
             .map_err(|e| {
                 error!("[create]: {e}");
                 PosixError::new(ErrorKind::FileNotFound, e.to_string())
@@ -215,6 +212,7 @@ impl FuseHandler for OkuFs {
         let newparent = normalise_path(&newparent);
         debug!("[rename] parent_id = {parent_id:?}, name = {name:?}, newparent = {newparent:?}, newname = {newname:?}, flags = {flags:?}");
         self.rename(parent_id, name, newparent, newname)
+            .await
             .map_err(|e| {
                 error!("[rename]: {e}");
                 PosixError::new(ErrorKind::FileNotFound, e.to_string())
@@ -234,7 +232,7 @@ impl FuseHandler for OkuFs {
     ) -> FuseResult<u32> {
         let file_id = normalise_path(&file_id);
         debug!("[write] file_id = {file_id:?}, seek = {seek:?}, data = {data:?}, write_flags = {write_flags:?}, flags = {flags:?}");
-        self.write(file_id, seek, data).map_err(|e| {
+        self.write(file_id, seek, data).await.map_err(|e| {
             error!("[write]: {e}");
             PosixError::new(ErrorKind::FileNotFound, e.to_string())
         })
@@ -248,7 +246,7 @@ impl FuseHandler for OkuFs {
     ) -> FuseResult<()> {
         let parent_id = normalise_path(&parent_id);
         debug!("[unlink] parent_id = {parent_id:?}, name = {name:?}");
-        self.unlink(parent_id, name).map_err(|e| {
+        self.unlink(parent_id, name).await.map_err(|e| {
             error!("[unlink]: {e}");
             PosixError::new(ErrorKind::FileNotFound, e.to_string())
         })
