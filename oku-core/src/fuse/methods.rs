@@ -1,7 +1,13 @@
 use crate::fs::OkuFs;
 use crate::fuse::util::*;
-use easy_fuser::prelude::FileKind::Directory;
-use easy_fuser::prelude::*;
+use easy_fuser::fuse_serial::prelude::SeekFrom;
+use easy_fuser::types::FUSEOpenResponseFlags;
+use easy_fuser::types::FileAttribute;
+use easy_fuser::types::FileIdType;
+use easy_fuser::types::FileKind::Directory;
+use easy_fuser::types::OpenFlags;
+use easy_fuser::types::OwnedFileHandle;
+use easy_fuser::types::RequestInfo;
 use log::info;
 use miette::IntoDiagnostic;
 use std::ffi::OsStr;
@@ -129,7 +135,7 @@ impl OkuFs {
         let (new_namespace_id, new_replica_path) = parse_fuse_path(&new_path)
             .map(|x| x.ok_or(miette::miette!("Cannot rename root directory")))??;
         match path_type {
-            easy_fuser::prelude::FileKind::RegularFile => {
+            easy_fuser::types::FileKind::RegularFile => {
                 let (new_hash, files_moved) = handle.block_on(async {
                     self.move_file(
                         &old_namespace_id,
@@ -142,7 +148,7 @@ impl OkuFs {
                 info!("File {old_path:?} moved to {new_path:?} (files moved: {files_moved}, new hash: {new_hash})");
                 Ok(())
             }
-            easy_fuser::prelude::FileKind::Directory => {
+            easy_fuser::types::FileKind::Directory => {
                 let (new_hashes, files_moved) = handle.block_on(async {
                     self.move_directory(
                         &old_namespace_id,

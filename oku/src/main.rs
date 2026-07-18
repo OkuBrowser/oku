@@ -29,7 +29,7 @@ use log::debug;
 use log::error;
 use log::LevelFilter;
 use oku_core::fs::OkuFs;
-use oku_core::fuse_prelude::BackgroundSession;
+use oku_core::fuse_prelude::FuseSession;
 use scheme_handlers::util::handle_request;
 use scheme_handlers::util::RequestScheme;
 use scheme_handlers::util::SchemeRequest;
@@ -65,7 +65,7 @@ static REPLICAS_MOUNTED: LazyLock<Arc<AtomicBool>> =
 
 pub const APP_ID: &str = "io.github.OkuBrowser.oku";
 
-async fn create_web_context() -> (WebContext, Option<BackgroundSession>, Ipfs) {
+async fn create_web_context() -> (WebContext, Option<FuseSession<PathBuf>>, Ipfs) {
     debug!("Creating Oku client … ");
     let (node, mount_handle) = create_oku_client().await;
     debug!("Oku client created");
@@ -149,7 +149,7 @@ async fn create_web_context() -> (WebContext, Option<BackgroundSession>, Ipfs) {
     (web_context, mount_handle, ipfs)
 }
 
-async fn create_oku_client() -> (OkuFs, Option<BackgroundSession>) {
+async fn create_oku_client() -> (OkuFs, Option<FuseSession<PathBuf>>) {
     let node = OkuFs::start(Some(&Handle::current()), true).await.unwrap();
     let node_clone = node.clone();
     let _ = std::fs::remove_dir_all(MOUNT_DIR.to_path_buf());

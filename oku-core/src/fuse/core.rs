@@ -1,18 +1,41 @@
 use crate::fs::util::normalise_path;
 use crate::fs::OkuFs;
-use easy_fuser::prelude::*;
+use async_trait::async_trait;
+use easy_fuser::fuse_async::prelude::*;
+use easy_fuser::fuse_async::FuseHandler;
+use easy_fuser::fuse_presets::DefaultFuseHandler;
+use easy_fuser::types::AccessMask;
+use easy_fuser::types::BorrowedFileHandle;
+use easy_fuser::types::ErrorKind;
+use easy_fuser::types::FUSEOpenFlags;
+use easy_fuser::types::FUSEOpenResponseFlags;
+use easy_fuser::types::FileAttribute;
+use easy_fuser::types::FileIdType;
+use easy_fuser::types::FuseResult;
+use easy_fuser::types::OpenFlags;
+use easy_fuser::types::OwnedFileHandle;
+use easy_fuser::types::PosixError;
+use easy_fuser::types::RequestInfo;
+use easy_fuser::types::StatFs;
 use log::debug;
 use log::error;
 use log::info;
 use log::trace;
 use std::ffi::OsStr;
 use std::ffi::OsString;
+use std::io::SeekFrom;
+use std::path::Path;
 use std::path::PathBuf;
 
-impl FuseHandler<PathBuf> for OkuFs {
-    fn get_inner(&self) -> &dyn FuseHandler<PathBuf> {
-        &**self.fuse_handler
+impl OkuFs {
+    fn get_inner_fuse_handler(&self) -> &DefaultFuseHandler<PathBuf> {
+        &self.fuse_handler
     }
+}
+
+#[async_trait]
+impl FuseHandler for OkuFs {
+    type TId = PathBuf;
 
     fn destroy(&self) {
         if let Some(handle) = &self.handle {
@@ -21,52 +44,55 @@ impl FuseHandler<PathBuf> for OkuFs {
         info!("Node unmounting … ");
     }
 
-    fn flush(
+    async fn flush(
         &self,
         _req: &RequestInfo,
-        _file_id: PathBuf,
-        _file_handle: BorrowedFileHandle,
+        _file_id: Self::TId,
+        _file_handle: BorrowedFileHandle<'_>,
         _lock_owner: u64,
     ) -> FuseResult<()> {
         Ok(())
     }
 
-    fn fsync(
+    async fn fsync(
         &self,
         _req: &RequestInfo,
-        _file_id: PathBuf,
-        _file_handle: BorrowedFileHandle,
+        _file_id: Self::TId,
+        _file_handle: BorrowedFileHandle<'_>,
         _datasync: bool,
     ) -> FuseResult<()> {
         Ok(())
     }
 
-    fn access(&self, _req: &RequestInfo, file_id: PathBuf, mode: AccessMask) -> FuseResult<()> {
+    async fn access(
+        &self,
+        _req: &RequestInfo,
+        file_id: Self::TId,
+        mode: AccessMask,
+    ) -> FuseResult<()> {
         let file_id = normalise_path(&file_id);
         debug!("[access] file_id = {file_id:?}, mode = {mode:#06o}");
         FuseResult::Ok(())
     }
 
-    fn statfs(&self, _req: &RequestInfo, file_id: PathBuf) -> FuseResult<StatFs> {
-        let handle = self.get_handle().map_err(|e| {
+    async fn statfs(&self, _req: &RequestInfo, file_id: Self::TId) -> FuseResult<StatFs> {
+        let _handle = self.get_handle().map_err(|e| {
             error!("[statfs]: {e}");
             PosixError::new(ErrorKind::FileNotFound, e.to_string())
         })?;
         let file_id = normalise_path(&file_id);
         trace!("[statfs] file_id = {file_id:?}");
-        handle
-            .block_on(async { self.get_fs_entry_stats(&file_id).await })
-            .map_err(|e| {
-                error!("[statfs]: {e}");
-                PosixError::new(ErrorKind::FileNotFound, e.to_string())
-            })
+        self.get_fs_entry_stats(&file_id).await.map_err(|e| {
+            error!("[statfs]: {e}");
+            PosixError::new(ErrorKind::FileNotFound, e.to_string())
+        })
     }
 
-    fn getattr(
+    async fn getattr(
         &self,
         _req: &RequestInfo,
-        file_id: PathBuf,
-        file_handle: Option<BorrowedFileHandle>,
+        file_id: Self::TId,
+        file_handle: Option<BorrowedFileHandle<'_>>,
     ) -> FuseResult<FileAttribute> {
         let file_id = normalise_path(&file_id);
         debug!("[getattr] file_id = {file_id:?}, file_handle = {file_handle:?}");
@@ -76,11 +102,11 @@ impl FuseHandler<PathBuf> for OkuFs {
         })
     }
 
-    fn read(
+    async fn read(
         &self,
         _req: &RequestInfo,
-        file_id: PathBuf,
-        file_handle: BorrowedFileHandle,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
         seek: SeekFrom,
         size: u32,
         _flags: FUSEOpenFlags,
@@ -96,12 +122,12 @@ impl FuseHandler<PathBuf> for OkuFs {
         })
     }
 
-    fn readdir(
+    async fn readdir(
         &self,
         _req: &RequestInfo,
-        file_id: PathBuf,
-        file_handle: BorrowedFileHandle,
-    ) -> FuseResult<Vec<(OsString, <PathBuf as FileIdType>::MinimalMetadata)>> {
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+    ) -> FuseResult<Vec<(OsString, <Self::TId as FileIdType>::MinimalMetadata)>> {
         let file_id = normalise_path(&file_id);
         debug!("[readdir] file_id = {file_id:?}, file_handle = {file_handle:?}");
         self.readdir(file_id).map_err(|e| {
@@ -110,7 +136,12 @@ impl FuseHandler<PathBuf> for OkuFs {
         })
     }
 
-    fn rmdir(&self, _req: &RequestInfo, parent_id: PathBuf, name: &OsStr) -> FuseResult<()> {
+    async fn rmdir(
+        &self,
+        _req: &RequestInfo,
+        parent_id: Self::TId,
+        name: &OsStr,
+    ) -> FuseResult<()> {
         let parent_id = normalise_path(&parent_id);
         debug!("[rmdir] parent_id = {parent_id:?}, name = {name:?}");
         self.rmdir(parent_id, name).map_err(|e| {
@@ -119,17 +150,17 @@ impl FuseHandler<PathBuf> for OkuFs {
         })
     }
 
-    fn create(
+    async fn create(
         &self,
         req: &RequestInfo,
-        parent_id: PathBuf,
+        parent_id: Self::TId,
         name: &OsStr,
         mode: u32,
         umask: u32,
         flags: OpenFlags,
     ) -> FuseResult<(
         OwnedFileHandle,
-        <PathBuf as FileIdType>::Metadata,
+        <Self::TId as FileIdType>::Metadata,
         FUSEOpenResponseFlags,
     )> {
         let parent_id = normalise_path(&parent_id);
@@ -145,242 +176,38 @@ impl FuseHandler<PathBuf> for OkuFs {
         std::time::Duration::from_secs(1)
     }
 
-    fn init(&self, req: &RequestInfo, config: &mut KernelConfig) -> FuseResult<()> {
-        self.get_inner().init(req, config)
-    }
-
-    fn bmap(
+    async fn lookup(
         &self,
         req: &RequestInfo,
-        file_id: PathBuf,
-        blocksize: u32,
-        idx: u64,
-    ) -> FuseResult<u64> {
-        self.get_inner().bmap(req, file_id, blocksize, idx)
-    }
-
-    fn copy_file_range(
-        &self,
-        req: &RequestInfo,
-        file_in: PathBuf,
-        file_handle_in: BorrowedFileHandle,
-        offset_in: i64,
-        file_out: PathBuf,
-        file_handle_out: BorrowedFileHandle,
-        offset_out: i64,
-        len: u64,
-        flags: u32, // Not implemented yet in standard
-    ) -> FuseResult<u32> {
-        self.get_inner().copy_file_range(
-            req,
-            file_in,
-            file_handle_in,
-            offset_in,
-            file_out,
-            file_handle_out,
-            offset_out,
-            len,
-            flags,
-        )
-    }
-
-    fn fallocate(
-        &self,
-        req: &RequestInfo,
-        file_id: PathBuf,
-        file_handle: BorrowedFileHandle,
-        offset: i64,
-        length: i64,
-        mode: FallocateFlags,
-    ) -> FuseResult<()> {
-        self.get_inner()
-            .fallocate(req, file_id, file_handle, offset, length, mode)
-    }
-
-    fn forget(&self, req: &RequestInfo, file_id: PathBuf, nlookup: u64) {
-        self.get_inner().forget(req, file_id, nlookup);
-    }
-
-    fn fsyncdir(
-        &self,
-        req: &RequestInfo,
-        file_id: PathBuf,
-        file_handle: BorrowedFileHandle,
-        datasync: bool,
-    ) -> FuseResult<()> {
-        self.get_inner()
-            .fsyncdir(req, file_id, file_handle, datasync)
-    }
-
-    fn getlk(
-        &self,
-        req: &RequestInfo,
-        file_id: PathBuf,
-        file_handle: BorrowedFileHandle,
-        lock_owner: u64,
-        lock_info: LockInfo,
-    ) -> FuseResult<LockInfo> {
-        self.get_inner()
-            .getlk(req, file_id, file_handle, lock_owner, lock_info)
-    }
-
-    fn getxattr(
-        &self,
-        req: &RequestInfo,
-        file_id: PathBuf,
+        parent_id: Self::TId,
         name: &OsStr,
-        size: u32,
-    ) -> FuseResult<Vec<u8>> {
-        debug!("[getxattr] file_id = {file_id:?}, name = {name:?}, size = {size}");
-        self.get_inner().getxattr(req, file_id, name, size)
-    }
-
-    fn ioctl(
-        &self,
-        req: &RequestInfo,
-        file_id: PathBuf,
-        file_handle: BorrowedFileHandle,
-        flags: IOCtlFlags,
-        cmd: u32,
-        in_data: Vec<u8>,
-        out_size: u32,
-    ) -> FuseResult<(i32, Vec<u8>)> {
-        self.get_inner()
-            .ioctl(req, file_id, file_handle, flags, cmd, in_data, out_size)
-    }
-
-    fn link(
-        &self,
-        req: &RequestInfo,
-        file_id: PathBuf,
-        newparent: PathBuf,
-        newname: &OsStr,
-    ) -> FuseResult<<PathBuf as FileIdType>::Metadata> {
-        self.get_inner().link(req, file_id, newparent, newname)
-    }
-
-    fn listxattr(&self, req: &RequestInfo, file_id: PathBuf, size: u32) -> FuseResult<Vec<u8>> {
-        self.get_inner().listxattr(req, file_id, size)
-    }
-
-    fn lookup(
-        &self,
-        req: &RequestInfo,
-        parent_id: PathBuf,
-        name: &OsStr,
-    ) -> FuseResult<<PathBuf as FileIdType>::Metadata> {
+    ) -> FuseResult<<Self::TId as FileIdType>::Metadata> {
         let parent_id = normalise_path(&parent_id);
         debug!("[lookup] parent_id = {parent_id:?}, name = {name:?}");
-        FuseHandler::getattr(self, req, parent_id.join(name), None)
+        FuseHandler::getattr(self, req, parent_id.join(name), None).await
     }
 
-    fn lseek(
+    async fn readdirplus(
         &self,
         req: &RequestInfo,
-        file_id: PathBuf,
-        file_handle: BorrowedFileHandle,
-        seek: SeekFrom,
-    ) -> FuseResult<i64> {
-        self.get_inner().lseek(req, file_id, file_handle, seek)
-    }
-
-    fn mkdir(
-        &self,
-        req: &RequestInfo,
-        parent_id: PathBuf,
-        name: &OsStr,
-        mode: u32,
-        umask: u32,
-    ) -> FuseResult<<PathBuf as FileIdType>::Metadata> {
-        self.get_inner().mkdir(req, parent_id, name, mode, umask)
-    }
-
-    fn mknod(
-        &self,
-        req: &RequestInfo,
-        parent_id: PathBuf,
-        name: &OsStr,
-        mode: u32,
-        umask: u32,
-        rdev: DeviceType,
-    ) -> FuseResult<<PathBuf as FileIdType>::Metadata> {
-        self.get_inner()
-            .mknod(req, parent_id, name, mode, umask, rdev)
-    }
-
-    fn open(
-        &self,
-        req: &RequestInfo,
-        file_id: PathBuf,
-        flags: OpenFlags,
-    ) -> FuseResult<(OwnedFileHandle, FUSEOpenResponseFlags)> {
-        debug!("[open] file_id = {file_id:?}, flags = {flags:?}");
-        self.get_inner().open(req, file_id, flags)
-    }
-
-    fn opendir(
-        &self,
-        req: &RequestInfo,
-        file_id: PathBuf,
-        flags: OpenFlags,
-    ) -> FuseResult<(OwnedFileHandle, FUSEOpenResponseFlags)> {
-        debug!("[opendir] file_id = {file_id:?}, flags = {flags:?}");
-        self.get_inner().opendir(req, file_id, flags)
-    }
-
-    fn readdirplus(
-        &self,
-        req: &RequestInfo,
-        file_id: PathBuf,
-        file_handle: BorrowedFileHandle,
-    ) -> FuseResult<Vec<(OsString, <PathBuf as FileIdType>::Metadata)>> {
-        let readdir_result = FuseHandler::readdir(self, req, file_id.clone(), file_handle)?;
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+    ) -> FuseResult<Vec<(OsString, <Self::TId as FileIdType>::Metadata)>> {
+        let readdir_result = FuseHandler::readdir(self, req, file_id.clone(), file_handle).await?;
         let mut result = Vec::with_capacity(readdir_result.len());
         for (name, _) in readdir_result.into_iter() {
-            let metadata = self.lookup(req, file_id.clone(), &name)?;
+            let metadata = self.lookup(req, file_id.clone(), &name).await?;
             result.push((name, metadata));
         }
         Ok(result)
     }
 
-    fn readlink(&self, req: &RequestInfo, file_id: PathBuf) -> FuseResult<Vec<u8>> {
-        self.get_inner().readlink(req, file_id)
-    }
-
-    fn release(
-        &self,
-        req: &RequestInfo,
-        file_id: PathBuf,
-        file_handle: OwnedFileHandle,
-        flags: OpenFlags,
-        lock_owner: Option<u64>,
-        flush: bool,
-    ) -> FuseResult<()> {
-        self.get_inner()
-            .release(req, file_id, file_handle, flags, lock_owner, flush)
-    }
-
-    fn releasedir(
-        &self,
-        req: &RequestInfo,
-        file_id: PathBuf,
-        file_handle: OwnedFileHandle,
-        flags: OpenFlags,
-    ) -> FuseResult<()> {
-        self.get_inner()
-            .releasedir(req, file_id, file_handle, flags)
-    }
-
-    fn removexattr(&self, req: &RequestInfo, file_id: PathBuf, name: &OsStr) -> FuseResult<()> {
-        self.get_inner().removexattr(req, file_id, name)
-    }
-
-    fn rename(
+    async fn rename(
         &self,
         _req: &RequestInfo,
-        parent_id: PathBuf,
+        parent_id: Self::TId,
         name: &OsStr,
-        newparent: PathBuf,
+        newparent: Self::TId,
         newname: &OsStr,
         flags: RenameFlags,
     ) -> FuseResult<()> {
@@ -394,56 +221,11 @@ impl FuseHandler<PathBuf> for OkuFs {
             })
     }
 
-    fn setattr(
-        &self,
-        req: &RequestInfo,
-        file_id: PathBuf,
-        attrs: SetAttrRequest,
-    ) -> FuseResult<FileAttribute> {
-        self.get_inner().setattr(req, file_id, attrs)
-    }
-
-    fn setlk(
-        &self,
-        req: &RequestInfo,
-        file_id: PathBuf,
-        file_handle: BorrowedFileHandle,
-        lock_owner: u64,
-        lock_info: LockInfo,
-        sleep: bool,
-    ) -> FuseResult<()> {
-        self.get_inner()
-            .setlk(req, file_id, file_handle, lock_owner, lock_info, sleep)
-    }
-
-    fn setxattr(
-        &self,
-        req: &RequestInfo,
-        file_id: PathBuf,
-        name: &OsStr,
-        value: Vec<u8>,
-        flags: FUSESetXAttrFlags,
-        position: u32,
-    ) -> FuseResult<()> {
-        self.get_inner()
-            .setxattr(req, file_id, name, value, flags, position)
-    }
-
-    fn symlink(
-        &self,
-        req: &RequestInfo,
-        parent_id: PathBuf,
-        link_name: &OsStr,
-        target: &std::path::Path,
-    ) -> FuseResult<<PathBuf as FileIdType>::Metadata> {
-        self.get_inner().symlink(req, parent_id, link_name, target)
-    }
-
-    fn write(
+    async fn write(
         &self,
         _req: &RequestInfo,
-        file_id: PathBuf,
-        _file_handle: BorrowedFileHandle,
+        file_id: Self::TId,
+        _file_handle: BorrowedFileHandle<'_>,
         seek: SeekFrom,
         data: Vec<u8>,
         write_flags: FUSEWriteFlags,
@@ -458,12 +240,324 @@ impl FuseHandler<PathBuf> for OkuFs {
         })
     }
 
-    fn unlink(&self, _req: &RequestInfo, parent_id: PathBuf, name: &OsStr) -> FuseResult<()> {
+    async fn unlink(
+        &self,
+        _req: &RequestInfo,
+        parent_id: Self::TId,
+        name: &OsStr,
+    ) -> FuseResult<()> {
         let parent_id = normalise_path(&parent_id);
         debug!("[unlink] parent_id = {parent_id:?}, name = {name:?}");
         self.unlink(parent_id, name).map_err(|e| {
             error!("[unlink]: {e}");
             PosixError::new(ErrorKind::FileNotFound, e.to_string())
         })
+    }
+
+    #[doc = " Map block index within file to block index within device"]
+    #[doc = ""]
+    #[doc = " Note: This makes sense only for block device backed filesystems mounted"]
+    #[doc = " with the \'blkdev\' option"]
+    async fn bmap(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        blocksize: u32,
+        idx: u64,
+    ) -> FuseResult<u64> {
+        self.get_inner_fuse_handler()
+            .bmap(req, file_id, blocksize, idx)
+    }
+
+    #[doc = " Copy the specified range from the source inode to the destination inode"]
+    async fn copy_file_range(
+        &self,
+        req: &RequestInfo,
+        file_in: Self::TId,
+        file_handle_in: BorrowedFileHandle<'_>,
+        offset_in: i64,
+        file_out: Self::TId,
+        file_handle_out: BorrowedFileHandle<'_>,
+        offset_out: i64,
+        len: u64,
+        flags: u32,
+    ) -> FuseResult<u32> {
+        self.get_inner_fuse_handler().copy_file_range(
+            req,
+            file_in,
+            file_handle_in,
+            offset_in,
+            file_out,
+            file_handle_out,
+            offset_out,
+            len,
+            flags,
+        )
+    }
+
+    #[doc = " Preallocate or deallocate space to a file"]
+    async fn fallocate(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        offset: i64,
+        length: i64,
+        mode: FallocateFlags,
+    ) -> FuseResult<()> {
+        self.get_inner_fuse_handler()
+            .fallocate(req, file_id, file_handle, offset, length, mode)
+    }
+
+    #[doc = " Synchronize directory contents"]
+    #[doc = ""]
+    #[doc = " If the datasync parameter is true, then only the directory contents should"]
+    #[doc = " be flushed, not the metadata. The file_handle will contain the value set"]
+    #[doc = " by the opendir method, or will be undefined if the opendir method didn\'t"]
+    #[doc = " set any value."]
+    async fn fsyncdir(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        datasync: bool,
+    ) -> FuseResult<()> {
+        self.get_inner_fuse_handler()
+            .fsyncdir(req, file_id, file_handle, datasync)
+    }
+
+    #[doc = " Test for a POSIX file lock."]
+    async fn getlk(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        lock_owner: u64,
+        lock_info: LockInfo,
+    ) -> FuseResult<LockInfo> {
+        self.get_inner_fuse_handler()
+            .getlk(req, file_id, file_handle, lock_owner, lock_info)
+    }
+
+    #[doc = " Get an extended attribute"]
+    async fn getxattr(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        name: &OsStr,
+        size: u32,
+    ) -> FuseResult<Vec<u8>> {
+        self.get_inner_fuse_handler()
+            .getxattr(req, file_id, name, size)
+    }
+
+    #[doc = " control device"]
+    async fn ioctl(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        flags: IOCtlFlags,
+        cmd: u32,
+        in_data: Vec<u8>,
+        out_size: u32,
+    ) -> FuseResult<(i32, Vec<u8>)> {
+        self.get_inner_fuse_handler().ioctl(
+            req,
+            file_id,
+            file_handle,
+            flags,
+            cmd,
+            in_data,
+            out_size,
+        )
+    }
+
+    #[doc = " Create a hard link."]
+    async fn link(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        newparent: Self::TId,
+        newname: &OsStr,
+    ) -> FuseResult<<Self::TId as FileIdType>::Metadata> {
+        self.get_inner_fuse_handler()
+            .link(req, file_id, newparent, newname)
+    }
+
+    #[doc = " List extended attribute names"]
+    async fn listxattr(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        size: u32,
+    ) -> FuseResult<Vec<u8>> {
+        self.get_inner_fuse_handler().listxattr(req, file_id, size)
+    }
+
+    #[doc = " Reposition read/write file offset"]
+    async fn lseek(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        seek: SeekFrom,
+    ) -> FuseResult<i64> {
+        self.get_inner_fuse_handler()
+            .lseek(req, file_id, file_handle, seek)
+    }
+
+    #[doc = " Create a new directory"]
+    async fn mkdir(
+        &self,
+        req: &RequestInfo,
+        parent_id: Self::TId,
+        name: &OsStr,
+        mode: u32,
+        umask: u32,
+    ) -> FuseResult<<Self::TId as FileIdType>::Metadata> {
+        self.get_inner_fuse_handler()
+            .mkdir(req, parent_id, name, mode, umask)
+    }
+
+    #[doc = " Create a new file node (regular file, device, FIFO, socket, etc)"]
+    async fn mknod(
+        &self,
+        req: &RequestInfo,
+        parent_id: Self::TId,
+        name: &OsStr,
+        mode: u32,
+        umask: u32,
+        rdev: DeviceType,
+    ) -> FuseResult<<Self::TId as FileIdType>::Metadata> {
+        self.get_inner_fuse_handler()
+            .mknod(req, parent_id, name, mode, umask, rdev)
+    }
+
+    #[doc = " Open a file and return a file handle."]
+    #[doc = ""]
+    #[doc = " Open flags (with the exception of O_CREAT, O_EXCL, O_NOCTTY and O_TRUNC) are available in flags. You may store an arbitrary file handle (pointer, index, etc) in file_handle response, and use this in other all other file operations (read, write, flush, release, fsync). Filesystem may also implement stateless file I/O and not store anything in fh. There are also some flags (direct_io, keep_cache) which the filesystem may set, to change the way the file is opened. See fuse_file_info structure in <fuse_common.h> for more details."]
+    async fn open(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        flags: OpenFlags,
+    ) -> FuseResult<(OwnedFileHandle, FUSEOpenResponseFlags)> {
+        self.get_inner_fuse_handler().open(req, file_id, flags)
+    }
+
+    #[doc = " Open a directory"]
+    #[doc = ""]
+    #[doc = " Allows storing a file handle for use in subsequent directory operations."]
+    async fn opendir(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        flags: OpenFlags,
+    ) -> FuseResult<(OwnedFileHandle, FUSEOpenResponseFlags)> {
+        self.get_inner_fuse_handler().opendir(req, file_id, flags)
+    }
+
+    #[doc = " Read the target of a symbolic link"]
+    async fn readlink(&self, req: &RequestInfo, file_id: Self::TId) -> FuseResult<Vec<u8>> {
+        self.get_inner_fuse_handler().readlink(req, file_id)
+    }
+
+    #[doc = " Release an open file"]
+    #[doc = ""]
+    #[doc = " Called when all file descriptors are closed and all memory mappings are unmapped."]
+    #[doc = " Guaranteed to be called once for every open() call."]
+    async fn release(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: OwnedFileHandle,
+        flags: OpenFlags,
+        lock_owner: Option<u64>,
+        flush: bool,
+    ) -> FuseResult<()> {
+        self.get_inner_fuse_handler()
+            .release(req, file_id, file_handle, flags, lock_owner, flush)
+    }
+
+    #[doc = " Release an open directory"]
+    #[doc = ""]
+    #[doc = " This method is called exactly once for every successful opendir operation."]
+    #[doc = " The file_handle parameter will contain the value set by the opendir method,"]
+    #[doc = " or will be undefined if the opendir method didn\'t set any value."]
+    async fn releasedir(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: OwnedFileHandle,
+        flags: OpenFlags,
+    ) -> FuseResult<()> {
+        self.get_inner_fuse_handler()
+            .releasedir(req, file_id, file_handle, flags)
+    }
+
+    #[doc = " Remove an extended attribute."]
+    async fn removexattr(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        name: &OsStr,
+    ) -> FuseResult<()> {
+        self.get_inner_fuse_handler()
+            .removexattr(req, file_id, name)
+    }
+
+    async fn setattr(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        attrs: SetAttrRequest<'_>,
+    ) -> FuseResult<FileAttribute> {
+        self.get_inner_fuse_handler().setattr(req, file_id, attrs)
+    }
+
+    #[doc = " Acquire, modify or release a POSIX file lock"]
+    #[doc = ""]
+    #[doc = " For POSIX threads (NPTL) there\'s a 1-1 relation between pid and owner, but"]
+    #[doc = " otherwise this is not always the case. For checking lock ownership, \'fi->owner\'"]
+    #[doc = " must be used. The l_pid field in \'struct flock\' should only be used to fill"]
+    #[doc = " in this field in getlk()."]
+    async fn setlk(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        lock_owner: u64,
+        lock_info: LockInfo,
+        sleep: bool,
+    ) -> FuseResult<()> {
+        self.get_inner_fuse_handler()
+            .setlk(req, file_id, file_handle, lock_owner, lock_info, sleep)
+    }
+
+    #[doc = " Set an extended attribute"]
+    async fn setxattr(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        name: &OsStr,
+        value: Vec<u8>,
+        flags: FUSESetXAttrFlags,
+        position: u32,
+    ) -> FuseResult<()> {
+        self.get_inner_fuse_handler()
+            .setxattr(req, file_id, name, value, flags, position)
+    }
+
+    #[doc = " Create a symbolic link."]
+    async fn symlink(
+        &self,
+        req: &RequestInfo,
+        parent_id: Self::TId,
+        link_name: &OsStr,
+        target: &Path,
+    ) -> FuseResult<<Self::TId as FileIdType>::Metadata> {
+        self.get_inner_fuse_handler()
+            .symlink(req, parent_id, link_name, target)
     }
 }

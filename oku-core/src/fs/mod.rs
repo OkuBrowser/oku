@@ -1,7 +1,7 @@
 #[cfg(feature = "fuse")]
 use debug_ignore::DebugIgnore;
 #[cfg(feature = "fuse")]
-use easy_fuser::templates::DefaultFuseHandler;
+use easy_fuser::fuse_presets::DefaultFuseHandler;
 use iroh_blobs::BlobsProtocol;
 use iroh_docs::protocol::Docs;
 #[cfg(feature = "persistent")]
@@ -51,7 +51,7 @@ pub struct OkuFs {
     /// A watcher for whether or not content is being fetched from the OkuNet.
     pub okunet_fetch_sender: Sender<bool>,
     #[cfg(feature = "fuse")]
-    pub(crate) fuse_handler: DebugIgnore<Arc<DefaultFuseHandler>>,
+    pub(crate) fuse_handler: DebugIgnore<Arc<DefaultFuseHandler<std::path::PathBuf>>>,
     #[cfg(feature = "fuse")]
     /// A Tokio runtime handle to perform asynchronous operations with.
     pub(crate) handle: Option<Handle>,
