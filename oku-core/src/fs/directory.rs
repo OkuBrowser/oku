@@ -147,6 +147,40 @@ impl OkuFs {
         Ok(entries_deleted)
     }
 
+    /// Creates an empty directory.
+    ///
+    /// # Arguments
+    ///
+    /// * `namespace_id` - The ID of the replica containing the directory to create.
+    ///
+    /// * `path` - The path of the directory to create.
+    ///
+    /// # Returns
+    ///
+    /// The hash of the first (empty) file in the directory; directories can only exist if they have files in them.
+    pub async fn create_directory(
+        &self,
+        namespace_id: &NamespaceId,
+        path: &PathBuf,
+    ) -> miette::Result<Hash> {
+        let files = self
+            .list_files(namespace_id, &Some(path.to_path_buf()))
+            .await
+            .unwrap_or_default();
+        match files.len() {
+            0 => {
+                self.create_or_modify_file(namespace_id, &path.join(".folder"), b"\0".as_slice())
+                    .await
+            }
+            _ => {
+                let namespace_id_str = crate::fs::util::fmt(namespace_id);
+                Err(miette::miette!(
+                    "Cannot create directory {path:?} in {namespace_id_str} as it already exists."
+                ))
+            }
+        }
+    }
+
     /// Determines the oldest timestamp of a file entry in a folder.
     ///
     /// # Arguments

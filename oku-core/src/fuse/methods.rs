@@ -85,19 +85,17 @@ impl OkuFs {
     }
 
     pub(super) async fn rmdir(&self, parent_id: PathBuf, name: &OsStr) -> miette::Result<()> {
-        let handle = self.get_handle()?;
         let path = parent_id.join(name);
         let (namespace_id, replica_path) = parse_fuse_path(&path)
             .map(|x| x.ok_or(miette::miette!("Cannot remove root directory")))??;
         match is_root_path(&replica_path) {
             true => {
                 self.delete_replica(&namespace_id).await?;
-                info!("Replica {namespace_id} deleted");
+                let namespace_id_str = crate::fs::util::fmt(namespace_id);
+                info!("Replica {namespace_id_str} deleted");
             }
             false => {
-                let entries_deleted = handle.block_on(async {
-                    self.delete_directory(&namespace_id, &replica_path).await
-                })?;
+                let entries_deleted = self.delete_directory(&namespace_id, &replica_path).await?;
                 info!("{entries_deleted} entries deleted in {path:?}");
             }
         }
@@ -209,5 +207,21 @@ impl OkuFs {
         let entries_deleted = self.delete_file(&namespace_id, &replica_path).await?;
         info!("File deleted at {path:?} (files deleted: {entries_deleted})");
         Ok(())
+    }
+
+    pub(super) async fn mkdir(
+        &self,
+        parent_id: PathBuf,
+        name: &OsStr,
+    ) -> miette::Result<FileAttribute> {
+        let path = parent_id.join(name);
+        let (namespace_id, replica_path) = parse_fuse_path(&path).map(|x| {
+            x.ok_or(miette::miette!(
+                "Cannot make directory in the root directory"
+            ))
+        })??;
+
+        self.create_directory(&namespace_id, &replica_path).await?;
+        self.get_fs_entry_attributes(&path).await
     }
 }

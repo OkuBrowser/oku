@@ -218,6 +218,15 @@ enum FsCommands {
         /// The data to write to the file.
         data: Bytes,
     },
+    /// Create a directory in a replica.
+    CreateDirectory {
+        #[arg(value_parser = parse_namespace_id, short, long, value_name = "REPLICA_ID")]
+        /// The ID of the replica to create the directory in.
+        replica_id: NamespaceId,
+        #[arg(short, long, value_name = "PATH")]
+        /// The path to the directory to create.
+        path: PathBuf,
+    },
     /// List files in a replica.
     ListFiles {
         #[arg(value_parser = parse_namespace_id, short, long, value_name = "REPLICA_ID")]
@@ -402,6 +411,10 @@ pub async fn main() -> miette::Result<()> {
             } => {
                 node.create_or_modify_file(&replica_id, &path, data).await?;
                 info!("Created file at {:?}", path);
+            }
+            FsCommands::CreateDirectory { replica_id, path } => {
+                node.create_directory(&replica_id, &path).await?;
+                info!("Created directory at {:?}", path);
             }
             FsCommands::ListFiles { replica_id, path } => {
                 let files = node.list_files(&replica_id, &path).await?;

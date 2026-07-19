@@ -434,7 +434,7 @@ impl FuseHandler for OkuFs {
     #[doc = " Create a new directory"]
     async fn mkdir(
         &self,
-        req: &RequestInfo,
+        _req: &RequestInfo,
         parent_id: Self::TId,
         name: &OsStr,
         mode: u32,
@@ -442,8 +442,10 @@ impl FuseHandler for OkuFs {
     ) -> FuseResult<<Self::TId as FileIdType>::Metadata> {
         let parent_id = normalise_path(&parent_id);
         debug!("[mkdir] parent_id = {parent_id:?}, name = {name:?}, mode = {mode:#06o}, umask = {umask:#06o}");
-        self.get_inner_fuse_handler()
-            .mkdir(req, parent_id, name, mode, umask)
+        self.mkdir(parent_id, name).await.map_err(|e| {
+            error!("[mkdir]: {e}");
+            PosixError::new(ErrorKind::InputOutputError, e.to_string())
+        })
     }
 
     #[doc = " Create a new file node (regular file, device, FIFO, socket, etc)"]
