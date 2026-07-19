@@ -20,7 +20,8 @@ mod tests {
             .create_or_modify_file(&replica_id, &file_path, file_contents)
             .await?;
         assert_eq!(
-            node.read_file(&replica_id, &file_path).await?,
+            node.read_file(&replica_id, &file_path, &None, &None)
+                .await?,
             file_contents
         );
 
@@ -73,7 +74,8 @@ mod tests {
             .create_or_modify_file(&replica_a, &first_file_path, file_contents)
             .await?;
         assert_eq!(
-            node.read_file(&replica_a, &first_file_path).await?,
+            node.read_file(&replica_a, &first_file_path, &None, &None)
+                .await?,
             file_contents
         );
         let replica_a_list_two = node.list_files(&replica_a, &None).await?;
@@ -87,7 +89,8 @@ mod tests {
             .await?;
         assert_eq!(file_hash, first_moved_file_hash);
         assert_eq!(
-            node.read_file(&replica_b, &first_file_path).await?,
+            node.read_file(&replica_b, &first_file_path, &None, &None)
+                .await?,
             file_contents
         );
         let replica_a_list_three = node.list_files(&replica_a, &None).await?;
@@ -101,7 +104,8 @@ mod tests {
             .await?;
         assert_eq!(file_hash, second_moved_file_hash);
         assert_eq!(
-            node.read_file(&replica_b, &second_file_path).await?,
+            node.read_file(&replica_b, &second_file_path, &None, &None)
+                .await?,
             file_contents
         );
         let replica_a_list_four = node.list_files(&replica_a, &None).await?;
@@ -113,6 +117,11 @@ mod tests {
 
     // #[tokio::test]
     // async fn test_multiple_file_basic_operations() -> Result<(), Box<dyn std::error::Error>> {
+    //     todo!();
+    // }
+
+    // #[tokio::test]
+    // async fn test_partial_read() -> Result<(), Box<dyn std::error::Error>> {
     //     todo!();
     // }
 }

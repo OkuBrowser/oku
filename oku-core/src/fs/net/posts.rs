@@ -12,7 +12,6 @@ use dashmap::DashMap;
 use iroh_blobs::Hash;
 use iroh_docs::sync::Entry;
 use iroh_docs::AuthorId;
-use log::error;
 use miette::IntoDiagnostic;
 use rayon::iter::{
     FromParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -140,7 +139,7 @@ impl OkuFs {
             .home_replica()
             .await
             .ok_or(miette::miette!("Home replica not set … "))?;
-        match self.read_file(&namespace_id, path).await {
+        match self.read_file(&namespace_id, path, &None, &None).await {
             Ok(bytes) => {
                 let note = toml::from_str::<OkuNote>(String::from_utf8_lossy(&bytes).as_ref())
                     .into_diagnostic()?;
@@ -164,7 +163,7 @@ impl OkuFs {
     /// An OkuNet post, if the entry represents one.
     pub async fn post_from_entry(&self, entry: &Entry) -> miette::Result<OkuPost> {
         let bytes = self
-            .content_bytes(entry)
+            .content_bytes(entry, &None, &None)
             .await
             .map_err(|e| miette::miette!("{}", e))?;
         let note = toml::from_str::<OkuNote>(String::from_utf8_lossy(&bytes).as_ref())
@@ -274,18 +273,12 @@ impl OkuFs {
             .map_err(|e| miette::miette!("{}", e))?;
         let namespace_id = ticket.capability.id();
         match self
-            .fetch_file_with_ticket(&ticket, path, &Some(home_replica_filters()))
+            .fetch_file_with_ticket(&ticket, path, &Some(home_replica_filters()), &None, &None)
             .await
         {
             Ok(bytes) => {
                 let note = toml::from_str::<OkuNote>(String::from_utf8_lossy(&bytes).as_ref())
                     .into_diagnostic()?;
-                if let Err(e) = self
-                    .fetch_post_embeddings(&ticket, author_id, note.url.as_ref())
-                    .await
-                {
-                    error!("{e}")
-                }
                 Ok(OkuPost {
                     entry: self.get_entry(&namespace_id, path).await?,
                     note,

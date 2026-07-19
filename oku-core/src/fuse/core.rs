@@ -46,33 +46,41 @@ impl FuseHandler for OkuFs {
 
     async fn flush(
         &self,
-        _req: &RequestInfo,
-        _file_id: Self::TId,
-        _file_handle: BorrowedFileHandle<'_>,
-        _lock_owner: u64,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        lock_owner: u64,
     ) -> FuseResult<()> {
-        Ok(())
+        let file_id = normalise_path(&file_id);
+        debug!("[flush] file_id = {file_id:?}, file_handle = {file_handle:?}, lock_owner = {lock_owner}");
+        self.get_inner_fuse_handler()
+            .flush(req, file_id, file_handle, lock_owner)
     }
 
     async fn fsync(
         &self,
-        _req: &RequestInfo,
-        _file_id: Self::TId,
-        _file_handle: BorrowedFileHandle<'_>,
-        _datasync: bool,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        datasync: bool,
     ) -> FuseResult<()> {
-        Ok(())
+        let file_id = normalise_path(&file_id);
+        debug!(
+            "[fsync] file_id = {file_id:?}, file_handle = {file_handle:?}, datasync = {datasync}"
+        );
+        self.get_inner_fuse_handler()
+            .fsync(req, file_id, file_handle, datasync)
     }
 
     async fn access(
         &self,
-        _req: &RequestInfo,
+        req: &RequestInfo,
         file_id: Self::TId,
         mode: AccessMask,
     ) -> FuseResult<()> {
         let file_id = normalise_path(&file_id);
         debug!("[access] file_id = {file_id:?}, mode = {mode:#06o}");
-        FuseResult::Ok(())
+        self.get_inner_fuse_handler().access(req, file_id, mode)
     }
 
     async fn statfs(&self, _req: &RequestInfo, file_id: Self::TId) -> FuseResult<StatFs> {
@@ -80,7 +88,7 @@ impl FuseHandler for OkuFs {
         trace!("[statfs] file_id = {file_id:?}");
         self.get_fs_entry_stats(&file_id).await.map_err(|e| {
             error!("[statfs]: {e}");
-            PosixError::new(ErrorKind::FileNotFound, e.to_string())
+            PosixError::new(ErrorKind::InputOutputError, e.to_string())
         })
     }
 
@@ -94,7 +102,7 @@ impl FuseHandler for OkuFs {
         debug!("[getattr] file_id = {file_id:?}, file_handle = {file_handle:?}");
         self.getattr(file_id).await.map_err(|e| {
             error!("[getattr]: {e}");
-            PosixError::new(ErrorKind::FileNotFound, e.to_string())
+            PosixError::new(ErrorKind::InputOutputError, e.to_string())
         })
     }
 
@@ -112,9 +120,9 @@ impl FuseHandler for OkuFs {
         debug!(
             "[read] file_id = {file_id:?}, file_handle = {file_handle:?}, seek = {seek:?}, size = {size}"
         );
-        self.read(file_id, seek).await.map_err(|e| {
+        self.read(file_id, seek, size).await.map_err(|e| {
             error!("[read]: {e}");
-            PosixError::new(ErrorKind::FileNotFound, e.to_string())
+            PosixError::new(ErrorKind::InputOutputError, e.to_string())
         })
     }
 
@@ -128,7 +136,7 @@ impl FuseHandler for OkuFs {
         debug!("[readdir] file_id = {file_id:?}, file_handle = {file_handle:?}");
         self.readdir(file_id).await.map_err(|e| {
             error!("[readdir]: {e}");
-            PosixError::new(ErrorKind::FileNotFound, e.to_string())
+            PosixError::new(ErrorKind::InputOutputError, e.to_string())
         })
     }
 
@@ -142,7 +150,7 @@ impl FuseHandler for OkuFs {
         debug!("[rmdir] parent_id = {parent_id:?}, name = {name:?}");
         self.rmdir(parent_id, name).await.map_err(|e| {
             error!("[rmdir]: {e}");
-            PosixError::new(ErrorKind::FileNotFound, e.to_string())
+            PosixError::new(ErrorKind::InputOutputError, e.to_string())
         })
     }
 
@@ -160,17 +168,13 @@ impl FuseHandler for OkuFs {
         FUSEOpenResponseFlags,
     )> {
         let parent_id = normalise_path(&parent_id);
-        debug!("[create] parent_id = {parent_id:?}, name = {name:?}, mode = {mode}, umask = {umask}, flags = {flags:?}");
+        debug!("[create] parent_id = {parent_id:?}, name = {name:?}, mode = {mode:#06o}, umask = {umask:#06o}, flags = {flags:?}");
         self.create(req, parent_id, name, mode, umask, flags)
             .await
             .map_err(|e| {
                 error!("[create]: {e}");
-                PosixError::new(ErrorKind::FileNotFound, e.to_string())
+                PosixError::new(ErrorKind::InputOutputError, e.to_string())
             })
-    }
-
-    fn get_default_ttl(&self) -> std::time::Duration {
-        std::time::Duration::from_secs(1)
     }
 
     async fn lookup(
@@ -190,6 +194,8 @@ impl FuseHandler for OkuFs {
         file_id: Self::TId,
         file_handle: BorrowedFileHandle<'_>,
     ) -> FuseResult<Vec<(OsString, <Self::TId as FileIdType>::Metadata)>> {
+        let file_id = normalise_path(&file_id);
+        debug!("[readdirplus] file_id = {file_id:?}, file_handle = {file_handle:?}");
         let readdir_result = FuseHandler::readdir(self, req, file_id.clone(), file_handle).await?;
         let mut result = Vec::with_capacity(readdir_result.len());
         for (name, _) in readdir_result.into_iter() {
@@ -215,7 +221,7 @@ impl FuseHandler for OkuFs {
             .await
             .map_err(|e| {
                 error!("[rename]: {e}");
-                PosixError::new(ErrorKind::FileNotFound, e.to_string())
+                PosixError::new(ErrorKind::InputOutputError, e.to_string())
             })
     }
 
@@ -234,7 +240,7 @@ impl FuseHandler for OkuFs {
         debug!("[write] file_id = {file_id:?}, seek = {seek:?}, data = {data:?}, write_flags = {write_flags:?}, flags = {flags:?}");
         self.write(file_id, seek, data).await.map_err(|e| {
             error!("[write]: {e}");
-            PosixError::new(ErrorKind::FileNotFound, e.to_string())
+            PosixError::new(ErrorKind::InputOutputError, e.to_string())
         })
     }
 
@@ -248,7 +254,7 @@ impl FuseHandler for OkuFs {
         debug!("[unlink] parent_id = {parent_id:?}, name = {name:?}");
         self.unlink(parent_id, name).await.map_err(|e| {
             error!("[unlink]: {e}");
-            PosixError::new(ErrorKind::FileNotFound, e.to_string())
+            PosixError::new(ErrorKind::InputOutputError, e.to_string())
         })
     }
 
@@ -263,6 +269,8 @@ impl FuseHandler for OkuFs {
         blocksize: u32,
         idx: u64,
     ) -> FuseResult<u64> {
+        let file_id = normalise_path(&file_id);
+        debug!("[bmap] file_id = {file_id:?}, blocksize = {blocksize}, idx = {idx}");
         self.get_inner_fuse_handler()
             .bmap(req, file_id, blocksize, idx)
     }
@@ -270,7 +278,7 @@ impl FuseHandler for OkuFs {
     #[doc = " Copy the specified range from the source inode to the destination inode"]
     async fn copy_file_range(
         &self,
-        req: &RequestInfo,
+        _req: &RequestInfo,
         file_in: Self::TId,
         file_handle_in: BorrowedFileHandle<'_>,
         offset_in: i64,
@@ -280,17 +288,17 @@ impl FuseHandler for OkuFs {
         len: u64,
         flags: u32,
     ) -> FuseResult<u32> {
-        self.get_inner_fuse_handler().copy_file_range(
-            req,
-            file_in,
-            file_handle_in,
-            offset_in,
-            file_out,
-            file_handle_out,
-            offset_out,
-            len,
-            flags,
-        )
+        let file_in = normalise_path(&file_in);
+        let file_out = normalise_path(&file_out);
+        debug!(
+            "[copy_file_range] file_in = {file_in:?}, file_handle_in = {file_handle_in:?}, offset_in = {offset_in:?}, file_out = {file_out:?}, file_handle_out = {file_handle_out:?}, offset_out = {offset_out:?}, len = {len}, flags = {flags:?}"
+        );
+        self.copy_file_range(file_in, offset_in, file_out, offset_out, len)
+            .await
+            .map_err(|e| {
+                error!("[copy_file_range]: {e}");
+                PosixError::new(ErrorKind::InputOutputError, e.to_string())
+            })
     }
 
     #[doc = " Preallocate or deallocate space to a file"]
@@ -303,6 +311,8 @@ impl FuseHandler for OkuFs {
         length: i64,
         mode: FallocateFlags,
     ) -> FuseResult<()> {
+        let file_id = normalise_path(&file_id);
+        debug!("[fallocate] file_id = {file_id:?}, file_handle = {file_handle:?}, offset = {offset}, length = {length}, mode = {mode:?}");
         self.get_inner_fuse_handler()
             .fallocate(req, file_id, file_handle, offset, length, mode)
     }
@@ -320,6 +330,8 @@ impl FuseHandler for OkuFs {
         file_handle: BorrowedFileHandle<'_>,
         datasync: bool,
     ) -> FuseResult<()> {
+        let file_id = normalise_path(&file_id);
+        debug!("[fsyncdir] file_id = {file_id:?}, file_handle = {file_handle:?}, datasync = {datasync}");
         self.get_inner_fuse_handler()
             .fsyncdir(req, file_id, file_handle, datasync)
     }
@@ -333,6 +345,8 @@ impl FuseHandler for OkuFs {
         lock_owner: u64,
         lock_info: LockInfo,
     ) -> FuseResult<LockInfo> {
+        let file_id = normalise_path(&file_id);
+        debug!("[getlk] file_id = {file_id:?}, file_handle = {file_handle:?}, lock_owner = {lock_owner}, lock_info = {lock_info:?}");
         self.get_inner_fuse_handler()
             .getlk(req, file_id, file_handle, lock_owner, lock_info)
     }
@@ -345,6 +359,8 @@ impl FuseHandler for OkuFs {
         name: &OsStr,
         size: u32,
     ) -> FuseResult<Vec<u8>> {
+        let file_id = normalise_path(&file_id);
+        debug!("[getxattr] file_id = {file_id:?}, name = {name:?}, size = {size}");
         self.get_inner_fuse_handler()
             .getxattr(req, file_id, name, size)
     }
@@ -360,6 +376,9 @@ impl FuseHandler for OkuFs {
         in_data: Vec<u8>,
         out_size: u32,
     ) -> FuseResult<(i32, Vec<u8>)> {
+        let file_id = normalise_path(&file_id);
+        let data_str = String::from_utf8_lossy(&in_data);
+        debug!("[ioctl] file_id = {file_id:?}, file_handle = {file_handle:?}, flags = {flags:?}, cmd = {cmd}, in_data = {data_str}, out_size = {out_size}");
         self.get_inner_fuse_handler().ioctl(
             req,
             file_id,
@@ -379,6 +398,9 @@ impl FuseHandler for OkuFs {
         newparent: Self::TId,
         newname: &OsStr,
     ) -> FuseResult<<Self::TId as FileIdType>::Metadata> {
+        let file_id = normalise_path(&file_id);
+        let newparent = normalise_path(&newparent);
+        debug!("[link] file_id = {file_id:?}, newparent = {newparent:?}, newname = {newname:?}");
         self.get_inner_fuse_handler()
             .link(req, file_id, newparent, newname)
     }
@@ -390,6 +412,8 @@ impl FuseHandler for OkuFs {
         file_id: Self::TId,
         size: u32,
     ) -> FuseResult<Vec<u8>> {
+        let file_id = normalise_path(&file_id);
+        debug!("[listxattr] file_id = {file_id:?}, size = {size}");
         self.get_inner_fuse_handler().listxattr(req, file_id, size)
     }
 
@@ -401,6 +425,8 @@ impl FuseHandler for OkuFs {
         file_handle: BorrowedFileHandle<'_>,
         seek: SeekFrom,
     ) -> FuseResult<i64> {
+        let file_id = normalise_path(&file_id);
+        debug!("[lseek] file_id = {file_id:?}, file_handle = {file_handle:?}, seek = {seek:?}");
         self.get_inner_fuse_handler()
             .lseek(req, file_id, file_handle, seek)
     }
@@ -414,6 +440,8 @@ impl FuseHandler for OkuFs {
         mode: u32,
         umask: u32,
     ) -> FuseResult<<Self::TId as FileIdType>::Metadata> {
+        let parent_id = normalise_path(&parent_id);
+        debug!("[mkdir] parent_id = {parent_id:?}, name = {name:?}, mode = {mode:#06o}, umask = {umask:#06o}");
         self.get_inner_fuse_handler()
             .mkdir(req, parent_id, name, mode, umask)
     }
@@ -428,6 +456,8 @@ impl FuseHandler for OkuFs {
         umask: u32,
         rdev: DeviceType,
     ) -> FuseResult<<Self::TId as FileIdType>::Metadata> {
+        let parent_id = normalise_path(&parent_id);
+        debug!("[mknod] parent_id = {parent_id:?}, name = {name:?}, mode = {mode:#06o}, umask = {umask:#06o}, rdev = {rdev:?}");
         self.get_inner_fuse_handler()
             .mknod(req, parent_id, name, mode, umask, rdev)
     }
@@ -441,6 +471,8 @@ impl FuseHandler for OkuFs {
         file_id: Self::TId,
         flags: OpenFlags,
     ) -> FuseResult<(OwnedFileHandle, FUSEOpenResponseFlags)> {
+        let file_id = normalise_path(&file_id);
+        debug!("[open] file_id = {file_id:?}, flags = {flags:?}");
         self.get_inner_fuse_handler().open(req, file_id, flags)
     }
 
@@ -453,11 +485,15 @@ impl FuseHandler for OkuFs {
         file_id: Self::TId,
         flags: OpenFlags,
     ) -> FuseResult<(OwnedFileHandle, FUSEOpenResponseFlags)> {
+        let file_id = normalise_path(&file_id);
+        debug!("[opendir] file_id = {file_id:?}, flags = {flags:?}");
         self.get_inner_fuse_handler().opendir(req, file_id, flags)
     }
 
     #[doc = " Read the target of a symbolic link"]
     async fn readlink(&self, req: &RequestInfo, file_id: Self::TId) -> FuseResult<Vec<u8>> {
+        let file_id = normalise_path(&file_id);
+        debug!("[readlink] file_id = {file_id:?}");
         self.get_inner_fuse_handler().readlink(req, file_id)
     }
 
@@ -474,6 +510,8 @@ impl FuseHandler for OkuFs {
         lock_owner: Option<u64>,
         flush: bool,
     ) -> FuseResult<()> {
+        let file_id = normalise_path(&file_id);
+        debug!("[release] file_id = {file_id:?}, file_handle = {file_handle:?}, flags = {flags:?}, lock_owner = {lock_owner:?}, flush = {flush}");
         self.get_inner_fuse_handler()
             .release(req, file_id, file_handle, flags, lock_owner, flush)
     }
@@ -490,6 +528,10 @@ impl FuseHandler for OkuFs {
         file_handle: OwnedFileHandle,
         flags: OpenFlags,
     ) -> FuseResult<()> {
+        let file_id = normalise_path(&file_id);
+        debug!(
+            "[releasedir] file_id = {file_id:?}, file_handle = {file_handle:?}, flags = {flags:?}"
+        );
         self.get_inner_fuse_handler()
             .releasedir(req, file_id, file_handle, flags)
     }
@@ -501,6 +543,8 @@ impl FuseHandler for OkuFs {
         file_id: Self::TId,
         name: &OsStr,
     ) -> FuseResult<()> {
+        let file_id = normalise_path(&file_id);
+        debug!("[removexattr] file_id = {file_id:?}, name = {name:?}");
         self.get_inner_fuse_handler()
             .removexattr(req, file_id, name)
     }
@@ -511,6 +555,8 @@ impl FuseHandler for OkuFs {
         file_id: Self::TId,
         attrs: SetAttrRequest<'_>,
     ) -> FuseResult<FileAttribute> {
+        let file_id = normalise_path(&file_id);
+        debug!("[setattr] file_id = {file_id:?}, attrs = {attrs:?}");
         self.get_inner_fuse_handler().setattr(req, file_id, attrs)
     }
 
@@ -529,6 +575,8 @@ impl FuseHandler for OkuFs {
         lock_info: LockInfo,
         sleep: bool,
     ) -> FuseResult<()> {
+        let file_id = normalise_path(&file_id);
+        debug!("[setlk] file_id = {file_id:?}, file_handle = {file_handle:?}, lock_owner = {lock_owner}, lock_info = {lock_info:?}, sleep = {sleep}");
         self.get_inner_fuse_handler()
             .setlk(req, file_id, file_handle, lock_owner, lock_info, sleep)
     }
@@ -543,6 +591,9 @@ impl FuseHandler for OkuFs {
         flags: FUSESetXAttrFlags,
         position: u32,
     ) -> FuseResult<()> {
+        let file_id = normalise_path(&file_id);
+        let value_str = String::from_utf8_lossy(&value);
+        debug!("[setxattr] file_id = {file_id:?}, name = {name:?}, value = {value_str}, flags = {flags:?}, position = {position}");
         self.get_inner_fuse_handler()
             .setxattr(req, file_id, name, value, flags, position)
     }
@@ -555,7 +606,12 @@ impl FuseHandler for OkuFs {
         link_name: &OsStr,
         target: &Path,
     ) -> FuseResult<<Self::TId as FileIdType>::Metadata> {
+        let parent_id = normalise_path(&parent_id);
+        let target = normalise_path(&target.to_path_buf());
+        debug!(
+            "[symlink] parent_id = {parent_id:?}, link_name = {link_name:?}, target = {target:?}"
+        );
         self.get_inner_fuse_handler()
-            .symlink(req, parent_id, link_name, target)
+            .symlink(req, parent_id, link_name, target.as_path())
     }
 }

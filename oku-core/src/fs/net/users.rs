@@ -193,7 +193,12 @@ impl OkuFs {
     /// The local user's OkuNet identity, if they have one.
     pub async fn identity(&self) -> Option<OkuIdentity> {
         let profile_bytes = self
-            .read_file(&self.home_replica().await?, &"/profile.toml".into())
+            .read_file(
+                &self.home_replica().await?,
+                &"/profile.toml".into(),
+                &None,
+                &None,
+            )
             .await
             .ok()?;
         toml::from_str(String::from_utf8_lossy(&profile_bytes).as_ref()).ok()
@@ -521,6 +526,8 @@ impl OkuFs {
                 ticket,
                 &"/profile.toml".into(),
                 &Some(home_replica_filters()),
+                &None,
+                &None,
             )
             .await
         {

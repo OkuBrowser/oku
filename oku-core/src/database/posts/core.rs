@@ -208,27 +208,4 @@ impl OkuNote {
     pub fn post_path_from_url(url: &String) -> String {
         format!("/posts/{}.toml", bs58::encode(url.as_bytes()).into_string())
     }
-
-    /// Generate an embedding path for the note.
-    pub fn embedding_path(&self) -> String {
-        Self::embedding_path_from_url(&self.url.to_string())
-    }
-
-    /// Generate an archive path for the note.
-    pub fn archive_path(&self) -> String {
-        Self::archive_path_from_url(&self.url.to_string())
-    }
-
-    /// Generate an embedding path using a URL.
-    pub fn embedding_path_from_url(url: &String) -> String {
-        format!(
-            "/embeddings/{}.json",
-            bs58::encode(url.as_bytes()).into_string()
-        )
-    }
-
-    /// Generate an archive path using a URL.
-    pub fn archive_path_from_url(url: &String) -> String {
-        format!("/archives/{}", bs58::encode(url.as_bytes()).into_string())
-    }
 }

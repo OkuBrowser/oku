@@ -39,9 +39,13 @@ impl OkuFs {
         let entries = self
             .list_files(namespace_id, &Some(path.to_path_buf()))
             .await?;
-        let bytes = future::try_join_all(entries.iter().map(|entry| self.content_bytes(entry)))
-            .await
-            .map_err(|e| miette::miette!("{}", e))?;
+        let bytes = future::try_join_all(
+            entries
+                .iter()
+                .map(|entry| self.content_bytes(entry, &None, &None)),
+        )
+        .await
+        .map_err(|e| miette::miette!("{}", e))?;
         Ok(entries.into_par_iter().zip(bytes.into_par_iter()).collect())
     }
 

@@ -12,6 +12,7 @@ use iroh_docs::DocTicket;
 use iroh_docs::NamespaceId;
 use log::{error, info};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use std::io::SeekFrom;
 use std::path::PathBuf;
 use util::path_to_entry_key;
 use util::path_to_entry_prefix;
@@ -272,6 +273,10 @@ impl OkuFs {
     ///
     /// * `path` - The path of the file to read.
     ///
+    /// * `seek` - Optional direction of where in the file to read from.
+    ///
+    /// * `len` - Optional number of bytes to read.
+    ///
     /// # Returns
     ///
     /// The data read from the file.
@@ -279,9 +284,11 @@ impl OkuFs {
         &self,
         namespace_id: &NamespaceId,
         path: &PathBuf,
+        seek: &Option<SeekFrom>,
+        len: &Option<u64>,
     ) -> miette::Result<Bytes> {
         let entry = self.get_entry(namespace_id, path).await?;
-        Ok(self.content_bytes(&entry).await.map_err(|e| {
+        Ok(self.content_bytes(&entry, seek, len).await.map_err(|e| {
             error!("{}", e);
             OkuFsError::CannotReadFile
         })?)
@@ -295,6 +302,10 @@ impl OkuFs {
     ///
     /// * `path` - The path of the file to read.
     ///
+    /// * `seek` - Optional direction of where in the file to read from.
+    ///
+    /// * `len` - Optional number of bytes to read.
+    ///
     /// # Returns
     ///
     /// The data read from the file.
@@ -302,6 +313,8 @@ impl OkuFs {
         &self,
         document: &Doc,
         path: &PathBuf,
+        seek: &Option<SeekFrom>,
+        len: &Option<u64>,
     ) -> miette::Result<Bytes> {
         let file_key = path_to_entry_key(path);
         let query = iroh_docs::store::Query::single_latest_per_key()
@@ -312,7 +325,7 @@ impl OkuFs {
             .await
             .map_err(|e| miette::miette!("{}", e))?
             .ok_or(OkuFsError::FsEntryNotFound)?;
-        self.content_bytes(&entry)
+        self.content_bytes(&entry, seek, len)
             .await
             .map_err(|e| miette::miette!("{}", e))
     }
@@ -339,7 +352,9 @@ impl OkuFs {
         to_namespace_id: &NamespaceId,
         to_path: &PathBuf,
     ) -> miette::Result<(Hash, usize)> {
-        let data = self.read_file(from_namespace_id, from_path).await?;
+        let data = self
+            .read_file(from_namespace_id, from_path, &None, &None)
+            .await?;
         let hash = self
             .create_or_modify_file(to_namespace_id, to_path, data)
             .await?;
@@ -355,6 +370,10 @@ impl OkuFs {
     ///
     /// * `path` - The path to the file to retrieve.
     ///
+    /// * `seek` - Optional direction of where in the file to read from.
+    ///
+    /// * `len` - Optional number of bytes to read.
+    ///
     /// # Returns
     ///
     /// The data read from the file.
@@ -363,14 +382,19 @@ impl OkuFs {
         namespace_id: &NamespaceId,
         path: &PathBuf,
         filters: &Option<Vec<FilterKind>>,
+        seek: &Option<SeekFrom>,
+        len: &Option<u64>,
     ) -> anyhow::Result<Bytes> {
         match self.resolve_namespace_id(namespace_id).await {
-            Ok(ticket) => match self.fetch_file_with_ticket(&ticket, path, filters).await {
+            Ok(ticket) => match self
+                .fetch_file_with_ticket(&ticket, path, filters, seek, len)
+                .await
+            {
                 Ok(bytes) => Ok(bytes),
                 Err(e) => {
                     error!("{}", e);
                     Ok(self
-                        .read_file(namespace_id, path)
+                        .read_file(namespace_id, path, seek, len)
                         .await
                         .map_err(|e| anyhow!("{}", e))?)
                 }
@@ -378,7 +402,7 @@ impl OkuFs {
             Err(e) => {
                 error!("{}", e);
                 Ok(self
-                    .read_file(namespace_id, path)
+                    .read_file(namespace_id, path, seek, len)
                     .await
                     .map_err(|e| anyhow!("{}", e))?)
             }
@@ -393,6 +417,10 @@ impl OkuFs {
     ///
     /// * `path` - The path to the file to retrieve.
     ///
+    /// * `seek` - Optional direction of where in the file to read from.
+    ///
+    /// * `len` - Optional number of bytes to read.
+    ///
     /// # Returns
     ///
     /// The data read from the file.
@@ -401,6 +429,8 @@ impl OkuFs {
         ticket: &DocTicket,
         path: &PathBuf,
         filters: &Option<Vec<FilterKind>>,
+        seek: &Option<SeekFrom>,
+        len: &Option<u64>,
     ) -> anyhow::Result<Bytes> {
         let docs_client = &self.docs;
         let replica = docs_client
@@ -426,7 +456,7 @@ impl OkuFs {
                 break;
             }
         }
-        self.read_file(&namespace_id, path)
+        self.read_file(&namespace_id, path, seek, len)
             .await
             .map_err(|e| anyhow!("{}", e))
     }

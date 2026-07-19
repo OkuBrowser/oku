@@ -18,6 +18,7 @@ use rayon::slice::ParallelSliceMut;
 use std::cmp::Reverse;
 use std::collections::HashSet;
 use std::fmt::Display;
+use std::io::SeekFrom;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -245,6 +246,12 @@ enum FsCommands {
         #[arg(short, long, value_name = "PATH")]
         /// The path of the file to get.
         path: PathBuf,
+        #[arg(short, long, value_name = "OFFSET", default_value = None)]
+        /// The offset, from the start of the file, to read from.
+        offset: Option<u64>,
+        #[arg(short, long, value_name = "LENGTH", default_value = None)]
+        /// The number of bytes to read.
+        len: Option<u64>,
     },
     /// Remove a file from a replica.
     RemoveFile {
@@ -419,8 +426,15 @@ pub async fn main() -> miette::Result<()> {
                         .collect::<Vec<_>>()
                 );
             }
-            FsCommands::GetFile { replica_id, path } => {
-                let data = node.read_file(&replica_id, &path).await?;
+            FsCommands::GetFile {
+                replica_id,
+                path,
+                offset,
+                len,
+            } => {
+                let data = node
+                    .read_file(&replica_id, &path, &offset.map(SeekFrom::Start), &len)
+                    .await?;
                 println!("{}", String::from_utf8_lossy(&data));
             }
             FsCommands::RemoveFile { replica_id, path } => {
@@ -600,7 +614,7 @@ pub async fn main() -> miette::Result<()> {
                     .await?;
                 println!(
                     "{:#?}",
-                    node.content_bytes_by_hash(&hash)
+                    node.content_bytes_by_hash(&hash, &None, &None)
                         .await
                         .ok()
                         .map(|x| String::from_utf8_lossy(&x).to_string())

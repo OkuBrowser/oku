@@ -14,7 +14,6 @@ use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::io::BufWriter;
 use std::io::Cursor;
-use std::io::Read;
 use std::io::Seek;
 use std::io::Write;
 use std::path::PathBuf;
@@ -24,14 +23,37 @@ impl OkuFs {
         self.get_fs_entry_attributes(&file_id).await
     }
 
-    pub(super) async fn read(&self, file_id: PathBuf, seek: SeekFrom) -> miette::Result<Vec<u8>> {
+    pub(super) async fn read(
+        &self,
+        file_id: PathBuf,
+        seek: SeekFrom,
+        size: u32,
+    ) -> miette::Result<Vec<u8>> {
         let (namespace_id, replica_path) = parse_fuse_path(&file_id)
             .map(|x| x.ok_or(miette::miette!("Cannot read root directory as file")))??;
-        let mut bytes = std::io::Cursor::new(self.read_file(&namespace_id, &replica_path).await?);
-        let mut buf = Vec::new();
-        bytes.seek(seek).into_diagnostic()?;
-        bytes.read_to_end(&mut buf).into_diagnostic()?;
-        Ok(buf)
+        self.read_file(
+            &namespace_id,
+            &replica_path,
+            &Some(seek),
+            &Some(size.into()),
+        )
+        .await
+        .map(|x| x.into())
+    }
+
+    pub(super) async fn copy_file_range(
+        &self,
+        file_in: PathBuf,
+        offset_in: i64,
+        file_out: PathBuf,
+        offset_out: i64,
+        len: u64,
+    ) -> miette::Result<u32> {
+        let data = self
+            .read(file_in, SeekFrom::Start(offset_in as u64), len as u32)
+            .await?;
+        self.write(file_out, SeekFrom::Start(offset_out as u64), data)
+            .await
     }
 
     pub(super) async fn readdir(
@@ -166,7 +188,9 @@ impl OkuFs {
                 "Cannot write bytes to root directory as it's not a file"
             ))
         })??;
-        let file_bytes = self.read_file(&namespace_id, &replica_path).await?;
+        let file_bytes = self
+            .read_file(&namespace_id, &replica_path, &None, &None)
+            .await?;
         let mut writer = BufWriter::new(Cursor::new(file_bytes.to_vec()));
         writer.seek(seek).into_diagnostic()?;
         writer.write(&data).into_diagnostic()?;

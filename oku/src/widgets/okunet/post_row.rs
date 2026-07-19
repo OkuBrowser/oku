@@ -10,7 +10,6 @@ use glib::ParamSpecString;
 use glib::Value;
 use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::*;
-use libadwaita::prelude::PreferencesRowExt;
 use std::cell::RefCell;
 use std::sync::LazyLock;
 

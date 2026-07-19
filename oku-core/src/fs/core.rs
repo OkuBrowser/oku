@@ -11,10 +11,13 @@ use log::{error, info};
 #[cfg(feature = "fuse")]
 use miette::IntoDiagnostic;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::path::PathBuf;
+use std::{io::SeekFrom, path::PathBuf};
 #[cfg(feature = "fuse")]
 use tokio::runtime::Handle;
-use tokio::sync::watch::{self};
+use tokio::{
+    io::{AsyncReadExt, AsyncSeekExt},
+    sync::watch::{self},
+};
 
 impl OkuFs {
     /// Obtain the private key of the node's authorship credentials.
@@ -169,11 +172,21 @@ impl OkuFs {
     ///
     /// * `entry` - An entry in an Iroh document.
     ///
+    /// * `seek` - Optional direction of where in the file to read from.
+    ///
+    /// * `len` - Optional number of bytes to read.
+    ///
     /// # Returns
     ///
     /// The content of the entry, as raw bytes.
-    pub async fn content_bytes(&self, entry: &iroh_docs::Entry) -> anyhow::Result<Bytes> {
-        self.content_bytes_by_hash(&entry.content_hash()).await
+    pub async fn content_bytes(
+        &self,
+        entry: &iroh_docs::Entry,
+        seek: &Option<SeekFrom>,
+        len: &Option<u64>,
+    ) -> anyhow::Result<Bytes> {
+        self.content_bytes_by_hash(&entry.content_hash(), seek, len)
+            .await
     }
 
     /// Retrieve the content of a document entry by its hash.
@@ -182,15 +195,46 @@ impl OkuFs {
     ///
     /// * `hash` - The content hash of an Iroh document.
     ///
+    /// * `seek` - Optional direction of where in the content to read from.
+    ///
+    /// * `len` - Optional number of bytes to read.
+    ///
     /// # Returns
     ///
     /// The content of the entry, as raw bytes.
-    pub async fn content_bytes_by_hash(&self, hash: &iroh_blobs::Hash) -> anyhow::Result<Bytes> {
-        self.blobs
-            .blobs()
-            .get_bytes(*hash)
-            .await
-            .map_err(|e| anyhow::anyhow!(e))
+    pub async fn content_bytes_by_hash(
+        &self,
+        hash: &iroh_blobs::Hash,
+        seek: &Option<SeekFrom>,
+        len: &Option<u64>,
+    ) -> anyhow::Result<Bytes> {
+        match (seek, len) {
+            (None, None) => self
+                .blobs
+                .blobs()
+                .get_bytes(*hash)
+                .await
+                .map_err(|e| anyhow::anyhow!(e)),
+            _ => {
+                let mut reader = self.blobs.blobs().reader(*hash);
+                if let Some(seek) = seek {
+                    reader.seek(*seek).await?;
+                }
+
+                match len {
+                    Some(len) => {
+                        let mut buffer = vec![0u8; *len as usize];
+                        reader.read_exact(&mut buffer).await?;
+                        Ok(buffer.into())
+                    }
+                    None => {
+                        let mut buffer = Vec::new();
+                        reader.read_to_end(&mut buffer).await?;
+                        Ok(buffer.into())
+                    }
+                }
+            }
+        }
     }
 
     /// Determines the oldest timestamp of a file entry in any replica stored locally.
@@ -255,7 +299,17 @@ impl OkuFs {
         &self,
         path: PathBuf,
     ) -> miette::Result<easy_fuser::session::FuseSession<PathBuf>> {
-        easy_fuser::fuse_async::mounting::spawn_mount(self.clone(), path, &[], None)
+        let mount_options = &[
+            easy_fuser::fuse_async::prelude::MountOption::FSName("Oku".into()),
+            easy_fuser::fuse_async::prelude::MountOption::AllowOther,
+            easy_fuser::fuse_async::prelude::MountOption::AllowRoot,
+            easy_fuser::fuse_async::prelude::MountOption::AutoUnmount,
+            easy_fuser::fuse_async::prelude::MountOption::DefaultPermissions,
+            easy_fuser::fuse_async::prelude::MountOption::RW,
+            easy_fuser::fuse_async::prelude::MountOption::Exec,
+            easy_fuser::fuse_async::prelude::MountOption::Async,
+        ];
+        easy_fuser::fuse_async::mounting::spawn_mount(self.clone(), path, mount_options, None)
             .into_diagnostic()
     }
 }

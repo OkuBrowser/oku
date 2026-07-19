@@ -322,12 +322,9 @@ impl NoteEditor {
 
         match HOME_REPLICA_SET.load(Ordering::Relaxed) {
             true => {
-                let window_clone = window.cloned();
                 imp.save_post_button.connect_clicked(clone!(
                     #[weak]
                     this,
-                    #[strong]
-                    window_clone,
                     move |_| {
                         // let ctx = glib::MainContext::default();
                         // ctx.spawn_local_with_priority(
@@ -335,29 +332,10 @@ impl NoteEditor {
                         tokio::spawn(clone!(
                             #[weak]
                             this,
-                            #[strong]
-                            window_clone,
                             async move {
                                 if let Some(node) = NODE.get() {
                                     match url::Url::parse(&this.url()) {
                                         Ok(parsed_url) => {
-                                            if let Some(window) = window_clone {
-                                                let data = bytes::Bytes::from(
-                                                    window.get_data().await.unwrap_or_default(),
-                                                );
-                                                let url = parsed_url.clone();
-                                                tokio::spawn(async move {
-                                                    match node
-                                                        .create_post_embedding(&url, &data)
-                                                        .await
-                                                    {
-                                                        Ok(hash) => {
-                                                            println!("Embedding hash: {hash:?}")
-                                                        }
-                                                        Err(e) => error!("{e}"),
-                                                    }
-                                                });
-                                            }
                                             match node
                                                 .create_or_modify_post(
                                                     &parsed_url,

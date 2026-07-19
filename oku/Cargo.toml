@@ -66,7 +66,6 @@ tantivy = "0.26.1"
 vox = { git = "https://github.com/emmyoh/vox", features = ["ram_provider"] }
 bs58 = "0.5.1"
 showfile = { version = "0.1.1", features = ["gio"], default-features = false }
-opengraph = "0.2.4"
 
 [package.metadata.deb]
 section = "utility"

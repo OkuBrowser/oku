@@ -25,6 +25,7 @@ use libadwaita::prelude::PreferencesRowExt;
 use libadwaita::prelude::*;
 use libadwaita::subclass::dialog::AdwDialogImpl;
 use log::error;
+use oku_core::database::posts::core::OkuPost;
 use std::cell::RefCell;
 use std::sync::LazyLock;
 use webkit2gtk::functions::uri_for_display;
@@ -228,14 +229,14 @@ impl Toybox {
     }
 
     pub fn add_similar(&self, window_opt: &Option<&super::window::Window>) {
-        if let Some(node) = NODE.get() {
+        if let Some(_node) = NODE.get() {
             if let Some(window_obj) = *window_opt {
                 let this = self.clone();
                 let window = window_obj.clone();
                 tokio::spawn(async move {
-                    let data = bytes::Bytes::from(window.get_data().await.unwrap_or_default());
-                    let archives = node.nearest_archives(&data, 10).unwrap_or_default();
-                    if archives.is_empty() {
+                    let _data = bytes::Bytes::from(window.get_data().await.unwrap_or_default());
+                    let similar_posts: Vec<OkuPost> = vec![]; // TODO: implement finding posts similar to current page
+                    if similar_posts.is_empty() {
                         this.imp()
                             .no_recommendation_label
                             .set_label("No browsing suggestions … ");
@@ -246,27 +247,12 @@ impl Toybox {
                     } else {
                         this.imp().no_recommendation_label.set_visible(false);
                     }
-                    for (author_id, uri) in archives {
-                        let archive = node
-                            .fetch_archive(&author_id, &uri)
-                            .await
-                            .unwrap_or_default();
-                        let opengraph_object = opengraph::scraper::extract(
-                            &mut std::io::Cursor::new(&archive),
-                            opengraph::scraper::Opts::default(),
-                        );
-                        let (title, description) = match opengraph_object {
-                            Ok(og_obj) => (og_obj.title, og_obj.description.unwrap_or_default()),
-                            Err(e) => {
-                                error!("{e}");
-                                (Default::default(), Default::default())
-                            }
-                        };
+                    for post in similar_posts {
                         let item = BookmarkItem::new(
-                            uri,
-                            title,
-                            description,
-                            Default::default(),
+                            post.note.url.to_string(),
+                            post.note.title,
+                            post.note.body,
+                            post.note.tags,
                             &window.favicon_database(),
                         );
                         let row = BookmarkRow::from(&item);
