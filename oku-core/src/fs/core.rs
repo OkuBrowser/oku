@@ -223,21 +223,25 @@ impl OkuFs {
 
                 match len {
                     Some(len) => {
-                        let mut buffer = BytesMut::with_capacity((*len).try_into()?);
-                        let buffer_capacity = buffer.capacity();
+                        // This was really annoying.
+                        // `AsyncReadExt` doesn't guarantee that `read` (or equivalents) will actually fill up the buffer.
+                        // This includes `read_buf`, for some reason!
+                        // So, we need to make a new reader (`.take(u64)`) that prematurely hits EOF,
+                        // and then use `read_to_end`, which repeatedly `read`s until EOF, to actually get
+                        // the number of bytes we requested, and not less.
+                        let mut buffer = Vec::new();
                         let mut handle = reader.take(*len);
-                        let read_bytes = handle.read_buf(&mut buffer).await?;
-                        buffer.truncate(read_bytes);
+                        let read_bytes = handle.read_to_end(&mut buffer).await?;
+                        buffer.truncate(read_bytes); // Trying to be safe, so we don't somehow return too many bytes.
 
                         // Check for data loss
                         let buffer_size = buffer.len();
                         let mut length_set = HashSet::new();
                         length_set.insert(*len);
-                        length_set.insert(buffer_capacity as u64);
                         length_set.insert(read_bytes as u64);
                         length_set.insert(buffer_size as u64);
                         if length_set.len() != 1 {
-                            error!("[content_bytes_by_hash] likely data loss when reading file (requested length: {len}, buffer capacity: {buffer_capacity}, bytes read {read_bytes}, buffer size {buffer_size})");
+                            error!("[content_bytes_by_hash] likely data loss when reading file (requested length: {len}, bytes read {read_bytes}, buffer size {buffer_size})");
                         }
 
                         Ok(buffer.into())
