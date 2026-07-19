@@ -237,7 +237,8 @@ impl FuseHandler for OkuFs {
         _lock_owner: Option<u64>,
     ) -> FuseResult<u32> {
         let file_id = normalise_path(&file_id);
-        debug!("[write] file_id = {file_id:?}, seek = {seek:?}, data = {data:?}, write_flags = {write_flags:?}, flags = {flags:?}");
+        let data_len = data.len();
+        debug!("[write] file_id = {file_id:?}, seek = {seek:?}, data_len = {data_len}, write_flags = {write_flags:?}, flags = {flags:?}");
         self.write(file_id, seek, data).await.map_err(|e| {
             error!("[write]: {e}");
             PosixError::new(ErrorKind::InputOutputError, e.to_string())
@@ -377,8 +378,8 @@ impl FuseHandler for OkuFs {
         out_size: u32,
     ) -> FuseResult<(i32, Vec<u8>)> {
         let file_id = normalise_path(&file_id);
-        let data_str = String::from_utf8_lossy(&in_data);
-        debug!("[ioctl] file_id = {file_id:?}, file_handle = {file_handle:?}, flags = {flags:?}, cmd = {cmd}, in_data = {data_str}, out_size = {out_size}");
+        let in_data_len = in_data.len();
+        debug!("[ioctl] file_id = {file_id:?}, file_handle = {file_handle:?}, flags = {flags:?}, cmd = {cmd}, in_data_len = {in_data_len}, out_size = {out_size}");
         self.get_inner_fuse_handler().ioctl(
             req,
             file_id,
