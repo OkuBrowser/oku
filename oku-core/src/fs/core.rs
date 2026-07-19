@@ -1,6 +1,6 @@
 use super::*;
 use crate::config::OkuFsConfig;
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use iroh::protocol::ProtocolHandler;
 #[cfg(feature = "persistent")]
 use iroh_blobs::store::fs::FsStore;
