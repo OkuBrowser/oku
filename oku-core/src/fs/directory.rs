@@ -169,7 +169,7 @@ impl OkuFs {
             .unwrap_or_default();
         match files.len() {
             0 => {
-                self.create_or_modify_file(namespace_id, &path.join(".folder"), vec![])
+                self.create_or_modify_file(namespace_id, &path.join(".folder"), b"\0".as_slice())
                     .await
             }
             _ => {
