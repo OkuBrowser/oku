@@ -1,6 +1,6 @@
 use super::*;
 use crate::config::OkuFsConfig;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use iroh::protocol::ProtocolHandler;
 #[cfg(feature = "persistent")]
 use iroh_blobs::store::fs::FsStore;
@@ -223,8 +223,9 @@ impl OkuFs {
 
                 match len {
                     Some(len) => {
-                        let mut buffer = vec![0u8; *len as usize];
-                        reader.read_exact(&mut buffer).await?;
+                        let mut buffer = BytesMut::with_capacity((*len).try_into()?);
+                        let read_bytes = reader.read_buf(&mut buffer).await?;
+                        buffer.truncate(read_bytes);
                         Ok(buffer.into())
                     }
                     None => {
@@ -312,7 +313,6 @@ impl OkuFs {
                         path,
                         &[
                             easy_fuser::fuse_async::prelude::MountOption::FSName("Oku".into()),
-                            easy_fuser::fuse_async::prelude::MountOption::DefaultPermissions,
                             easy_fuser::fuse_async::prelude::MountOption::RW,
                             easy_fuser::fuse_async::prelude::MountOption::Exec,
                             easy_fuser::fuse_async::prelude::MountOption::Async,

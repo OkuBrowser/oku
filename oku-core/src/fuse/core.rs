@@ -102,7 +102,7 @@ impl FuseHandler for OkuFs {
         debug!("[getattr] file_id = {file_id:?}, file_handle = {file_handle:?}");
         self.getattr(file_id).await.map_err(|e| {
             error!("[getattr]: {e}");
-            PosixError::new(ErrorKind::InputOutputError, e.to_string())
+            PosixError::new(ErrorKind::FileNotFound, e.to_string())
         })
     }
 
@@ -113,12 +113,12 @@ impl FuseHandler for OkuFs {
         file_handle: BorrowedFileHandle<'_>,
         seek: SeekFrom,
         size: u32,
-        _flags: FUSEOpenFlags,
-        _lock_owner: Option<u64>,
+        flags: FUSEOpenFlags,
+        lock_owner: Option<u64>,
     ) -> FuseResult<Vec<u8>> {
         let file_id = normalise_path(&file_id);
         debug!(
-            "[read] file_id = {file_id:?}, file_handle = {file_handle:?}, seek = {seek:?}, size = {size}"
+            "[read] file_id = {file_id:?}, file_handle = {file_handle:?}, seek = {seek:?}, size = {size}, flags = {flags:?}, lock_owner = {lock_owner:?}"
         );
         self.read(file_id, seek, size).await.map_err(|e| {
             error!("[read]: {e}");
