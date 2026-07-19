@@ -11,7 +11,7 @@ use log::{error, info};
 #[cfg(feature = "fuse")]
 use miette::IntoDiagnostic;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::{io::SeekFrom, path::PathBuf};
+use std::{collections::HashSet, io::SeekFrom, path::PathBuf};
 #[cfg(feature = "fuse")]
 use tokio::runtime::Handle;
 use tokio::{
@@ -224,8 +224,22 @@ impl OkuFs {
                 match len {
                     Some(len) => {
                         let mut buffer = BytesMut::with_capacity((*len).try_into()?);
-                        let read_bytes = reader.read_buf(&mut buffer).await?;
+                        let buffer_capacity = buffer.len();
+                        let mut handle = reader.take(*len);
+                        let read_bytes = handle.read_buf(&mut buffer).await?;
                         buffer.truncate(read_bytes);
+
+                        // Check for data loss
+                        let buffer_size = buffer.len();
+                        let mut length_set = HashSet::new();
+                        length_set.insert(*len);
+                        length_set.insert(buffer_capacity as u64);
+                        length_set.insert(read_bytes as u64);
+                        length_set.insert(buffer_size as u64);
+                        if length_set.len() != 1 {
+                            error!("[content_bytes_by_hash] likely data loss when reading file (requested length: {len}, buffer capacity: {buffer_capacity}, bytes read {read_bytes}, buffer size {buffer_size})");
+                        }
+
                         Ok(buffer.into())
                     }
                     None => {
