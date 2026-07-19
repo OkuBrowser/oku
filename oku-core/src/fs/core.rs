@@ -299,17 +299,30 @@ impl OkuFs {
         &self,
         path: PathBuf,
     ) -> miette::Result<easy_fuser::session::FuseSession<PathBuf>> {
-        let mount_options = &[
-            easy_fuser::fuse_async::prelude::MountOption::FSName("Oku".into()),
-            easy_fuser::fuse_async::prelude::MountOption::AllowOther,
-            easy_fuser::fuse_async::prelude::MountOption::AllowRoot,
-            easy_fuser::fuse_async::prelude::MountOption::AutoUnmount,
-            easy_fuser::fuse_async::prelude::MountOption::DefaultPermissions,
-            easy_fuser::fuse_async::prelude::MountOption::RW,
-            easy_fuser::fuse_async::prelude::MountOption::Exec,
-            easy_fuser::fuse_async::prelude::MountOption::Async,
-        ];
-        easy_fuser::fuse_async::mounting::spawn_mount(self.clone(), path, mount_options, None)
-            .into_diagnostic()
+        let handle = self
+            .handle
+            .clone()
+            .ok_or(miette::miette!("Tokio handle for FUSE is missing."))?;
+        let self_clone = self.clone();
+        futures::executor::block_on(async {
+            handle
+                .spawn_blocking(|| {
+                    easy_fuser::fuse_async::mounting::spawn_mount(
+                        self_clone,
+                        path,
+                        &[
+                            easy_fuser::fuse_async::prelude::MountOption::FSName("Oku".into()),
+                            easy_fuser::fuse_async::prelude::MountOption::DefaultPermissions,
+                            easy_fuser::fuse_async::prelude::MountOption::RW,
+                            easy_fuser::fuse_async::prelude::MountOption::Exec,
+                            easy_fuser::fuse_async::prelude::MountOption::Async,
+                        ],
+                        None,
+                    )
+                    .into_diagnostic()
+                })
+                .await
+                .expect("Task spawned in Tokio executor panicked")
+        })
     }
 }
