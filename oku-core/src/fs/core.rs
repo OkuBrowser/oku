@@ -224,7 +224,7 @@ impl OkuFs {
                 match len {
                     Some(len) => {
                         let mut buffer = BytesMut::with_capacity((*len).try_into()?);
-                        let buffer_capacity = buffer.len();
+                        let buffer_capacity = buffer.capacity();
                         let mut handle = reader.take(*len);
                         let read_bytes = handle.read_buf(&mut buffer).await?;
                         buffer.truncate(read_bytes);
