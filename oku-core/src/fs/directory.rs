@@ -66,7 +66,7 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// A tuple containing the list of file hashes for files at their new destinations, and the total number of replica entries deleted during the operation.
+    /// A tuple containing the list of file hashes for files at their new destinations (if the move did not replace a file), and the total number of replica entries deleted during the operation.
     pub async fn move_directory(
         &self,
         from_namespace_id: &NamespaceId,
@@ -82,7 +82,7 @@ impl OkuFs {
         for old_directory_file_path in old_directory_file_paths {
             let new_file_path =
                 to_path.join(old_directory_file_path.file_name().unwrap_or_default());
-            let file_move_info = self
+            let (file_hash, deleted) = self
                 .move_file(
                     from_namespace_id,
                     &old_directory_file_path,
@@ -90,8 +90,10 @@ impl OkuFs {
                     &new_file_path,
                 )
                 .await?;
-            moved_file_hashes.push(file_move_info.0);
-            entries_deleted += file_move_info.1;
+            if let Some(file_hash) = file_hash {
+                moved_file_hashes.push(file_hash);
+            }
+            entries_deleted += deleted;
         }
         Ok((moved_file_hashes, entries_deleted))
     }

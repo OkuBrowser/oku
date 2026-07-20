@@ -257,6 +257,9 @@ impl OkuFs {
         let tempfile_lock = cache_entry.clone().unwrap_or(Arc::new(Mutex::new(
             NamedTempFile::with_prefix_in("oku_", "./").into_diagnostic()?,
         )));
+        self.file_cache
+            .insert((namespace_id.clone(), path.clone()), tempfile_lock.clone())
+            .await;
 
         let mut tempfile = tempfile_lock.try_lock().into_diagnostic()?;
         tempfile.seek(SeekFrom::Start(0)).into_diagnostic()?; // Reset seek from previous writes back to start of file
@@ -599,11 +602,13 @@ impl OkuFs {
         from_path: &PathBuf,
         to_namespace_id: &NamespaceId,
         to_path: &PathBuf,
-    ) -> miette::Result<(Hash, usize)> {
+    ) -> miette::Result<(Option<Hash>, usize)> {
         let data = self
             .read_file(from_namespace_id, from_path, &None, &None)
             .await?;
-        let hash = self.create_file(to_namespace_id, to_path, data).await?;
+        let hash = self
+            .create_or_replace_file(to_namespace_id, to_path, data)
+            .await?;
         let entries_deleted = self.delete_file(from_namespace_id, from_path).await?;
         Ok((hash, entries_deleted))
     }

@@ -154,7 +154,7 @@ impl OkuFs {
                         &new_replica_path,
                     )
                     .await?;
-                info!("File {old_path:?} moved to {new_path:?} (files moved: {files_moved}, new hash: {new_hash})");
+                info!("File {old_path:?} moved to {new_path:?} (files moved: {files_moved}, new hash: {new_hash:?})");
                 Ok(())
             }
             easy_fuser::types::FileKind::Directory => {

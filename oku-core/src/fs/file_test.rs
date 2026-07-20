@@ -87,7 +87,7 @@ mod tests {
         let (first_moved_file_hash, _) = node
             .move_file(&replica_a, &first_file_path, &replica_b, &first_file_path)
             .await?;
-        assert_eq!(file_hash, first_moved_file_hash);
+        assert_eq!(Some(file_hash), first_moved_file_hash);
         assert_eq!(
             node.read_file(&replica_b, &first_file_path, &None, &None)
                 .await?,
@@ -102,7 +102,7 @@ mod tests {
         let (second_moved_file_hash, _) = node
             .move_file(&replica_b, &first_file_path, &replica_b, &second_file_path)
             .await?;
-        assert_eq!(file_hash, second_moved_file_hash);
+        assert_eq!(Some(file_hash), second_moved_file_hash);
         assert_eq!(
             node.read_file(&replica_b, &second_file_path, &None, &None)
                 .await?,

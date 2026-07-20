@@ -74,7 +74,7 @@ debug-ignore = "1.0.5"
 humantime = "2.4.0"
 async-trait = "0.1.91"
 tempfile = "3.27.0"
-moka = { version = "0.12.15", features = ["future"] }
+moka = { version = "0.12.15", features = ["future", "logging"] }
 
 [features]
 default = []

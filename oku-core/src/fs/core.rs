@@ -13,6 +13,7 @@ use miette::IntoDiagnostic;
 use moka::{
     future::{Cache, FutureExt},
     notification::{ListenerFuture, RemovalCause},
+    policy::EvictionPolicy,
 };
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
@@ -121,12 +122,17 @@ impl OkuFs {
 
         let docs_client = docs.clone();
         let blobs_client = blobs.clone();
+        // let sync_eviction_listener = |key, _value, cause| {
+        //     println!("Evicted key {key:?}. Cause: {cause:?}");
+        // };
         let eviction_listener = move |k: Arc<(NamespaceId, PathBuf)>,
                                       v: Arc<Mutex<NamedTempFile>>,
                                       cause: RemovalCause|
               -> ListenerFuture {
             // The cached file is past its TTL, so we should commit it to the replica.
             let (namespace_id, path) = (k.0, k.1.clone());
+            let namespace_id_str = crate::fs::util::fmt(namespace_id);
+            trace!("Starting to commit cached file (replica: {namespace_id_str}, path: {path:?}), with cause: {cause:?}");
             let docs = docs_client.clone();
             let blobs = blobs_client.clone();
             let v = v.clone();
@@ -155,6 +161,8 @@ impl OkuFs {
                 error!("[File cache commit closure] likely data loss when writing data to file (bytes written: {bytes_written}, bytes intended: {data_len})")
             }
 
+            info!("Committed cached file (replica: {namespace_id_str}, path: {path:?}): {import_file_outcome:?}");
+
             Ok(import_file_outcome.hash)
                 };
                 if let Err(e) = inner((namespace_id, path.clone()), v, cause).await {
@@ -167,7 +175,9 @@ impl OkuFs {
 
         let file_cache: Cache<(NamespaceId, PathBuf), Arc<Mutex<NamedTempFile>>> = Cache::builder()
             .time_to_live(Duration::from_secs(5))
+            .eviction_policy(EvictionPolicy::lru())
             .async_eviction_listener(eviction_listener)
+            // .eviction_listener(sync_eviction_listener)
             .build();
 
         let oku_core = Self {

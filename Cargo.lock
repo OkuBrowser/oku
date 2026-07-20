@@ -5207,6 +5207,7 @@ dependencies = [
  "equivalent",
  "event-listener",
  "futures-util",
+ "log",
  "parking_lot",
  "portable-atomic",
  "smallvec",
