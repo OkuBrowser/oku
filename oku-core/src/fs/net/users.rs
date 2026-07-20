@@ -212,8 +212,8 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// The hash of the new identity file in the local user's home replica.
-    pub async fn set_identity(&self, identity: &OkuIdentity) -> miette::Result<Hash> {
+    /// The hash of the new identity file in the local user's home replica, if one didn't already exist.
+    pub async fn set_identity(&self, identity: &OkuIdentity) -> miette::Result<Option<Hash>> {
         // It is not valid to follow or unfollow yourself.
         let mut validated_identity = identity.clone();
         let me = self.default_author().await;
@@ -226,7 +226,7 @@ impl OkuFs {
             .copied()
             .collect();
 
-        self.create_or_modify_file(
+        self.create_or_replace_file(
             &self
                 .home_replica()
                 .await
@@ -245,8 +245,8 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// # The hash of the new identity file in the local user's home replica.
-    pub async fn set_display_name(&self, display_name: &String) -> miette::Result<Hash> {
+    /// # The hash of the new identity file in the local user's home replica, if it didn't already exist.
+    pub async fn set_display_name(&self, display_name: &String) -> miette::Result<Option<Hash>> {
         let mut identity = self.identity().await.unwrap_or_default();
         identity.name = display_name.to_string();
         self.set_identity(&identity).await
@@ -260,8 +260,8 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// The hash of the new identity file in the local user's home replica.
-    pub async fn toggle_follow(&self, author_id: &AuthorId) -> miette::Result<Hash> {
+    /// The hash of the new identity file in the local user's home replica, if it didn't already exist.
+    pub async fn toggle_follow(&self, author_id: &AuthorId) -> miette::Result<Option<Hash>> {
         let mut identity = self.identity().await.unwrap_or_default();
         match identity.following.contains(author_id) {
             true => identity.following.remove(author_id),
@@ -278,8 +278,8 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// The hash of the new identity file in the local user's home replica.
-    pub async fn follow(&self, author_id: &AuthorId) -> miette::Result<Hash> {
+    /// The hash of the new identity file in the local user's home replica, if it didn't already exist.
+    pub async fn follow(&self, author_id: &AuthorId) -> miette::Result<Option<Hash>> {
         let mut identity = self.identity().await.unwrap_or_default();
         match identity.following.contains(author_id) {
             true => (),
@@ -298,8 +298,8 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// The hash of the new identity file in the local user's home replica.
-    pub async fn unfollow(&self, author_id: &AuthorId) -> miette::Result<Hash> {
+    /// The hash of the new identity file in the local user's home replica, if it didn't already exist.
+    pub async fn unfollow(&self, author_id: &AuthorId) -> miette::Result<Option<Hash>> {
         let mut identity = self.identity().await.unwrap_or_default();
         if identity.following.contains(author_id) {
             identity.following.remove(author_id);
@@ -315,8 +315,8 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// The hash of the new identity file in the local user's home replica.
-    pub async fn toggle_block(&self, author_id: &AuthorId) -> miette::Result<Hash> {
+    /// The hash of the new identity file in the local user's home replica, if it didn't already exist.
+    pub async fn toggle_block(&self, author_id: &AuthorId) -> miette::Result<Option<Hash>> {
         let mut identity = self.identity().await.unwrap_or_default();
         match identity.blocked.contains(author_id) {
             true => identity.blocked.remove(author_id),
@@ -333,8 +333,8 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// The hash of the new identity file in the local user's home replica.
-    pub async fn block(&self, author_id: &AuthorId) -> miette::Result<Hash> {
+    /// The hash of the new identity file in the local user's home replica, if it didn't already exist.
+    pub async fn block(&self, author_id: &AuthorId) -> miette::Result<Option<Hash>> {
         let mut identity = self.identity().await.unwrap_or_default();
         match identity.blocked.contains(author_id) {
             true => (),
@@ -353,8 +353,8 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// The hash of the new identity file in the local user's home replica.
-    pub async fn unblock(&self, author_id: &AuthorId) -> miette::Result<Hash> {
+    /// The hash of the new identity file in the local user's home replica, if it didn't already exist.
+    pub async fn unblock(&self, author_id: &AuthorId) -> miette::Result<Option<Hash>> {
         let mut identity = self.identity().await.unwrap_or_default();
         if identity.blocked.contains(author_id) {
             identity.blocked.remove(author_id);
@@ -557,17 +557,22 @@ impl OkuFs {
             )
             .await
         {
-            Ok(post_files) => Ok(post_files
-                .par_iter()
-                .filter_map(|(entry, bytes)| {
-                    toml::from_str::<OkuNote>(String::from_utf8_lossy(bytes).as_ref())
-                        .ok()
-                        .map(|x| OkuPost {
-                            entry: entry.clone(),
-                            note: x,
-                        })
-                })
-                .collect()),
+            Ok(directory_paths) => {
+                let post_file_paths: Vec<_> = directory_paths
+                    .par_iter()
+                    .filter(
+                        |(post_path, _)| matches!(post_path.extension(), Some(y) if y == "toml"),
+                    )
+                    .collect();
+                let mut posts: Vec<OkuPost> = Vec::new();
+                for (post_path, bytes) in post_file_paths {
+                    let entry = self.get_entry(&ticket.capability.id(), &post_path).await?;
+                    let note = toml::from_str::<OkuNote>(String::from_utf8_lossy(bytes).as_ref())
+                        .into_diagnostic()?;
+                    posts.push(OkuPost { entry, note })
+                }
+                Ok(posts)
+            }
             Err(e) => Err(miette::miette!("{}", e)),
         }
     }

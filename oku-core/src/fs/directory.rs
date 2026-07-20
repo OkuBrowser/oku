@@ -30,23 +30,26 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// A list of file entries and the corresponding content as bytes.
+    /// A list of file paths and the corresponding content as bytes.
     pub async fn read_directory(
         &self,
         namespace_id: &NamespaceId,
         path: &Path,
-    ) -> miette::Result<Vec<(Entry, Bytes)>> {
-        let entries = self
+    ) -> miette::Result<Vec<(PathBuf, Bytes)>> {
+        let file_paths = self
             .list_files(namespace_id, &Some(path.to_path_buf()))
             .await?;
         let bytes = future::try_join_all(
-            entries
+            file_paths
                 .iter()
-                .map(|entry| self.content_bytes(entry, &None, &None)),
+                .map(|file_path| self.read_file(namespace_id, file_path, &None, &None)),
         )
         .await
         .map_err(|e| miette::miette!("{}", e))?;
-        Ok(entries.into_par_iter().zip(bytes.into_par_iter()).collect())
+        Ok(file_paths
+            .into_par_iter()
+            .zip(bytes.into_par_iter())
+            .collect())
     }
 
     /// Moves a directory by copying it to a new location and deleting the original.
@@ -73,16 +76,16 @@ impl OkuFs {
     ) -> miette::Result<(Vec<Hash>, usize)> {
         let mut entries_deleted = 0;
         let mut moved_file_hashes = Vec::new();
-        let old_directory_files = self
+        let old_directory_file_paths = self
             .list_files(from_namespace_id, &Some(from_path.to_path_buf()))
             .await?;
-        for old_directory_file in old_directory_files {
-            let old_file_path = entry_key_to_path(old_directory_file.key())?;
-            let new_file_path = to_path.join(old_file_path.file_name().unwrap_or_default());
+        for old_directory_file_path in old_directory_file_paths {
+            let new_file_path =
+                to_path.join(old_directory_file_path.file_name().unwrap_or_default());
             let file_move_info = self
                 .move_file(
                     from_namespace_id,
-                    &old_file_path,
+                    &old_directory_file_path,
                     to_namespace_id,
                     &new_file_path,
                 )
@@ -169,7 +172,7 @@ impl OkuFs {
             .unwrap_or_default();
         match files.len() {
             0 => {
-                self.create_or_modify_file(namespace_id, &path.join(".folder"), b"\0".as_slice())
+                self.create_file(namespace_id, &path.join(".folder"), b"\0".as_slice())
                     .await
             }
             _ => {
@@ -201,9 +204,9 @@ impl OkuFs {
             .list_files(namespace_id, &Some(path.to_path_buf()))
             .await?;
         let mut timestamps: Vec<u64> = Vec::new();
-        for file in files {
+        for file_path in files {
             timestamps.push(
-                self.get_oldest_entry_timestamp(namespace_id, &entry_key_to_path(file.key())?)
+                self.get_oldest_entry_timestamp(namespace_id, &file_path)
                     .await?,
             );
         }
@@ -230,8 +233,8 @@ impl OkuFs {
             .list_files(namespace_id, &Some(path.to_path_buf()))
             .await?;
         let mut timestamps: Vec<u64> = Vec::new();
-        for file in files {
-            timestamps.push(file.timestamp());
+        for file_path in files {
+            timestamps.push(self.get_last_modified(namespace_id, &file_path).await?);
         }
         Ok(*timestamps.par_iter().max().unwrap_or(&u64::MIN))
     }
@@ -256,8 +259,8 @@ impl OkuFs {
             .list_files(namespace_id, &Some(path.to_path_buf()))
             .await?;
         let mut size = 0;
-        for file in files {
-            size += file.content_len();
+        for file_path in files {
+            size += self.get_file_size(&namespace_id, &file_path).await?;
         }
         Ok(size)
     }
@@ -278,7 +281,7 @@ impl OkuFs {
         ticket: &DocTicket,
         path: &Path,
         filters: &Option<Vec<FilterKind>>,
-    ) -> anyhow::Result<Vec<(Entry, Bytes)>> {
+    ) -> anyhow::Result<Vec<(PathBuf, Bytes)>> {
         self.fetch_replica_by_ticket(ticket, &Some(path.to_path_buf()), filters)
             .await?;
         self.read_directory(&ticket.capability.id(), path)

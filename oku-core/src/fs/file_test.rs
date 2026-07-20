@@ -17,7 +17,7 @@ mod tests {
 
         // Test creation and reading
         let file_hash = node
-            .create_or_modify_file(&replica_id, &file_path, file_contents)
+            .create_file(&replica_id, &file_path, file_contents)
             .await?;
         assert_eq!(
             node.read_file(&replica_id, &file_path, &None, &None)
@@ -28,11 +28,11 @@ mod tests {
         // Test listing
         let file_list = node.list_files(&replica_id, &None).await?;
         assert_eq!(1, file_list.len());
-        assert_eq!(Some(file_hash), file_list.first().map(|x| x.content_hash()));
+        assert_eq!(Some(file_path.clone()), file_list.first().cloned());
 
         // Test entry retrieval
         let file_entry = node.get_entry(&replica_id, &file_path).await?;
-        assert_eq!(Some(&file_entry), file_list.first());
+        assert_eq!(file_hash, file_entry.content_hash());
 
         // Test retrieving all entries from a file
         let file_entries = node.get_entries(&replica_id, &file_path).await?;
@@ -71,7 +71,7 @@ mod tests {
 
         // Add a file to replica A
         let file_hash = node
-            .create_or_modify_file(&replica_a, &first_file_path, file_contents)
+            .create_file(&replica_a, &first_file_path, file_contents)
             .await?;
         assert_eq!(
             node.read_file(&replica_a, &first_file_path, &None, &None)

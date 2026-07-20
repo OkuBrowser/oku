@@ -1,5 +1,6 @@
 use super::*;
 use crate::error::OkuFsError;
+use crate::fs::util::entry_key_to_path;
 use anyhow::anyhow;
 use bytes::Bytes;
 use futures::{pin_mut, StreamExt};
@@ -11,9 +12,18 @@ use iroh_docs::sync::Entry;
 use iroh_docs::DocTicket;
 use iroh_docs::NamespaceId;
 use log::{error, info};
+use miette::IntoDiagnostic;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use std::io::BufWriter;
+use std::io::Cursor;
+use std::io::Read;
+use std::io::Seek;
 use std::io::SeekFrom;
+use std::io::Write;
 use std::path::PathBuf;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
+use tempfile::NamedTempFile;
 use util::path_to_entry_key;
 use util::path_to_entry_prefix;
 
@@ -33,7 +43,7 @@ impl OkuFs {
         &self,
         namespace_id: &NamespaceId,
         path: &Option<PathBuf>,
-    ) -> miette::Result<Vec<Entry>> {
+    ) -> miette::Result<Vec<PathBuf>> {
         let docs_client = &self.docs;
         let document = docs_client
             .open(*namespace_id)
@@ -56,11 +66,19 @@ impl OkuFs {
             OkuFsError::CannotListFiles
         })?;
         pin_mut!(entries);
-        let files: Vec<Entry> = entries.map(|entry| entry.unwrap()).collect().await;
+        let files = entries
+            .filter_map(|entry| async {
+                entry
+                    .ok()
+                    .map(|x| entry_key_to_path(x.key()).ok())
+                    .flatten()
+            })
+            .collect::<Vec<_>>()
+            .await;
         Ok(files)
     }
 
-    /// Creates a file (if it does not exist) or modifies an existing file.
+    /// Creates a file.
     ///
     /// # Arguments
     ///
@@ -73,7 +91,7 @@ impl OkuFs {
     /// # Returns
     ///
     /// The hash of the file.
-    pub async fn create_or_modify_file(
+    pub async fn create_file(
         &self,
         namespace_id: &NamespaceId,
         path: &PathBuf,
@@ -89,8 +107,130 @@ impl OkuFs {
                 OkuFsError::CannotOpenReplica
             })?
             .ok_or(OkuFsError::FsEntryNotFound)?;
+        let query = iroh_docs::store::Query::single_latest_per_key()
+            .key_exact(&file_key)
+            .build();
+        let entry = document.get_one(query).await.map_err(|e| {
+            error!("{}", e);
+            OkuFsError::CannotReadFile
+        })?;
+        match entry {
+            None => {
+                // The file doesn't exist
+                Ok(document
+                    .set_bytes(self.default_author().await, file_key, data)
+                    .await
+                    .map_err(|e| {
+                        error!("{}", e);
+                        OkuFsError::CannotCreateOrModifyFile
+                    })?)
+            }
+            Some(_old_hash) => {
+                // The file already exists
+                let namespace_id_str = crate::fs::util::fmt(namespace_id);
+                Err(miette::miette!("File at {path:?} in replica {namespace_id_str} cannot be created as it already exists."))
+            }
+        }
+    }
+
+    /// Creates a file (if it does not exist) or replaces an existing file's contents.
+    ///
+    /// # Arguments
+    ///
+    /// * `namespace_id` - The ID of the replica containing the file to create or modify.
+    ///
+    /// * `path` - The path of the file to create or modify.
+    ///
+    /// * `data` - The data to write to the file.
+    ///
+    /// # Returns
+    ///
+    /// The hash of the file, if it was created.
+    pub async fn create_or_replace_file(
+        &self,
+        namespace_id: &NamespaceId,
+        path: &PathBuf,
+        data: impl Into<Bytes>,
+    ) -> miette::Result<Option<Hash>> {
+        let file_key = path_to_entry_key(path);
+        let docs_client = &self.docs;
+        let document = docs_client
+            .open(*namespace_id)
+            .await
+            .map_err(|e| {
+                error!("{}", e);
+                OkuFsError::CannotOpenReplica
+            })?
+            .ok_or(OkuFsError::FsEntryNotFound)?;
+        let query = iroh_docs::store::Query::single_latest_per_key()
+            .key_exact(&file_key)
+            .build();
+        let entry = document.get_one(query).await.map_err(|e| {
+            error!("{}", e);
+            OkuFsError::CannotReadFile
+        })?;
+        match entry {
+            None => {
+                // The file doesn't exist
+                Ok(Some(
+                    document
+                        .set_bytes(self.default_author().await, file_key, data)
+                        .await
+                        .map_err(|e| {
+                            error!("{}", e);
+                            OkuFsError::CannotCreateOrModifyFile
+                        })?,
+                ))
+            }
+            Some(_old_hash) => {
+                // The file already exists, so we're modifying it
+                self.write_file_using_cache(namespace_id, path, data, &None)
+                    .await?;
+                Ok(None)
+            }
+        }
+    }
+
+    /// Writes directly to a file in a replica, bypassing the file cache layer.
+    /// This is useful when making very small writes, or when making the initial write to a file.
+    /// Since this bypasses the file cache layer, if a write is made this way _while_ a file is
+    /// being written to in the file cache (ie, if the most recent cache write is within the cache's TTL)
+    /// then reading will still read from the cached version of the file, _and_ writes made this way will be overwritten
+    /// once the cached file is committed.
+    ///
+    /// You should only use this method in the following circumstances:
+    /// - When this is the first write to a file
+    /// - When you're otherwise certain no concurrent (with a granularity of the cache's TTL) writes are being made to this file via the file cache
+    pub async fn write_file_using_buffer(
+        &self,
+        namespace_id: &NamespaceId,
+        path: &PathBuf,
+        data: impl Into<Bytes>,
+        seek: &Option<SeekFrom>,
+    ) -> miette::Result<Hash> {
+        let data = data.into();
+        let len = (&data.len()).clone() as u64;
+        let file_bytes = self.read_file(namespace_id, path, seek, &Some(len)).await?;
+        let mut writer = BufWriter::new(Cursor::new(file_bytes.to_vec()));
+        if let Some(seek) = seek {
+            writer.seek(*seek).into_diagnostic()?;
+        }
+        writer.write(&data).into_diagnostic()?;
+        let inner_cursor = writer.into_inner().into_diagnostic()?;
+        let new_data = inner_cursor.into_inner();
+
+        let file_key = path_to_entry_key(path);
+        let docs_client = &self.docs;
+        let document = docs_client
+            .open(*namespace_id)
+            .await
+            .map_err(|e| {
+                error!("{}", e);
+                OkuFsError::CannotOpenReplica
+            })?
+            .ok_or(OkuFsError::FsEntryNotFound)?;
         let entry_hash = document
-            .set_bytes(self.default_author().await, file_key, data)
+            .set_bytes(self.default_author().await, file_key, new_data)
             .await
             .map_err(|e| {
                 error!("{}", e);
@@ -98,6 +238,46 @@ impl OkuFs {
             })?;
 
         Ok(entry_hash)
+    }
+
+    pub async fn write_file_using_cache(
+        &self,
+        namespace_id: &NamespaceId,
+        path: &PathBuf,
+        data: impl Into<Bytes>,
+        seek: &Option<SeekFrom>,
+    ) -> miette::Result<()> {
+        let data = data.into();
+        self.file_cache.run_pending_tasks().await;
+        let cache_entry = self
+            .file_cache
+            .get(&(namespace_id.clone(), path.clone()))
+            .await;
+
+        let tempfile_lock = cache_entry.clone().unwrap_or(Arc::new(Mutex::new(
+            NamedTempFile::with_prefix_in("oku_", "./").into_diagnostic()?,
+        )));
+
+        let mut tempfile = tempfile_lock.try_lock().into_diagnostic()?;
+        tempfile.seek(SeekFrom::Start(0)).into_diagnostic()?; // Reset seek from previous writes back to start of file
+
+        // If the cache entry doesn't exist, we need to prepare the temporary file.
+        if cache_entry.is_none() {
+            let entry = self.get_entry(namespace_id, path).await?;
+            let current_bytes = self
+                .content_bytes(&entry, &None, &None)
+                .await
+                .map_err(|e| {
+                    error!("{}", e);
+                    OkuFsError::CannotReadFile
+                })?;
+            tempfile.write_all(&current_bytes).into_diagnostic()?;
+        }
+
+        if let Some(seek) = seek {
+            tempfile.seek(*seek).into_diagnostic()?;
+        }
+        tempfile.write_all(&data).into_diagnostic()
     }
 
     /// Deletes a file.
@@ -185,6 +365,56 @@ impl OkuFs {
             })?
             .ok_or(OkuFsError::FsEntryNotFound)?;
         Ok(entry)
+    }
+
+    pub async fn get_last_modified(
+        &self,
+        namespace_id: &NamespaceId,
+        path: &PathBuf,
+    ) -> miette::Result<u64> {
+        self.file_cache.run_pending_tasks().await;
+        let cache_entry = self
+            .file_cache
+            .get(&(namespace_id.clone(), path.clone()))
+            .await;
+
+        match cache_entry {
+            Some(tempfile_lock) => {
+                let mut tempfile: tokio::sync::MutexGuard<'_, NamedTempFile> =
+                    tempfile_lock.try_lock().into_diagnostic()?;
+                tempfile.seek(SeekFrom::Start(0)).into_diagnostic()?; // Reset seek from previous writes back to start of file
+                Ok(tempfile
+                    .as_file()
+                    .metadata()
+                    .into_diagnostic()?
+                    .modified()
+                    .into_diagnostic()?
+                    .duration_since(UNIX_EPOCH)
+                    .into_diagnostic()?
+                    .as_micros() as u64)
+            }
+            None => Ok(self.get_entry(namespace_id, path).await?.timestamp()),
+        }
+    }
+
+    pub async fn get_file_size(
+        &self,
+        namespace_id: &NamespaceId,
+        path: &PathBuf,
+    ) -> miette::Result<u64> {
+        self.file_cache.run_pending_tasks().await;
+        let cache_entry = self
+            .file_cache
+            .get(&(namespace_id.clone(), path.clone()))
+            .await;
+
+        match cache_entry {
+            Some(tempfile_lock) => {
+                let tempfile = tempfile_lock.try_lock().into_diagnostic()?;
+                Ok(tempfile.as_file().metadata().into_diagnostic()?.len())
+            }
+            None => Ok(self.get_entry(namespace_id, path).await?.content_len()),
+        }
     }
 
     /// Gets the Iroh entries for a file.
@@ -287,11 +517,29 @@ impl OkuFs {
         seek: &Option<SeekFrom>,
         len: &Option<u64>,
     ) -> miette::Result<Bytes> {
-        let entry = self.get_entry(namespace_id, path).await?;
-        Ok(self.content_bytes(&entry, seek, len).await.map_err(|e| {
-            error!("{}", e);
-            OkuFsError::CannotReadFile
-        })?)
+        self.file_cache.run_pending_tasks().await;
+        let cache_entry = self
+            .file_cache
+            .get(&(namespace_id.clone(), path.clone()))
+            .await;
+
+        match cache_entry {
+            None => {
+                // The file is not in the file cache; we should read it directly from the replica
+                let entry = self.get_entry(namespace_id, path).await?;
+                Ok(self.content_bytes(&entry, seek, len).await.map_err(|e| {
+                    error!("{}", e);
+                    OkuFsError::CannotReadFile
+                })?)
+            }
+            Some(tempfile_lock) => {
+                let mut tempfile = tempfile_lock.try_lock().into_diagnostic()?;
+                let mut buffer = Vec::new();
+                let bytes_read = tempfile.read_to_end(&mut buffer).into_diagnostic()?;
+                buffer.truncate(bytes_read);
+                Ok(buffer.into())
+            }
+        }
     }
 
     /// Reads a file.
@@ -355,9 +603,7 @@ impl OkuFs {
         let data = self
             .read_file(from_namespace_id, from_path, &None, &None)
             .await?;
-        let hash = self
-            .create_or_modify_file(to_namespace_id, to_path, data)
-            .await?;
+        let hash = self.create_file(to_namespace_id, to_path, data).await?;
         let entries_deleted = self.delete_file(from_namespace_id, from_path).await?;
         Ok((hash, entries_deleted))
     }

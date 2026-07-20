@@ -69,7 +69,7 @@ pub fn parse_fuse_path(path: &Path) -> miette::Result<Option<(NamespaceId, PathB
 /// The file system entries in the directory.
 pub fn get_immediate_children(
     prefix_path: PathBuf,
-    files: Vec<Entry>,
+    file_paths: Vec<PathBuf>,
 ) -> miette::Result<Vec<(OsString, <PathBuf as FileIdType>::MinimalMetadata)>> {
     let mut directory_set: HashSet<OsString> = HashSet::new();
     let mut directory_entries: Vec<(OsString, <PathBuf as FileIdType>::MinimalMetadata)> = vec![
@@ -77,8 +77,7 @@ pub fn get_immediate_children(
         (std::ffi::OsString::from(".."), Directory),
     ];
     // For all descending files …
-    for file in files {
-        let file_path = PathBuf::from(std::str::from_utf8(file.key()).unwrap_or_default());
+    for file_path in file_paths {
         let stripped_file_path = file_path
             .strip_prefix(prefix_path.clone())
             .into_diagnostic()?;
@@ -87,13 +86,15 @@ pub fn get_immediate_children(
             // Check if this file is a direct child of the prefix path
             // If the file isn't a direct child, it must be in a folder under the prefix path
             if number_of_components == 1 {
-                directory_entries.push((
-                    stripped_file_path
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_os_string(),
-                    RegularFile,
-                ));
+                let file_name = stripped_file_path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_os_string();
+                // `.folder` files are empty placeholders that need to exist for a folder to exist; we shouldn't actually show this
+                if file_name == ".folder" {
+                    continue;
+                }
+                directory_entries.push((file_name, RegularFile));
             } else {
                 directory_set.insert(first_component.as_os_str().to_os_string());
             }

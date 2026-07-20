@@ -3,16 +3,18 @@ use debug_ignore::DebugIgnore;
 #[cfg(feature = "fuse")]
 use easy_fuser::fuse_presets::DefaultFuseHandler;
 use iroh_blobs::BlobsProtocol;
-use iroh_docs::protocol::Docs;
+use iroh_docs::{protocol::Docs, NamespaceId};
+use moka::future::Cache;
 #[cfg(feature = "persistent")]
 use std::path::PathBuf;
 #[cfg(feature = "fuse")]
 use std::sync::Arc;
 #[cfg(feature = "persistent")]
 use std::sync::LazyLock;
+use tempfile::NamedTempFile;
 #[cfg(feature = "fuse")]
 use tokio::runtime::Handle;
-use tokio::sync::watch::Sender;
+use tokio::sync::{watch::Sender, Mutex};
 
 /// Core functionality of an Oku file system.
 pub mod core;
@@ -56,4 +58,5 @@ pub struct OkuFs {
     /// A Tokio runtime handle to perform asynchronous operations with.
     pub(crate) handle: Option<Handle>,
     pub(crate) dht: mainline::async_dht::AsyncDht,
+    pub(crate) file_cache: Cache<(NamespaceId, PathBuf), Arc<Mutex<NamedTempFile>>>,
 }

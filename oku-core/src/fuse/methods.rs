@@ -119,7 +119,7 @@ impl OkuFs {
         let (namespace_id, replica_path) = parse_fuse_path(&path)
             .map(|x| x.ok_or(miette::miette!("Cannot create file at root path")))??;
         let file_hash = self
-            .create_or_modify_file(&namespace_id, &replica_path, b"\0".as_slice())
+            .create_file(&namespace_id, &replica_path, b"\0".as_slice())
             .await?;
         info!("File created at {path:?} with hash {file_hash}");
         let file_attr = self.getattr(path).await?;
@@ -186,18 +186,11 @@ impl OkuFs {
                 "Cannot write bytes to root directory as it's not a file"
             ))
         })??;
-        let file_bytes = self
-            .read_file(&namespace_id, &replica_path, &None, &None)
+        let data_len: u32 = data.clone().len().try_into().unwrap_or(u32::MAX);
+        self.write_file_using_cache(&namespace_id, &replica_path, data, &Some(seek))
             .await?;
-        let mut writer = BufWriter::new(Cursor::new(file_bytes.to_vec()));
-        writer.seek(seek).into_diagnostic()?;
-        writer.write(&data).into_diagnostic()?;
-        let inner_cursor = writer.into_inner().into_diagnostic()?;
-        let file_hash = self
-            .create_or_modify_file(&namespace_id, &replica_path, inner_cursor.into_inner())
-            .await?;
-        info!("File at {file_id:?} updated (hash: {file_hash})");
-        Ok(data.len().try_into().unwrap_or(u32::MAX))
+        info!("File at {file_id:?} updated");
+        Ok(data_len)
     }
 
     pub(super) async fn unlink(&self, parent_id: PathBuf, name: &OsStr) -> miette::Result<()> {

@@ -262,6 +262,18 @@ enum FsCommands {
         /// The number of bytes to read.
         len: Option<u64>,
     },
+    /// Modify an existing file in a replica.
+    ModifyFile {
+        #[arg(value_parser = parse_namespace_id, short, long, value_name = "REPLICA_ID")]
+        /// The ID of the replica containing the file.
+        replica_id: NamespaceId,
+        #[arg(short, long, value_name = "PATH")]
+        /// The path of the file to modify.
+        path: PathBuf,
+        #[arg(short, long, value_name = "DATA")]
+        /// The data that will replace the contents of the file.
+        data: Bytes,
+    },
     /// Remove a file from a replica.
     RemoveFile {
         #[arg(value_parser = parse_namespace_id, short, long, value_name = "REPLICA_ID")]
@@ -409,16 +421,29 @@ pub async fn main() -> miette::Result<()> {
                 path,
                 data,
             } => {
-                node.create_or_modify_file(&replica_id, &path, data).await?;
-                info!("Created file at {:?}", path);
+                node.create_file(&replica_id, &path, data).await?;
+                info!(
+                    "Created file at {:?} in replica {}",
+                    path,
+                    oku_core::fs::util::fmt(replica_id)
+                );
             }
             FsCommands::CreateDirectory { replica_id, path } => {
                 node.create_directory(&replica_id, &path).await?;
-                info!("Created directory at {:?}", path);
+                info!(
+                    "Created directory at {:?} in replica {}",
+                    path,
+                    oku_core::fs::util::fmt(replica_id)
+                );
             }
             FsCommands::ListFiles { replica_id, path } => {
                 let files = node.list_files(&replica_id, &path).await?;
-                println!("Files: {:#?}", files);
+                println!(
+                    "Files in {:?} of replica {}: {:#?}",
+                    path,
+                    oku_core::fs::util::fmt(replica_id),
+                    files
+                );
             }
             FsCommands::Share {
                 replica_id,
@@ -450,13 +475,34 @@ pub async fn main() -> miette::Result<()> {
                     .await?;
                 println!("{}", String::from_utf8_lossy(&data));
             }
+            FsCommands::ModifyFile {
+                replica_id,
+                path,
+                data,
+            } => {
+                node.write_file_using_cache(&replica_id, &path, data, &None)
+                    .await?;
+                info!(
+                    "Wrote to file at {:?} in replica {}",
+                    path,
+                    oku_core::fs::util::fmt(replica_id)
+                );
+            }
             FsCommands::RemoveFile { replica_id, path } => {
                 node.delete_file(&replica_id, &path).await?;
-                info!("Removed file at {:?}", path);
+                info!(
+                    "Removed file at {:?} in replica {}",
+                    path,
+                    oku_core::fs::util::fmt(replica_id)
+                );
             }
             FsCommands::RemoveDirectory { replica_id, path } => {
                 node.delete_directory(&replica_id, &path).await?;
-                info!("Removed directory at {:?}", path);
+                info!(
+                    "Removed directory at {:?} in replica {}",
+                    path,
+                    oku_core::fs::util::fmt(replica_id)
+                );
             }
             FsCommands::RemoveReplica { replica_id } => {
                 node.delete_replica(&replica_id).await?;
@@ -622,12 +668,12 @@ pub async fn main() -> miette::Result<()> {
                 tags,
             } => {
                 let tags = tags.unwrap_or_default().into_par_iter().collect();
-                let hash = node
+                let (home_replica_id, post_path, _hash) = node
                     .create_or_modify_post(&url, &title.unwrap_or_default(), &body, &tags)
                     .await?;
                 println!(
                     "{:#?}",
-                    node.content_bytes_by_hash(&hash, &None, &None)
+                    node.read_file(&home_replica_id, &post_path, &None, &None)
                         .await
                         .ok()
                         .map(|x| String::from_utf8_lossy(&x).to_string())

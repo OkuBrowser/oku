@@ -1,17 +1,27 @@
 use super::*;
-use crate::config::OkuFsConfig;
+use crate::{config::OkuFsConfig, error::OkuFsError, fs::util::path_to_entry_key};
 use bytes::Bytes;
 use iroh::protocol::ProtocolHandler;
 #[cfg(feature = "persistent")]
 use iroh_blobs::store::fs::FsStore;
 use iroh_blobs::{api::Store, store::mem::MemStore, BlobsProtocol};
-use iroh_docs::Author;
+use iroh_docs::{Author, NamespaceId};
 use iroh_gossip::Gossip;
-use log::{error, info};
+use log::{error, info, trace};
 #[cfg(feature = "fuse")]
 use miette::IntoDiagnostic;
+use moka::{
+    future::{Cache, FutureExt},
+    notification::{ListenerFuture, RemovalCause},
+};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::{collections::HashSet, io::SeekFrom, path::PathBuf};
+use std::{
+    collections::HashSet,
+    io::{Read, SeekFrom},
+    path::PathBuf,
+    time::Duration,
+};
+use tempfile::NamedTempFile;
 #[cfg(feature = "fuse")]
 use tokio::runtime::Handle;
 use tokio::{
@@ -100,13 +110,65 @@ impl OkuFs {
             .accept(iroh_gossip::ALPN, gossip.clone())
             .accept(iroh_docs::ALPN, docs.clone())
             .spawn();
+        let default_author = docs.author_default().await.unwrap_or_default();
         info!(
             "Default author ID is {} … ",
-            crate::fs::util::fmt_short(docs.author_default().await.unwrap_or_default())
+            crate::fs::util::fmt_short(default_author)
         );
 
         let (replica_sender, _replica_receiver) = watch::channel(());
         let (okunet_fetch_sender, _okunet_fetch_receiver) = watch::channel(false);
+
+        let docs_client = docs.clone();
+        let blobs_client = blobs.clone();
+        let eviction_listener = move |k: Arc<(NamespaceId, PathBuf)>,
+                                      v: Arc<Mutex<NamedTempFile>>,
+                                      cause: RemovalCause|
+              -> ListenerFuture {
+            // The cached file is past its TTL, so we should commit it to the replica.
+            let (namespace_id, path) = (k.0, k.1.clone());
+            let docs = docs_client.clone();
+            let blobs = blobs_client.clone();
+            let v = v.clone();
+            async move {
+                let inner = async |(namespace_id, path): (NamespaceId, PathBuf), v: Arc<Mutex<NamedTempFile>>, cause: RemovalCause| -> miette::Result<iroh_blobs::Hash> {
+                    let namespace_id_str = crate::fs::util::fmt(namespace_id);
+                    trace!("Comitting cached file (replica: {namespace_id_str}, path: {path:?}), with cause: {cause:?}");
+
+                    let file_key = path_to_entry_key(&path);
+                    let v = Arc::clone(&v);
+                    let tempfile = v.try_lock().map_err(|e| miette::miette!("{e}"))?;
+                    let document = docs
+                .open(namespace_id)
+                .await
+                .map_err(|e| {
+                    error!("{}", e);
+                    OkuFsError::CannotOpenReplica
+                })?
+                .ok_or(OkuFsError::FsEntryNotFound)?;
+
+            let import_file_outcome = document.import_file(blobs.store(), default_author, file_key, tempfile.path(), iroh_blobs::api::blobs::ImportMode::TryReference).await.map_err(|e| miette::miette!("{e}"))?.await.map_err(|e| miette::miette!("{e}"))?;
+
+            let bytes_written = import_file_outcome.size;
+            let data_len = tempfile.as_file().metadata().into_diagnostic()?.len();
+            if bytes_written != data_len {
+                error!("[File cache commit closure] likely data loss when writing data to file (bytes written: {bytes_written}, bytes intended: {data_len})")
+            }
+
+            Ok(import_file_outcome.hash)
+                };
+                if let Err(e) = inner((namespace_id, path.clone()), v, cause).await {
+                    let namespace_id_str = crate::fs::util::fmt(namespace_id);
+                    error!("Unable to commit cached file (replica: {namespace_id_str}, path: {path:?}): {e}");
+                }
+            }
+            .boxed()
+        };
+
+        let file_cache: Cache<(NamespaceId, PathBuf), Arc<Mutex<NamedTempFile>>> = Cache::builder()
+            .time_to_live(Duration::from_secs(5))
+            .async_eviction_listener(eviction_listener)
+            .build();
 
         let oku_core = Self {
             endpoint,
@@ -120,6 +182,7 @@ impl OkuFs {
             #[cfg(feature = "fuse")]
             handle: handle.cloned(),
             dht: mainline::Dht::server()?.as_async(),
+            file_cache,
         };
         let oku_core_clone = oku_core.clone();
         cfg_if::cfg_if!(

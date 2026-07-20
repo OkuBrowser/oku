@@ -11,7 +11,7 @@ use crate::{
 use dashmap::DashMap;
 use iroh_blobs::Hash;
 use iroh_docs::sync::Entry;
-use iroh_docs::AuthorId;
+use iroh_docs::{AuthorId, NamespaceId};
 use miette::IntoDiagnostic;
 use rayon::iter::{
     FromParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -30,29 +30,27 @@ impl OkuFs {
     ///
     /// A list of the OkuNet posts by the local user.
     pub async fn posts(&self) -> Option<Vec<OkuPost>> {
-        let post_files = self
-            .read_directory(&self.home_replica().await?, Path::new("/posts/"))
+        let home_replica_id = self.home_replica().await?;
+        let directory_paths = self
+            .read_directory(&home_replica_id, &Path::new("/posts/"))
             .await
             .ok()
             .unwrap_or_default();
-        Some(
-            post_files
-                .par_iter()
-                .filter(|(entry, _)| {
-                    entry_key_to_path(entry.key())
-                        .map(|x| matches!(x.extension(), Some(y) if y == "toml"))
-                        .unwrap_or(false)
-                })
-                .filter_map(|(entry, bytes)| {
-                    toml::from_str::<OkuNote>(String::from_utf8_lossy(bytes).as_ref())
-                        .ok()
-                        .map(|x| OkuPost {
-                            entry: entry.clone(),
-                            note: x,
-                        })
-                })
-                .collect(),
-        )
+        let post_file_paths: Vec<_> = directory_paths
+            .par_iter()
+            .filter(|(post_path, _)| matches!(post_path.extension(), Some(y) if y == "toml"))
+            .collect();
+        let mut posts: Vec<OkuPost> = Vec::new();
+        for (post_path, bytes) in post_file_paths {
+            if let Some(entry) = self.get_entry(&home_replica_id, &post_path).await.ok() {
+                if let Some(note) =
+                    toml::from_str::<OkuNote>(String::from_utf8_lossy(bytes).as_ref()).ok()
+                {
+                    posts.push(OkuPost { entry, note })
+                }
+            }
+        }
+        Some(posts)
     }
 
     /// Retrieve all posts known to this Oku node.
@@ -207,14 +205,14 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// A hash of the post's content.
+    /// The ID of the user's home replica, the path to the post file, and a hash of the post's content if the post is new.
     pub async fn create_or_modify_post(
         &self,
         url: &Url,
         title: &String,
         body: &String,
         tags: &HashSet<String>,
-    ) -> miette::Result<Hash> {
+    ) -> miette::Result<(NamespaceId, PathBuf, Option<Hash>)> {
         let home_replica_id = self
             .home_replica()
             .await
@@ -225,13 +223,15 @@ impl OkuFs {
             body: body.to_string(),
             tags: tags.clone(),
         };
-        let post_path = &new_note.post_path().into();
-        self.create_or_modify_file(
-            &home_replica_id,
-            post_path,
-            toml::to_string_pretty(&new_note).into_diagnostic()?,
-        )
-        .await
+        let post_path = new_note.post_path().into();
+        let hash = self
+            .create_or_replace_file(
+                &home_replica_id,
+                &post_path,
+                toml::to_string_pretty(&new_note).into_diagnostic()?,
+            )
+            .await?;
+        Ok((home_replica_id, post_path, hash))
     }
 
     /// Delete an OkuNet post in the user's home replica.
