@@ -1,5 +1,4 @@
 use super::core::home_replica_filters;
-use crate::fs::util::entry_key_to_path;
 use crate::{
     database::{
         core::DATABASE,
@@ -32,7 +31,7 @@ impl OkuFs {
     pub async fn posts(&self) -> Option<Vec<OkuPost>> {
         let home_replica_id = self.home_replica().await?;
         let directory_paths = self
-            .read_directory(&home_replica_id, &Path::new("/posts/"))
+            .read_directory(&home_replica_id, Path::new("/posts/"))
             .await
             .ok()
             .unwrap_or_default();
@@ -42,9 +41,8 @@ impl OkuFs {
             .collect();
         let mut posts: Vec<OkuPost> = Vec::new();
         for (post_path, bytes) in post_file_paths {
-            if let Some(entry) = self.get_entry(&home_replica_id, &post_path).await.ok() {
-                if let Some(note) =
-                    toml::from_str::<OkuNote>(String::from_utf8_lossy(bytes).as_ref()).ok()
+            if let Ok(entry) = self.get_entry(&home_replica_id, post_path).await {
+                if let Ok(note) = toml::from_str::<OkuNote>(String::from_utf8_lossy(bytes).as_ref())
                 {
                     posts.push(OkuPost { entry, note })
                 }

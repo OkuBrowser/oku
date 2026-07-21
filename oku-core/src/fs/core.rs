@@ -8,7 +8,6 @@ use iroh_blobs::{api::Store, store::mem::MemStore, BlobsProtocol};
 use iroh_docs::{Author, NamespaceId};
 use iroh_gossip::Gossip;
 use log::{error, info, trace};
-#[cfg(feature = "fuse")]
 use miette::IntoDiagnostic;
 use moka::{
     future::{Cache, FutureExt},
@@ -16,12 +15,7 @@ use moka::{
     policy::EvictionPolicy,
 };
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::{
-    collections::HashSet,
-    io::{Read, SeekFrom},
-    path::PathBuf,
-    time::Duration,
-};
+use std::{collections::HashSet, io::SeekFrom, path::PathBuf, time::Duration};
 use tempfile::NamedTempFile;
 #[cfg(feature = "fuse")]
 use tokio::runtime::Handle;
@@ -145,14 +139,31 @@ impl OkuFs {
                     let v = Arc::clone(&v);
                     let tempfile = v.try_lock().map_err(|e| miette::miette!("{e}"))?;
                     let document = docs
-                .open(namespace_id)
-                .await
-                .map_err(|e| {
-                    error!("{}", e);
-                    OkuFsError::CannotOpenReplica
-                })?
-                .ok_or(OkuFsError::FsEntryNotFound)?;
-
+                        .open(namespace_id)
+                        .await
+                        .map_err(|e| {
+                            error!("{}", e);
+                            OkuFsError::CannotOpenReplica
+                        })?
+                        .ok_or(OkuFsError::FsEntryNotFound)?;
+                    let query = iroh_docs::store::Query::single_latest_per_key()
+                        .key_exact(&file_key)
+                        .build();
+                    let entry = document
+                        .get_one(query)
+                        .await
+                        .map_err(|e| {
+                            error!("{}", e);
+                            OkuFsError::CannotReadFile
+                        })?
+                        .ok_or(OkuFsError::FsEntryNotFound)?;
+                    let _entries_deleted = document
+                        .del(entry.author(), entry.key().to_vec())
+                        .await
+                        .map_err(|e| {
+                            error!("{}", e);
+                            OkuFsError::CannotDeleteFile
+                        })?;
             let import_file_outcome = document.import_file(blobs.store(), default_author, file_key, tempfile.path(), iroh_blobs::api::blobs::ImportMode::TryReference).await.map_err(|e| miette::miette!("{e}"))?.await.map_err(|e| miette::miette!("{e}"))?;
 
             let bytes_written = import_file_outcome.size;

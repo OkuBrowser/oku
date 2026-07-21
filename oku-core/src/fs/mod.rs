@@ -5,9 +5,7 @@ use easy_fuser::fuse_presets::DefaultFuseHandler;
 use iroh_blobs::BlobsProtocol;
 use iroh_docs::{protocol::Docs, NamespaceId};
 use moka::future::Cache;
-#[cfg(feature = "persistent")]
 use std::path::PathBuf;
-#[cfg(feature = "fuse")]
 use std::sync::Arc;
 #[cfg(feature = "persistent")]
 use std::sync::LazyLock;

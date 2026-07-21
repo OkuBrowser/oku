@@ -262,7 +262,7 @@ impl OkuFs {
             .await?;
         let mut size = 0;
         for file_path in files {
-            size += self.get_file_size(&namespace_id, &file_path).await?;
+            size += self.get_file_size(namespace_id, &file_path).await?;
         }
         Ok(size)
     }

@@ -566,7 +566,7 @@ impl OkuFs {
                     .collect();
                 let mut posts: Vec<OkuPost> = Vec::new();
                 for (post_path, bytes) in post_file_paths {
-                    let entry = self.get_entry(&ticket.capability.id(), &post_path).await?;
+                    let entry = self.get_entry(&ticket.capability.id(), post_path).await?;
                     let note = toml::from_str::<OkuNote>(String::from_utf8_lossy(bytes).as_ref())
                         .into_diagnostic()?;
                     posts.push(OkuPost { entry, note })

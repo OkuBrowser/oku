@@ -571,7 +571,7 @@ pub async fn main() -> miette::Result<()> {
                 );
                 let mount_handle = node.mount(path)?;
                 tokio::signal::ctrl_c().await.into_diagnostic()?;
-                mount_handle.join();
+                mount_handle.join().into_diagnostic()?;
             }
             FsCommands::SetRepublishDelay { republish_delay } => {
                 let config = cfg_select! {

@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use std::{path::PathBuf, str::FromStr};
+    use std::{path::PathBuf, str::FromStr, time::Duration};
 
     #[tokio::test]
     async fn test_one_file_basic_operations() -> Result<(), Box<dyn std::error::Error>> {
@@ -112,6 +112,50 @@ mod tests {
         let replica_b_list_four = node.list_files(&replica_b, &None).await?;
         assert_eq!(0, replica_a_list_four.len());
         assert_eq!(1, replica_b_list_four.len());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cached_write() -> Result<(), Box<dyn std::error::Error>> {
+        let file_contents_a = "Hello, World!";
+        let file_contents_b = "This is a test.";
+        let file_path = PathBuf::from_str("/test.txt")?;
+        let node = crate::fs::OkuFs::start(
+            #[cfg(feature = "fuse")]
+            None,
+            #[cfg(feature = "persistent")]
+            false,
+        )
+        .await?;
+        let replica_id = node.create_replica().await?;
+
+        node
+            .create_file(&replica_id, &file_path, file_contents_a)
+            .await?;
+        let read_1 = node.read_file(&replica_id, &file_path, &None, &None)
+                .await?;
+        assert_eq!(
+            read_1,
+            file_contents_a
+        );
+
+        node.write_file_using_cache(&replica_id, &file_path, file_contents_b, &None).await?;
+        let read_2 = node.read_file(&replica_id, &file_path, &None, &None)
+                .await?;
+        assert_eq!(
+            read_2,
+            file_contents_b
+        );
+
+        tokio::time::sleep(Duration::from_secs(5)).await;
+
+        let read_3 = node.read_file(&replica_id, &file_path, &None, &None)
+                .await?;
+        assert_eq!(
+            read_3,
+            file_contents_b
+        );
+
         Ok(())
     }
 

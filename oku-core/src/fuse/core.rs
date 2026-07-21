@@ -4,11 +4,8 @@ use async_trait::async_trait;
 use easy_fuser::fuse_async::prelude::*;
 use easy_fuser::fuse_async::FuseHandler;
 use easy_fuser::fuse_presets::DefaultFuseHandler;
-use easy_fuser::types::AccessMask;
 use easy_fuser::types::BorrowedFileHandle;
 use easy_fuser::types::ErrorKind;
-use easy_fuser::types::FUSEOpenFlags;
-use easy_fuser::types::FUSEOpenResponseFlags;
 use easy_fuser::types::FileAttribute;
 use easy_fuser::types::FileIdType;
 use easy_fuser::types::FuseResult;
@@ -76,11 +73,11 @@ impl FuseHandler for OkuFs {
         &self,
         req: &RequestInfo,
         file_id: Self::TId,
-        mode: AccessMask,
+        mask: AccessFlags,
     ) -> FuseResult<()> {
         let file_id = normalise_path(&file_id);
-        debug!("[access] file_id = {file_id:?}, mode = {mode:#06o}");
-        self.get_inner_fuse_handler().access(req, file_id, mode)
+        debug!("[access] file_id = {file_id:?}, mask = {mask:?}");
+        self.get_inner_fuse_handler().access(req, file_id, mask)
     }
 
     async fn statfs(&self, _req: &RequestInfo, file_id: Self::TId) -> FuseResult<StatFs> {
@@ -113,7 +110,7 @@ impl FuseHandler for OkuFs {
         file_handle: BorrowedFileHandle<'_>,
         seek: SeekFrom,
         size: u32,
-        flags: FUSEOpenFlags,
+        flags: OpenFlags,
         lock_owner: Option<u64>,
     ) -> FuseResult<Vec<u8>> {
         let file_id = normalise_path(&file_id);
@@ -165,7 +162,7 @@ impl FuseHandler for OkuFs {
     ) -> FuseResult<(
         OwnedFileHandle,
         <Self::TId as FileIdType>::Metadata,
-        FUSEOpenResponseFlags,
+        FopenFlags,
     )> {
         let parent_id = normalise_path(&parent_id);
         debug!("[create] parent_id = {parent_id:?}, name = {name:?}, mode = {mode:#06o}, umask = {umask:#06o}, flags = {flags:?}");
@@ -232,7 +229,7 @@ impl FuseHandler for OkuFs {
         _file_handle: BorrowedFileHandle<'_>,
         seek: SeekFrom,
         data: Vec<u8>,
-        write_flags: FUSEWriteFlags,
+        write_flags: WriteFlags,
         flags: OpenFlags,
         _lock_owner: Option<u64>,
     ) -> FuseResult<u32> {
@@ -282,12 +279,12 @@ impl FuseHandler for OkuFs {
         _req: &RequestInfo,
         file_in: Self::TId,
         file_handle_in: BorrowedFileHandle<'_>,
-        offset_in: i64,
+        offset_in: u64,
         file_out: Self::TId,
         file_handle_out: BorrowedFileHandle<'_>,
-        offset_out: i64,
+        offset_out: u64,
         len: u64,
-        flags: u32,
+        flags: CopyFileRangeFlags,
     ) -> FuseResult<u32> {
         let file_in = normalise_path(&file_in);
         let file_out = normalise_path(&file_out);
@@ -372,7 +369,7 @@ impl FuseHandler for OkuFs {
         req: &RequestInfo,
         file_id: Self::TId,
         file_handle: BorrowedFileHandle<'_>,
-        flags: IOCtlFlags,
+        flags: IoctlFlags,
         cmd: u32,
         in_data: Vec<u8>,
         out_size: u32,
@@ -473,7 +470,7 @@ impl FuseHandler for OkuFs {
         req: &RequestInfo,
         file_id: Self::TId,
         flags: OpenFlags,
-    ) -> FuseResult<(OwnedFileHandle, FUSEOpenResponseFlags)> {
+    ) -> FuseResult<(OwnedFileHandle, FopenFlags)> {
         let file_id = normalise_path(&file_id);
         debug!("[open] file_id = {file_id:?}, flags = {flags:?}");
         self.get_inner_fuse_handler().open(req, file_id, flags)
@@ -487,7 +484,7 @@ impl FuseHandler for OkuFs {
         req: &RequestInfo,
         file_id: Self::TId,
         flags: OpenFlags,
-    ) -> FuseResult<(OwnedFileHandle, FUSEOpenResponseFlags)> {
+    ) -> FuseResult<(OwnedFileHandle, FopenFlags)> {
         let file_id = normalise_path(&file_id);
         debug!("[opendir] file_id = {file_id:?}, flags = {flags:?}");
         self.get_inner_fuse_handler().opendir(req, file_id, flags)
@@ -591,7 +588,7 @@ impl FuseHandler for OkuFs {
         file_id: Self::TId,
         name: &OsStr,
         value: Vec<u8>,
-        flags: FUSESetXAttrFlags,
+        flags: SetXAttrFlags,
         position: u32,
     ) -> FuseResult<()> {
         let file_id = normalise_path(&file_id);

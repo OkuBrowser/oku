@@ -1,7 +1,6 @@
 use crate::fs::OkuFs;
 use crate::fuse::util::*;
-use easy_fuser::fuse_serial::prelude::SeekFrom;
-use easy_fuser::types::FUSEOpenResponseFlags;
+use easy_fuser::fuse_async::prelude::*;
 use easy_fuser::types::FileAttribute;
 use easy_fuser::types::FileIdType;
 use easy_fuser::types::FileKind::Directory;
@@ -9,13 +8,8 @@ use easy_fuser::types::OpenFlags;
 use easy_fuser::types::OwnedFileHandle;
 use easy_fuser::types::RequestInfo;
 use log::info;
-use miette::IntoDiagnostic;
 use std::ffi::OsStr;
 use std::ffi::OsString;
-use std::io::BufWriter;
-use std::io::Cursor;
-use std::io::Seek;
-use std::io::Write;
 use std::path::PathBuf;
 
 impl OkuFs {
@@ -44,15 +38,15 @@ impl OkuFs {
     pub(super) async fn copy_file_range(
         &self,
         file_in: PathBuf,
-        offset_in: i64,
+        offset_in: u64,
         file_out: PathBuf,
-        offset_out: i64,
+        offset_out: u64,
         len: u64,
     ) -> miette::Result<u32> {
         let data = self
-            .read(file_in, SeekFrom::Start(offset_in as u64), len as u32)
+            .read(file_in, SeekFrom::Start(offset_in), len as u32)
             .await?;
-        self.write(file_out, SeekFrom::Start(offset_out as u64), data)
+        self.write(file_out, SeekFrom::Start(offset_out), data)
             .await
     }
 
@@ -113,7 +107,7 @@ impl OkuFs {
     ) -> miette::Result<(
         OwnedFileHandle,
         <PathBuf as FileIdType>::Metadata,
-        FUSEOpenResponseFlags,
+        FopenFlags,
     )> {
         let path = parent_id.join(name);
         let (namespace_id, replica_path) = parse_fuse_path(&path)
@@ -126,7 +120,7 @@ impl OkuFs {
         Ok((
             unsafe { OwnedFileHandle::from_raw(0) },
             file_attr,
-            FUSEOpenResponseFlags::empty(),
+            FopenFlags::empty(),
         ))
     }
 

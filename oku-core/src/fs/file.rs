@@ -14,6 +14,7 @@ use iroh_docs::NamespaceId;
 use log::{error, info};
 use miette::IntoDiagnostic;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use std::io::BufReader;
 use std::io::BufWriter;
 use std::io::Cursor;
 use std::io::Read;
@@ -21,7 +22,6 @@ use std::io::Seek;
 use std::io::SeekFrom;
 use std::io::Write;
 use std::path::PathBuf;
-use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 use tempfile::NamedTempFile;
 use util::path_to_entry_key;
@@ -67,12 +67,7 @@ impl OkuFs {
         })?;
         pin_mut!(entries);
         let files = entries
-            .filter_map(|entry| async {
-                entry
-                    .ok()
-                    .map(|x| entry_key_to_path(x.key()).ok())
-                    .flatten()
-            })
+            .filter_map(|entry| async { entry.ok().and_then(|x| entry_key_to_path(x.key()).ok()) })
             .collect::<Vec<_>>()
             .await;
         Ok(files)
@@ -209,7 +204,7 @@ impl OkuFs {
         seek: &Option<SeekFrom>,
     ) -> miette::Result<Hash> {
         let data = data.into();
-        let len = (&data.len()).clone() as u64;
+        let len = data.len() as u64;
         let file_bytes = self.read_file(namespace_id, path, seek, &Some(len)).await?;
         let mut writer = BufWriter::new(Cursor::new(file_bytes.to_vec()));
         if let Some(seek) = seek {
@@ -249,20 +244,16 @@ impl OkuFs {
     ) -> miette::Result<()> {
         let data = data.into();
         self.file_cache.run_pending_tasks().await;
-        let cache_entry = self
-            .file_cache
-            .get(&(namespace_id.clone(), path.clone()))
-            .await;
+        let cache_entry = self.file_cache.get(&(*namespace_id, path.clone())).await;
 
         let tempfile_lock = cache_entry.clone().unwrap_or(Arc::new(Mutex::new(
             NamedTempFile::with_prefix_in("oku_", "./").into_diagnostic()?,
         )));
         self.file_cache
-            .insert((namespace_id.clone(), path.clone()), tempfile_lock.clone())
+            .insert((*namespace_id, path.clone()), tempfile_lock.clone())
             .await;
 
         let mut tempfile = tempfile_lock.try_lock().into_diagnostic()?;
-        tempfile.seek(SeekFrom::Start(0)).into_diagnostic()?; // Reset seek from previous writes back to start of file
 
         // If the cache entry doesn't exist, we need to prepare the temporary file.
         if cache_entry.is_none() {
@@ -276,6 +267,8 @@ impl OkuFs {
                 })?;
             tempfile.write_all(&current_bytes).into_diagnostic()?;
         }
+
+        tempfile.seek(SeekFrom::Start(0)).into_diagnostic()?; // Reset seek from previous writes back to start of file
 
         if let Some(seek) = seek {
             tempfile.seek(*seek).into_diagnostic()?;
@@ -376,10 +369,7 @@ impl OkuFs {
         path: &PathBuf,
     ) -> miette::Result<u64> {
         self.file_cache.run_pending_tasks().await;
-        let cache_entry = self
-            .file_cache
-            .get(&(namespace_id.clone(), path.clone()))
-            .await;
+        let cache_entry = self.file_cache.get(&(*namespace_id, path.clone())).await;
 
         match cache_entry {
             Some(tempfile_lock) => {
@@ -406,10 +396,7 @@ impl OkuFs {
         path: &PathBuf,
     ) -> miette::Result<u64> {
         self.file_cache.run_pending_tasks().await;
-        let cache_entry = self
-            .file_cache
-            .get(&(namespace_id.clone(), path.clone()))
-            .await;
+        let cache_entry = self.file_cache.get(&(*namespace_id, path.clone())).await;
 
         match cache_entry {
             Some(tempfile_lock) => {
@@ -521,10 +508,7 @@ impl OkuFs {
         len: &Option<u64>,
     ) -> miette::Result<Bytes> {
         self.file_cache.run_pending_tasks().await;
-        let cache_entry = self
-            .file_cache
-            .get(&(namespace_id.clone(), path.clone()))
-            .await;
+        let cache_entry = self.file_cache.get(&(*namespace_id, path.clone())).await;
 
         match cache_entry {
             None => {
@@ -536,11 +520,8 @@ impl OkuFs {
                 })?)
             }
             Some(tempfile_lock) => {
-                let mut tempfile = tempfile_lock.try_lock().into_diagnostic()?;
-                let mut buffer = Vec::new();
-                let bytes_read = tempfile.read_to_end(&mut buffer).into_diagnostic()?;
-                buffer.truncate(bytes_read);
-                Ok(buffer.into())
+                let tempfile = tempfile_lock.try_lock().into_diagnostic()?;
+                Ok(std::fs::read(tempfile.path()).into_diagnostic()?.into())
             }
         }
     }

@@ -6,7 +6,6 @@ use easy_fuser::types::FileIdType;
 use easy_fuser::types::FileKind::Directory;
 use easy_fuser::types::FileKind::RegularFile;
 use easy_fuser::types::StatFs;
-use iroh_docs::sync::Entry;
 use iroh_docs::NamespaceId;
 use miette::IntoDiagnostic;
 use rayon::iter::IntoParallelRefIterator;

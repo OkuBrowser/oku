@@ -69,7 +69,7 @@ jiff = { version = "0.2.33", optional = true }
 dashmap = { version = "6.2.1", features = ["inline", "rayon"] }
 tree_magic_mini = { version = "3.2.2", features = ["with-gpl-data"] }
 serde_json = "1.0.150"
-easy_fuser = { version = "0.5.0", features = ["async"], optional = true }
+easy_fuser = { git = "https://github.com/Alogani/easy_fuser", rev = "2be710342ee27c1058b4be9b5e00ab09929c9e02", features = ["async"], optional = true }
 debug-ignore = "1.0.5"
 humantime = "2.4.0"
 async-trait = "0.1.91"
