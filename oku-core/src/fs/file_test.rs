@@ -129,32 +129,26 @@ mod tests {
         .await?;
         let replica_id = node.create_replica().await?;
 
-        node
-            .create_file(&replica_id, &file_path, file_contents_a)
+        node.create_file(&replica_id, &file_path, file_contents_a)
             .await?;
-        let read_1 = node.read_file(&replica_id, &file_path, &None, &None)
-                .await?;
-        assert_eq!(
-            read_1,
-            file_contents_a
-        );
+        let read_1 = node
+            .read_file(&replica_id, &file_path, &None, &None)
+            .await?;
+        assert_eq!(read_1, file_contents_a);
 
-        node.write_file_using_cache(&replica_id, &file_path, file_contents_b, &None).await?;
-        let read_2 = node.read_file(&replica_id, &file_path, &None, &None)
-                .await?;
-        assert_eq!(
-            read_2,
-            file_contents_b
-        );
+        node.write_file_using_cache(&replica_id, &file_path, file_contents_b, &None)
+            .await?;
+        let read_2 = node
+            .read_file(&replica_id, &file_path, &None, &None)
+            .await?;
+        assert_eq!(read_2, file_contents_b);
 
         tokio::time::sleep(Duration::from_secs(5)).await;
 
-        let read_3 = node.read_file(&replica_id, &file_path, &None, &None)
-                .await?;
-        assert_eq!(
-            read_3,
-            file_contents_b
-        );
+        let read_3 = node
+            .read_file(&replica_id, &file_path, &None, &None)
+            .await?;
+        assert_eq!(read_3, file_contents_b);
 
         Ok(())
     }

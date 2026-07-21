@@ -424,7 +424,7 @@ impl OkuFs {
                     .into_diagnostic()
                 })
                 .await
-                .expect("Task spawned in Tokio executor panicked")
+                .into_diagnostic()? // If error: task spawned in Tokio executor panicked
         })
     }
 }
