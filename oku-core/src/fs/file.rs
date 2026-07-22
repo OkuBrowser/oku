@@ -271,7 +271,7 @@ impl OkuFs {
         let cache_entry = self.file_cache.get(&(*namespace_id, path.clone())).await;
 
         let tempfile_lock = cache_entry.clone().unwrap_or(Arc::new(Mutex::new(
-            NamedTempFile::with_prefix_in("oku_", "./").into_diagnostic()?,
+            NamedTempFile::with_prefix_in("oku_tempfile_", "./").into_diagnostic()?,
         )));
         self.file_cache
             .insert((*namespace_id, path.clone()), tempfile_lock.clone())

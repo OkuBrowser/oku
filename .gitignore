@@ -131,3 +131,4 @@ test/
 .idea
 test_mount/
 .oku_old
+oku_tempfile_*
