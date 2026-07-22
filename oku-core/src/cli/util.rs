@@ -1,4 +1,5 @@
 use iroh_docs::AuthorId;
+use jiff::RoundMode;
 use jiff::{
     fmt::friendly::{Designator, Spacing, SpanPrinter},
     Timestamp,
@@ -79,14 +80,19 @@ pub async fn post(post: &OkuPost) -> String {
     let timestamp_string = jiff::fmt::rfc2822::DateTimePrinter::new()
         .timestamp_to_string(&timestamp)
         .unwrap_or(format!("{timestamp:.0}"));
-    let unrounded_span = timestamp - Timestamp::now();
-    let span = unrounded_span
-        .round(
-            jiff::SpanRound::new()
+
+    let timezone = jiff::tz::TimeZone::system();
+    let now = Timestamp::now().to_zoned(timezone.clone());
+    let timestamp_zoned = timestamp.to_zoned(timezone);
+
+    let span = timestamp_zoned
+        .since(
+            jiff::ZonedDifference::new(&now)
+                .smallest(jiff::Unit::Second)
                 .largest(jiff::Unit::Year)
-                .smallest(jiff::Unit::Second),
+                .mode(RoundMode::HalfExpand),
         )
-        .unwrap_or(unrounded_span);
+        .unwrap_or(timestamp_zoned - now);
     let timestamp_printer = SpanPrinter::new()
         .direction(jiff::fmt::friendly::Direction::Suffix)
         .precision(Some(0))
@@ -94,12 +100,12 @@ pub async fn post(post: &OkuPost) -> String {
         .comma_after_designator(true)
         .designator(Designator::Verbose);
     format!(
-        "'{}' ({}) by {} (posted on {}, {}):\n{}\nTags: {:?}",
+        "'{}' ({}) by {} (posted {}, at {}):\n{}\nTags: {:?}",
         post.note.title,
         post.note.url,
         user_name(&user),
-        timestamp_string,
         timestamp_printer.span_to_string(&span),
+        timestamp_string,
         post.note.body,
         post.note.tags
     )
