@@ -7,7 +7,6 @@ use oku_core::{
     database::{posts::core::OkuPost, users::OkuUser},
     fs::OkuFs,
 };
-use rayon::iter::ParallelIterator;
 use rayon::slice::ParallelSliceMut;
 use std::cmp::Reverse;
 

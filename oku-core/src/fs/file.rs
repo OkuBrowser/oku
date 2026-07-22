@@ -194,6 +194,20 @@ impl OkuFs {
     /// You should only use this method in the following circumstances:
     /// - When this is the first write to a file
     /// - When you're otherwise certain no concurrent (with a granularity of the cache's TTL) writes are being made to this file via the file cache
+    ///
+    /// # Arguments
+    ///
+    /// * `namespace_id` - The ID of the replica being written to.
+    ///
+    /// * `path` - The path to the file being written to.
+    ///
+    /// * `data` - The data being written.
+    ///
+    /// * `seek` - Optionally, where in the file to write.
+    ///
+    /// # Returns
+    ///
+    /// The hash of the file's new contents.
     pub async fn write_file_using_buffer(
         &self,
         namespace_id: &NamespaceId,
@@ -233,6 +247,18 @@ impl OkuFs {
         Ok(entry_hash)
     }
 
+    /// Write to the file caching layer, which commits file writes every 5 seconds.
+    /// Use this for normal writes.
+    ///
+    /// # Arguments
+    ///
+    /// * `namespace_id` - The ID of the replica being written to.
+    ///
+    /// * `path` - The path to the file being written to.
+    ///
+    /// * `data` - The data being written.
+    ///
+    /// * `seek` - Optionally, where in the file to write.
     pub async fn write_file_using_cache(
         &self,
         namespace_id: &NamespaceId,
@@ -361,6 +387,17 @@ impl OkuFs {
         Ok(entry)
     }
 
+    /// Gets the last modified timestamp of a file, in microseconds from the Unix epoch.
+    ///
+    /// # Arguments
+    ///
+    /// * `namespace_id` - The ID of the replica containing the file.
+    ///
+    /// * `path` - The path to the file.
+    ///
+    /// # Returns
+    ///
+    /// The number of microseconds after the Unix epoch up to when the file was last modified.
     pub async fn get_last_modified(
         &self,
         namespace_id: &NamespaceId,
@@ -388,6 +425,17 @@ impl OkuFs {
         }
     }
 
+    /// Gets the size of a file, in bytes.
+    ///
+    /// # Arguments
+    ///
+    /// * `namespace_id` - The ID of the replica containing the file.
+    ///
+    /// * `path` - The path to the file.
+    ///
+    /// # Returns
+    ///
+    /// The size of the file, in bytes.
     pub async fn get_file_size(
         &self,
         namespace_id: &NamespaceId,
