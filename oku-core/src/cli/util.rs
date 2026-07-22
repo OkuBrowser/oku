@@ -7,6 +7,47 @@ use oku_core::{
     database::{posts::core::OkuPost, users::OkuUser},
     fs::OkuFs,
 };
+use rayon::iter::ParallelIterator;
+use rayon::slice::ParallelSliceMut;
+use std::cmp::Reverse;
+
+pub async fn print_profile(node: &OkuFs, profile: &OkuUser) -> miette::Result<()> {
+    let display_name = &profile.identity.clone().map(|x| x.name);
+    let following = &profile
+        .identity
+        .clone()
+        .map(|x| x.following)
+        .unwrap_or_default();
+    let blocked = &profile
+        .identity
+        .clone()
+        .map(|x| x.blocked)
+        .unwrap_or_default();
+    let mut following_names = Vec::new();
+    let mut blocked_names = Vec::new();
+
+    for author_id in following {
+        following_names.push(name(node, author_id).await);
+    }
+    for author_id in blocked {
+        blocked_names.push(name(node, author_id).await);
+    }
+
+    println!(
+        "Author ID: {}\nDisplay name: {:?}\nFollowing: {:?}\nBlocked: {:?}\n",
+        oku_core::fs::util::fmt(profile.author_id),
+        display_name,
+        following_names,
+        blocked_names
+    );
+
+    let mut posts = node.posts_from_user(profile).await?;
+    posts.par_sort_unstable_by_key(|x| Reverse(x.entry.timestamp()));
+    for post_entry in posts {
+        println!("➤ {}", post(&post_entry).await);
+    }
+    Ok(())
+}
 
 pub async fn name(node: &OkuFs, author_id: &AuthorId) -> String {
     let identity_name = node

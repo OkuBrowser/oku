@@ -98,6 +98,12 @@ struct Net {
 enum NetCommands {
     /// Shows the current user's profile.
     Me,
+    /// View a user's profile.
+    Profile {
+        #[arg(value_parser = parse_author_id, value_name = "AUTHOR_ID")]
+        /// The ID of the author whose profile you wish to view.
+        author_id: AuthorId,
+    },
     /// Import a user from a file.
     Import {
         #[arg(value_name = "PATH")]
@@ -624,27 +630,12 @@ pub async fn main() -> miette::Result<()> {
                 println!("Exported current user to {path:?} … ");
             }
             NetCommands::Me => {
-                let identity = node.identity().await;
-                let display_name = identity.clone().map(|x| x.name);
-                let following = identity.clone().map(|x| x.following).unwrap_or_default();
-                let blocked = identity.map(|x| x.blocked).unwrap_or_default();
-                let mut following_names = Vec::new();
-                let mut blocked_names = Vec::new();
-
-                for author_id in following {
-                    following_names.push(util::name(&node, &author_id).await);
-                }
-                for author_id in blocked {
-                    blocked_names.push(util::name(&node, &author_id).await);
-                }
-
-                println!("Home replica: {:?}\nAuthor ID: {}\nDisplay name: {:?}\nFollowing: {:?}\nBlocked: {:?}\n", node.home_replica().await.map(oku_core::fs::util::fmt), oku_core::fs::util::fmt(node.default_author().await), display_name, following_names, blocked_names);
-
-                let mut posts = node.posts().await.unwrap_or_default();
-                posts.par_sort_unstable_by_key(|x| Reverse(x.entry.timestamp()));
-                for post in posts {
-                    println!("⮞ {}", util::post(&post).await);
-                }
+                let profile = node.user().await?;
+                util::print_profile(&node, &profile).await?;
+            }
+            NetCommands::Profile { author_id } => {
+                let profile = node.fetch_user(&author_id).await?;
+                util::print_profile(&node, &profile).await?;
             }
             NetCommands::SetName { display_name } => {
                 node.set_display_name(&display_name).await?;
