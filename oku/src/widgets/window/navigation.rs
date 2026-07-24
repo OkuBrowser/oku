@@ -122,12 +122,20 @@ impl Window {
             self,
             move |_| {
                 let web_view = this.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 web_view.go_back()
             }
         ));
         let action_previous = gio::ActionEntry::builder("previous")
             .activate(|window: &Self, _, _| {
                 let web_view = window.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 web_view.go_back();
             })
             .build();
@@ -139,12 +147,20 @@ impl Window {
             self,
             move |_| {
                 let web_view = this.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 web_view.go_forward()
             }
         ));
         let action_next = gio::ActionEntry::builder("next")
             .activate(|window: &Self, _, _| {
                 let web_view = window.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 web_view.go_forward();
             })
             .build();
@@ -156,6 +172,10 @@ impl Window {
             self,
             move |_| {
                 let web_view = this.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 if web_view.is_loading() {
                     web_view.stop_loading()
                 } else {
@@ -166,6 +186,10 @@ impl Window {
         let action_reload = gio::ActionEntry::builder("reload")
             .activate(|window: &Self, _, _| {
                 let web_view = window.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 web_view.reload();
             })
             .build();
@@ -173,6 +197,10 @@ impl Window {
         let action_reload_bypass = gio::ActionEntry::builder("reload-bypass")
             .activate(|window: &Self, _, _| {
                 let web_view = window.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 web_view.reload_bypass_cache();
             })
             .build();
@@ -180,6 +208,10 @@ impl Window {
         let action_stop_loading = gio::ActionEntry::builder("stop-loading")
             .activate(|window: &Self, _, _| {
                 let web_view = window.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 web_view.stop_loading()
             })
             .build();
@@ -188,6 +220,10 @@ impl Window {
         let action_go_home = gio::ActionEntry::builder("go-home")
             .activate(|window: &Self, _, _| {
                 let web_view = window.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 web_view.load_uri("oku:home")
             })
             .build();
@@ -201,6 +237,10 @@ impl Window {
             self,
             move |_| {
                 let web_view = this.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 connect(&nav_entry, &web_view);
             }
         ));

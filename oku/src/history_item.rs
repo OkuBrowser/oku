@@ -131,17 +131,19 @@ impl HistoryItem {
                 ("timestamp", &history_record.timestamp.to_rfc2822()),
                 ("uri", &history_record.uri),
             ]);
-            favicon_database.favicon(
-                &history_record.uri,
-                Some(&gio::Cancellable::new()),
-                clone!(
-                    #[weak]
-                    this,
-                    move |favicon_result| {
-                        this.set_property("favicon", favicon_result.ok());
-                    }
-                ),
-            );
+            if let Some(favicon_database) = favicon_database {
+                favicon_database.favicon(
+                    &history_record.uri,
+                    Some(&gio::Cancellable::new()),
+                    clone!(
+                        #[weak]
+                        this,
+                        move |favicon_result| {
+                            this.set_property("favicon", favicon_result.ok());
+                        }
+                    ),
+                );
+            }
         });
     }
     pub fn new(
@@ -149,7 +151,7 @@ impl HistoryItem {
         title: String,
         uri: String,
         timestamp: String,
-        favicon_database: &webkit2gtk::FaviconDatabase,
+        favicon_database: &Option<webkit2gtk::FaviconDatabase>,
     ) -> Self {
         let history_item = glib::Object::builder::<Self>()
             .property("id", id.to_string())
@@ -158,17 +160,19 @@ impl HistoryItem {
             .property("uri", uri.clone())
             .build();
 
-        favicon_database.favicon(
-            &uri,
-            Some(&gio::Cancellable::new()),
-            clone!(
-                #[weak]
-                history_item,
-                move |favicon_result| {
-                    history_item.set_property("favicon", favicon_result.ok());
-                }
-            ),
-        );
+        if let Some(favicon_database) = favicon_database {
+            favicon_database.favicon(
+                &uri,
+                Some(&gio::Cancellable::new()),
+                clone!(
+                    #[weak]
+                    history_item,
+                    move |favicon_result| {
+                        history_item.set_property("favicon", favicon_result.ok());
+                    }
+                ),
+            );
+        }
 
         history_item
     }

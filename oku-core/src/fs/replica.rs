@@ -365,6 +365,21 @@ impl OkuFs {
         let get_stream = self.dht.get_mutable(namespace_id.as_bytes(), None, None);
         tokio::pin!(get_stream);
         let mut tickets = Vec::new();
+
+        // Check if we can generate our own ticket; useful if we have a local copy already, even if outdated
+        let docs_client = &self.docs;
+        let document = docs_client.open(*namespace_id).await.ok().flatten();
+        if let Some(document) = document {
+            let ticket = document
+                .share(ShareMode::Read, AddrInfoOptions::RelayAndAddresses)
+                .await
+                .ok();
+            if let Some(ticket) = ticket {
+                tickets.push(ticket);
+            }
+        }
+
+        // Tickets from the DHT
         while let Some(mutable_item) = get_stream.next().await {
             let ticket = DocTicket::decode_bytes(mutable_item.value())?;
             let ticket_namespace_id = &ticket.capability.id();

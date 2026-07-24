@@ -134,12 +134,18 @@ pub fn new_webkit_settings() -> webkit2gtk::Settings {
 /// # Arguments
 ///
 /// * `page` - The TabPage containing the the WebKit instance
-pub fn get_view_from_page(page: &libadwaita::TabPage) -> (gtk::Overlay, webkit2gtk::WebView) {
+pub fn get_view_from_page(
+    page: &libadwaita::TabPage,
+) -> miette::Result<(gtk::Overlay, webkit2gtk::WebView)> {
     let overlay = page.child().downcast::<gtk::Overlay>().unwrap();
-    (
+    Ok((
         overlay.clone(),
-        overlay.child().unwrap().downcast().unwrap(),
-    )
+        overlay
+            .child()
+            .ok_or(miette::miette!("Overlay has no child"))?
+            .downcast()
+            .map_err(|e| miette::miette!("{e}"))?,
+    ))
 }
 
 pub fn get_window_from_widget(widget: &impl IsA<gtk::Widget>) -> crate::widgets::window::Window {

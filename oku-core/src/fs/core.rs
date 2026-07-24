@@ -113,24 +113,25 @@ impl OkuFs {
 
         let (replica_sender, _replica_receiver) = watch::channel(());
         let (okunet_fetch_sender, _okunet_fetch_receiver) = watch::channel(false);
+        let (okunet_post_sender, _okunet_post_receiver) = watch::channel(());
+        let (okunet_user_sender, _okunet_user_receiver) = watch::channel(());
 
         let docs_client = docs.clone();
         let blobs_client = blobs.clone();
-        // let sync_eviction_listener = |key, _value, cause| {
-        //     println!("Evicted key {key:?}. Cause: {cause:?}");
-        // };
         let eviction_listener = move |k: Arc<(NamespaceId, PathBuf)>,
                                       v: Arc<Mutex<NamedTempFile>>,
                                       cause: RemovalCause|
               -> ListenerFuture {
             // The cached file is past its TTL, so we should commit it to the replica.
             let (namespace_id, path) = (k.0, k.1.clone());
-            let namespace_id_str = crate::fs::util::fmt(namespace_id);
-            trace!("Starting to commit cached file (replica: {namespace_id_str}, path: {path:?}), with cause: {cause:?}");
             let docs = docs_client.clone();
             let blobs = blobs_client.clone();
             let v = v.clone();
             async move {
+                // If the cache entry got replaced, we're not ready to commit yet.
+                if cause == RemovalCause::Replaced {
+                    return;
+                }
                 let inner = async |(namespace_id, path): (NamespaceId, PathBuf), v: Arc<Mutex<NamedTempFile>>, cause: RemovalCause| -> miette::Result<iroh_blobs::Hash> {
                     let namespace_id_str = crate::fs::util::fmt(namespace_id);
                     trace!("Comitting cached file (replica: {namespace_id_str}, path: {path:?}), with cause: {cause:?}");
@@ -146,35 +147,17 @@ impl OkuFs {
                             OkuFsError::CannotOpenReplica
                         })?
                         .ok_or(OkuFsError::FsEntryNotFound)?;
-                    let query = iroh_docs::store::Query::single_latest_per_key()
-                        .key_exact(&file_key)
-                        .build();
-                    let entry = document
-                        .get_one(query)
-                        .await
-                        .map_err(|e| {
-                            error!("{}", e);
-                            OkuFsError::CannotReadFile
-                        })?
-                        .ok_or(OkuFsError::FsEntryNotFound)?;
-                    let _entries_deleted = document
-                        .del(entry.author(), entry.key().to_vec())
-                        .await
-                        .map_err(|e| {
-                            error!("{}", e);
-                            OkuFsError::CannotDeleteFile
-                        })?;
-            let import_file_outcome = document.import_file(blobs.store(), default_author, file_key, tempfile.path(), iroh_blobs::api::blobs::ImportMode::TryReference).await.map_err(|e| miette::miette!("{e}"))?.await.map_err(|e| miette::miette!("{e}"))?;
+                    let import_file_outcome = document.import_file(blobs.store(), default_author, file_key, tempfile.path(), iroh_blobs::api::blobs::ImportMode::TryReference).await.map_err(|e| miette::miette!("{e}"))?.await.map_err(|e| miette::miette!("{e}"))?;
 
-            let bytes_written = import_file_outcome.size;
-            let data_len = tempfile.as_file().metadata().into_diagnostic()?.len();
-            if bytes_written != data_len {
-                error!("[File cache commit closure] likely data loss when writing data to file (bytes written: {bytes_written}, bytes intended: {data_len})")
-            }
+                    let bytes_written = import_file_outcome.size;
+                    let data_len = tempfile.as_file().metadata().into_diagnostic()?.len();
+                    if bytes_written != data_len {
+                        error!("[File cache commit closure] likely data loss when writing data to file (bytes written: {bytes_written}, bytes intended: {data_len})")
+                    }
 
-            info!("Committed cached file (replica: {namespace_id_str}, path: {path:?}): {import_file_outcome:?}");
+                    info!("Committed cached file (replica: {namespace_id_str}, path: {path:?}): {import_file_outcome:?}");
 
-            Ok(import_file_outcome.hash)
+                    Ok(import_file_outcome.hash)
                 };
                 if let Err(e) = inner((namespace_id, path.clone()), v, cause).await {
                     let namespace_id_str = crate::fs::util::fmt(namespace_id);
@@ -188,7 +171,6 @@ impl OkuFs {
             .time_to_live(Duration::from_secs(5))
             .eviction_policy(EvictionPolicy::lru())
             .async_eviction_listener(eviction_listener)
-            // .eviction_listener(sync_eviction_listener)
             .build();
 
         let oku_core = Self {
@@ -198,6 +180,8 @@ impl OkuFs {
             router,
             replica_sender,
             okunet_fetch_sender,
+            okunet_post_sender,
+            okunet_user_sender,
             #[cfg(feature = "fuse")]
             fuse_handler: DebugIgnore::from(Arc::new(DefaultFuseHandler::new())),
             #[cfg(feature = "fuse")]

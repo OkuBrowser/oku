@@ -1,3 +1,4 @@
+use glib::object::ObjectExt;
 use glib::property::PropertySet;
 use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
@@ -8,8 +9,13 @@ use glib::ParamSpec;
 use glib::ParamSpecBuilderExt;
 use glib::ParamSpecString;
 use glib::Value;
+use glib::{closure, Object};
+use gtk::glib;
+use gtk::prelude::BoxExt;
+use gtk::prelude::ListBoxRowExt;
 use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::*;
+use libadwaita::prelude::*;
 use std::cell::RefCell;
 use std::sync::LazyLock;
 
@@ -20,13 +26,21 @@ pub mod imp {
 
     #[derive(Debug, Default)]
     pub struct PostRow {
+        // Data
         pub(crate) url: RefCell<String>,
         pub(crate) title: RefCell<String>,
         pub(crate) body: RefCell<String>,
         pub(crate) tags: RefCell<Vec<String>>,
         pub(crate) author_id: RefCell<String>,
-        pub(crate) author_name: RefCell<String>,
-        pub(crate) avatar: libadwaita::Avatar,
+        pub(crate) author_name: RefCell<Option<String>>,
+        // Widgets
+        pub(crate) url_label: gtk::Label,
+        pub(crate) title_label: gtk::Label,
+        pub(crate) body_label: gtk::Label,
+        pub(crate) tags_label: gtk::Label,
+        pub(crate) author_label: gtk::Label,
+        pub(crate) author_avatar: libadwaita::Avatar,
+        pub(crate) main: gtk::Box,
     }
 
     impl PostRow {}
@@ -65,8 +79,8 @@ pub mod imp {
                     ParamSpecBoxed::builder::<Vec<String>>("tags")
                         .readwrite()
                         .build(),
-                    ParamSpecString::builder("author_id").build(),
-                    ParamSpecString::builder("author_name").build(),
+                    ParamSpecString::builder("author-id").build(),
+                    ParamSpecString::builder("author-name").build(),
                 ]
             });
             PROPERTIES.as_ref()
@@ -94,13 +108,13 @@ pub mod imp {
                             .collect(),
                     );
                 }
-                "author_id" => {
+                "author-id" => {
                     let author_id = value.get::<&str>().unwrap();
                     self.obj().set_author_id(author_id);
                 }
-                "author_name" => {
-                    let author_name = value.get::<&str>().unwrap();
-                    self.obj().set_author_name(author_name);
+                "author-name" => {
+                    let author_name = value.get::<Option<&str>>().unwrap();
+                    self.obj().set_author_name(&author_name);
                 }
                 _ => unimplemented!(),
             }
@@ -112,8 +126,8 @@ pub mod imp {
                 "title" => self.obj().title().to_value(),
                 "body" => self.obj().body().to_value(),
                 "tags" => self.obj().tags().to_value(),
-                "author_id" => self.obj().author_id().to_value(),
-                "author_name" => self.obj().author_name().to_value(),
+                "author-id" => self.obj().author_id().to_value(),
+                "author-name" => self.obj().author_name().to_value(),
                 _ => unimplemented!(),
             }
         }
@@ -128,6 +142,9 @@ glib::wrapper! {
     @implements gtk::Accessible, gtk::Actionable, gtk::Buildable, gtk::ConstraintTarget;
 }
 
+unsafe impl Send for PostRow {}
+unsafe impl Sync for PostRow {}
+
 impl Default for PostRow {
     fn default() -> Self {
         glib::Object::new()
@@ -140,7 +157,54 @@ impl PostRow {
     }
 
     pub fn setup(&self) {
-        let _imp = self.imp();
+        let imp = self.imp();
+
+        imp.author_avatar.set_show_initials(true);
+        imp.author_avatar.set_size(32);
+
+        self.bind_property("title", &imp.title_label, "label")
+            .build();
+        self.bind_property("url", &imp.url_label, "label").build();
+        self.bind_property("body", &imp.body_label, "label").build();
+        let this = self.clone();
+        self.property_expression("author-name")
+            .chain_closure::<String>(closure!(
+                |_: Option<Object>, author_name: Option<String>| {
+                    match author_name {
+                        Some(x) => x,
+                        None => this.author_id(),
+                    }
+                }
+            ))
+            .bind(&imp.author_label, "label", gtk::Widget::NONE);
+        self.property_expression("tags")
+            .chain_closure::<String>(closure!(|_: Option<Object>, tags: Vec<String>| {
+                tags.join(", ")
+            }))
+            .bind(&imp.tags_label, "label", gtk::Widget::NONE);
+        let this = self.clone();
+        self.property_expression("author-name")
+            .chain_closure::<String>(closure!(
+                |_: Option<Object>, author_name: Option<String>| {
+                    match author_name {
+                        Some(x) => x,
+                        None => this.author_id(),
+                    }
+                }
+            ))
+            .bind(&imp.author_avatar, "text", gtk::Widget::NONE);
+
+        imp.main.append(&imp.title_label);
+        imp.main.append(&imp.url_label);
+        imp.main.append(&imp.author_label);
+        imp.main.append(&imp.author_avatar);
+        imp.main.append(&imp.body_label);
+        imp.main.append(&imp.tags_label);
+        imp.main.set_vexpand(true);
+        imp.main.set_hexpand(true);
+        imp.main.set_orientation(gtk::Orientation::Vertical);
+
+        self.set_child(Some(&imp.main));
     }
 
     pub fn url(&self) -> String {
@@ -158,8 +222,12 @@ impl PostRow {
     pub fn author_id(&self) -> String {
         self.imp().author_id.borrow().to_string()
     }
-    pub fn author_name(&self) -> String {
-        self.imp().author_name.borrow().to_string()
+    pub fn author_name(&self) -> Option<String> {
+        self.imp()
+            .author_name
+            .borrow()
+            .clone()
+            .map(|x| x.to_string())
     }
 
     fn set_url(&self, url: &str) {
@@ -191,9 +259,10 @@ impl PostRow {
 
         imp.author_id.replace(author_id.to_string());
     }
-    pub fn set_author_name(&self, author_name: &str) {
+    pub fn set_author_name(&self, author_name: &Option<&str>) {
         let imp = self.imp();
 
-        imp.author_name.replace(author_name.to_string());
+        imp.author_name
+            .replace(author_name.map(|x| x.to_string()).clone());
     }
 }

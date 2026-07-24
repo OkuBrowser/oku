@@ -229,6 +229,7 @@ impl OkuFs {
                 toml::to_string_pretty(&new_note).into_diagnostic()?,
             )
             .await?;
+        self.okunet_post_sender.send_replace(());
         Ok((home_replica_id, post_path, hash))
     }
 
@@ -246,7 +247,9 @@ impl OkuFs {
             .home_replica()
             .await
             .ok_or(miette::miette!("No home replica set … "))?;
-        self.delete_file(&home_replica_id, path).await
+        let deleted = self.delete_file(&home_replica_id, path).await;
+        self.okunet_post_sender.send_replace(());
+        deleted
     }
 
     /// Join a swarm to fetch the latest version of an OkuNet post.
@@ -270,7 +273,7 @@ impl OkuFs {
             .await
             .map_err(|e| miette::miette!("{}", e))?;
         let namespace_id = ticket.capability.id();
-        match self
+        let post = match self
             .fetch_file_with_ticket(&ticket, path, &Some(home_replica_filters()), &None, &None)
             .await
         {
@@ -283,7 +286,9 @@ impl OkuFs {
                 })
             }
             Err(e) => Err(miette::miette!("{}", e)),
-        }
+        };
+        self.okunet_post_sender.send_replace(());
+        post
     }
 
     /// Retrieves an OkuNet post from the database, or from the mainline DHT if not found locally.

@@ -48,7 +48,7 @@ impl BrowserDatabase {
     pub fn search(
         &self,
         query_string: String,
-        favicon_database: &FaviconDatabase,
+        favicon_database: &Option<FaviconDatabase>,
     ) -> miette::Result<Vec<SuggestionItem>> {
         let history_records = Self::search_history_records(query_string.clone(), None)?;
         let bookmarks = Self::search_bookmarks(query_string.clone(), None)?;

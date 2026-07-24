@@ -167,7 +167,7 @@ impl Window {
         }
         if let Some(node) = NODE.get() {
             if let Ok(mut replicas) = node.list_replicas().await {
-                let _home_replica = node.home_replica().await;
+                let _home_replica = node.home_replica().await; // To create the home replica if it doesn't exist yet
                 let replicas_store = self.replicas_store();
                 let old_store = replicas_store.snapshot();
                 for (item_index, item) in old_store
@@ -279,7 +279,16 @@ impl Window {
             move |bookmarks_model| {
                 if let Some(item) = bookmarks_model.selected_item() {
                     let bookmarks_item = item.downcast_ref::<BookmarkItem>().unwrap();
-                    let new_view = this.new_tab_page(&web_context, None, None).0;
+                    let new_view = this
+                        .new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                            web_context: &web_context,
+                            related_view: None,
+                            initial_request: None,
+                        })))
+                        .as_web()
+                        .expect("New tab to be Web tab")
+                        .web_view
+                        .clone();
                     new_view.load_uri(&bookmarks_item.url());
                     imp.bookmarks_model.unselect_all();
                 }
@@ -477,7 +486,16 @@ impl Window {
                 move |bookmarks_filter_selection_model| {
                     if let Some(item) = bookmarks_filter_selection_model.selected_item() {
                         let bookmarks_item = item.downcast_ref::<BookmarkItem>().unwrap();
-                        let new_view = this.new_tab_page(&web_context, None, None).0;
+                        let new_view = this
+                            .new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                                web_context: &web_context,
+                                related_view: None,
+                                initial_request: None,
+                            })))
+                            .as_web()
+                            .expect("New tab to be Web tab")
+                            .web_view
+                            .clone();
                         new_view.load_uri(&bookmarks_item.url());
                         bookmarks_filter_selection_model.unselect_all();
                     }
@@ -576,7 +594,16 @@ impl Window {
             move |history_model| {
                 if let Some(item) = history_model.selected_item() {
                     let history_item = item.downcast_ref::<HistoryItem>().unwrap();
-                    let new_view = this.new_tab_page(&web_context, None, None).0;
+                    let new_view = this
+                        .new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                            web_context: &web_context,
+                            related_view: None,
+                            initial_request: None,
+                        })))
+                        .as_web()
+                        .expect("New tab to be Web tab")
+                        .web_view
+                        .clone();
                     new_view.load_uri(&history_item.uri());
                     history_model.unselect_all();
                 }
@@ -742,7 +769,16 @@ impl Window {
                 move |history_filter_selection_model| {
                     if let Some(item) = history_filter_selection_model.selected_item() {
                         let history_item = item.downcast_ref::<HistoryItem>().unwrap();
-                        let new_view = this.new_tab_page(&web_context, None, None).0;
+                        let new_view = this
+                            .new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                                web_context: &web_context,
+                                related_view: None,
+                                initial_request: None,
+                            })))
+                            .as_web()
+                            .expect("New tab to be Web tab")
+                            .web_view
+                            .clone();
                         new_view.load_uri(&history_item.uri());
                         history_filter_selection_model.unselect_all();
                     }

@@ -89,6 +89,7 @@ impl OkuFs {
                 .map_err(|e| miette::miette!("{}", e))?,
             _ => (),
         }
+        self.okunet_user_sender.send_replace(());
         Ok(())
     }
 
@@ -158,6 +159,7 @@ impl OkuFs {
             .await
             .map_err(|e| miette::miette!(e))?;
         self.replica_sender.send_replace(());
+        self.okunet_user_sender.send_replace(());
         debug!(
             "Created home replica for author with ID {} … ",
             crate::fs::util::fmt_short(author.id())
@@ -226,15 +228,18 @@ impl OkuFs {
             .copied()
             .collect();
 
-        self.create_or_replace_file(
-            &self
-                .home_replica()
-                .await
-                .ok_or(miette::miette!("No home replica set … "))?,
-            &"/profile.toml".into(),
-            toml::to_string_pretty(&validated_identity).into_diagnostic()?,
-        )
-        .await
+        let hash = self
+            .create_or_replace_file(
+                &self
+                    .home_replica()
+                    .await
+                    .ok_or(miette::miette!("No home replica set … "))?,
+                &"/profile.toml".into(),
+                toml::to_string_pretty(&validated_identity).into_diagnostic()?,
+            )
+            .await;
+        self.okunet_user_sender.send_replace(());
+        hash
     }
 
     /// Replaces the current display name of the local user.
@@ -456,6 +461,7 @@ impl OkuFs {
             }
         }
         DATABASE.delete_by_author_ids(&Vec::from_par_iter(users_to_delete))?;
+        self.okunet_user_sender.send_replace(());
         Ok(())
     }
 
@@ -490,6 +496,7 @@ impl OkuFs {
             }
         }
         DATABASE.delete_by_author_ids(&Vec::from_par_iter(users_to_delete))?;
+        self.okunet_user_sender.send_replace(());
         Ok(())
     }
 
@@ -521,7 +528,7 @@ impl OkuFs {
     ///
     /// The OkuNet identity within the home replica of the user with the given content authorship ID.
     pub async fn fetch_profile(&self, ticket: &DocTicket) -> miette::Result<OkuIdentity> {
-        match self
+        let identity = match self
             .fetch_file_with_ticket(
                 ticket,
                 &"/profile.toml".into(),
@@ -536,7 +543,9 @@ impl OkuFs {
             )
             .into_diagnostic()?),
             Err(e) => Err(miette::miette!("{}", e)),
-        }
+        };
+        self.okunet_user_sender.send_replace(());
+        identity
     }
 
     /// Join a swarm to fetch the latest version of a home replica and obtain the OkuNet posts within it.
@@ -549,7 +558,7 @@ impl OkuFs {
     ///
     /// The OkuNet posts within the home replica of the user with the given content authorship ID.
     pub async fn fetch_posts(&self, ticket: &DocTicket) -> miette::Result<Vec<OkuPost>> {
-        match self
+        let posts = match self
             .fetch_directory_with_ticket(
                 ticket,
                 Path::new("/posts/"),
@@ -574,7 +583,10 @@ impl OkuFs {
                 Ok(posts)
             }
             Err(e) => Err(miette::miette!("{}", e)),
-        }
+        };
+        self.okunet_user_sender.send_replace(());
+        self.okunet_post_sender.send_replace(());
+        posts
     }
 
     /// Obtain an OkuNet user's content, identified by their content authorship ID.

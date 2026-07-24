@@ -47,8 +47,8 @@ pub mod imp {
                     ParamSpecBoxed::builder::<Vec<String>>("tags")
                         .readwrite()
                         .build(),
-                    ParamSpecString::builder("author_id").readwrite().build(),
-                    ParamSpecString::builder("author_name").readwrite().build(),
+                    ParamSpecString::builder("author-id").readwrite().build(),
+                    ParamSpecString::builder("author-name").readwrite().build(),
                 ]
             });
             PROPERTIES.as_ref()
@@ -79,12 +79,12 @@ pub mod imp {
                             .collect(),
                     );
                 }
-                "author_id" => {
+                "author-id" => {
                     let author_id = value.get::<String>().unwrap();
                     self.author_id
                         .set(html_escape::encode_text(&author_id).to_string());
                 }
-                "author_name" => {
+                "author-name" => {
                     let author_name = value.get::<Option<String>>().ok().flatten();
                     match author_name {
                         Some(x) => self
@@ -104,8 +104,8 @@ pub mod imp {
                 "title" => obj.title().to_value(),
                 "body" => obj.body().to_value(),
                 "tags" => obj.tags().to_value(),
-                "author_id" => obj.author_id().to_value(),
-                "author_name" => obj.author_name().to_value(),
+                "author-id" => obj.author_id().to_value(),
+                "author-name" => obj.author_name().to_value(),
                 _ => unimplemented!(),
             }
         }
@@ -129,8 +129,8 @@ impl From<&OkuPost> for PostItem {
                 "tags",
                 value.note.tags.clone().into_iter().collect::<Vec<String>>(),
             )
-            .property("author_id", oku_core::fs::util::fmt(value.entry.author()))
-            .property("author_name", value.user().identity.map(|x| x.name))
+            .property("author-id", oku_core::fs::util::fmt(value.entry.author()))
+            .property("author-name", value.user().identity.map(|x| x.name))
             .build()
     }
 }
@@ -173,8 +173,8 @@ impl PostItem {
                     "tags",
                     &post.note.tags.clone().into_iter().collect::<Vec<String>>(),
                 ),
-                ("author_id", &oku_core::fs::util::fmt(post.entry.author())),
-                ("author_name", &post.user().identity.map(|x| x.name)),
+                ("author-id", &oku_core::fs::util::fmt(post.entry.author())),
+                ("author-name", &post.user().identity.map(|x| x.name)),
             ]);
         });
     }

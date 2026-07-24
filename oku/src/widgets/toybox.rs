@@ -185,7 +185,12 @@ impl Toybox {
         this.setup_recommendations(&window);
 
         let uri = window
-            .and_then(|x| x.get_view().uri().map(|y| y.to_string()))
+            .and_then(|x| {
+                x.get_view()
+                    .map(|x| x.uri().map(|y| y.to_string()))
+                    .ok()
+                    .flatten()
+            })
             .unwrap_or("about:blank".into());
         this.set_property("uri", uri);
 

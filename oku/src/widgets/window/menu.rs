@@ -114,6 +114,10 @@ impl Window {
             self,
             move |_| {
                 let web_view = this.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 let current_zoom_level = web_view.zoom_level();
                 web_view.set_zoom_level(current_zoom_level + 0.1);
             }
@@ -121,6 +125,10 @@ impl Window {
         let action_zoom_in = gio::ActionEntry::builder("zoom-in")
             .activate(move |window: &Self, _, _| {
                 let web_view = window.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 let current_zoom_level = web_view.zoom_level();
                 web_view.set_zoom_level(current_zoom_level + 0.1);
             })
@@ -133,6 +141,10 @@ impl Window {
             self,
             move |_| {
                 let web_view = this.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 let current_zoom_level = web_view.zoom_level();
                 web_view.set_zoom_level(current_zoom_level - 0.1);
             }
@@ -140,6 +152,10 @@ impl Window {
         let action_zoom_out = gio::ActionEntry::builder("zoom-out")
             .activate(move |window: &Self, _, _| {
                 let web_view = window.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 let current_zoom_level = web_view.zoom_level();
                 web_view.set_zoom_level(current_zoom_level - 0.1);
             })
@@ -152,12 +168,20 @@ impl Window {
             self,
             move |_| {
                 let web_view = this.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 web_view.set_zoom_level(1.0);
             }
         ));
         let action_reset_zoom = gio::ActionEntry::builder("reset-zoom")
             .activate(move |window: &Self, _, _| {
                 let web_view = window.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 web_view.set_zoom_level(1.0);
             })
             .build();
@@ -211,6 +235,10 @@ impl Window {
             self,
             move |_print_button| {
                 let web_view = this.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 web_view.evaluate_javascript(
                     "window.print();",
                     None,
@@ -226,6 +254,10 @@ impl Window {
                     return;
                 }
                 let web_view = window.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 web_view.evaluate_javascript(
                     "window.print();",
                     None,
@@ -243,6 +275,10 @@ impl Window {
             self,
             move |_| {
                 let web_view = this.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 let dialog = libadwaita::AlertDialog::new(
                     Some("Take a screenshot?"),
                     Some("Do you wish to save a screenshot of the current page?"),
@@ -336,6 +372,10 @@ impl Window {
                         return;
                     }
                     let web_view = window.get_view();
+                    if web_view.is_err() {
+                        return;
+                    }
+                    let web_view = web_view.expect("Web view exists");
                     let dialog = libadwaita::AlertDialog::new(
                         Some("Take a screenshot?"),
                         Some("Do you wish to save a screenshot of the current page?"),

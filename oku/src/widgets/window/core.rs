@@ -2,6 +2,8 @@ use crate::config::Config;
 use crate::database::DATABASE;
 use crate::widgets::address_entry::AddressEntry;
 use crate::widgets::settings::core::apply_appearance_config;
+use crate::widgets::window::NewTabArguments;
+use crate::NewWebTabArguments;
 use crate::{APP_ID, HOME_REPLICA_SET, NODE};
 use glib::clone;
 use gtk::prelude::GtkWindowExt;
@@ -255,8 +257,7 @@ impl Window {
         this.setup_config(&style_manager);
 
         if imp.tab_view.n_pages() == 0 {
-            let initial_web_view = this.new_tab_page(web_context, None, None).0;
-            initial_web_view.load_uri("oku:home");
+            this.new_tab(&Some(&NewTabArguments::OkuNet));
         }
 
         this.present();
@@ -348,8 +349,8 @@ impl Window {
                 if window.imp().tab_view.n_pages() == 0 {
                     return;
                 }
-                let web_view = window.get_view();
-                if let Some(inspector) = web_view.inspector() {
+                let web_view = window.get_view().ok();
+                if let Some(inspector) = web_view.and_then(|x| x.inspector()) {
                     inspector.show()
                 }
             }))
@@ -372,7 +373,18 @@ impl Window {
                             window,
                             move |destination| {
                                 if let Ok(destination) = destination {
-                                    let new_view = window.new_tab_page(&web_context, None, None).0;
+                                    let new_view = window
+                                        .new_tab(&Some(&NewTabArguments::Web(
+                                            &NewWebTabArguments {
+                                                web_context: &web_context,
+                                                related_view: None,
+                                                initial_request: None,
+                                            },
+                                        )))
+                                        .as_web()
+                                        .expect("New tab to be Web tab")
+                                        .web_view
+                                        .clone();
                                     new_view.load_uri(&format!(
                                         "file://{}",
                                         destination.path().unwrap().to_str().unwrap()
@@ -392,6 +404,10 @@ impl Window {
                     return;
                 }
                 let web_view = window.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 let dialog = libadwaita::AlertDialog::new(
                     Some("Save page?"),
                     Some(&format!(
@@ -502,8 +518,22 @@ impl Window {
                 #[weak]
                 web_context,
                 move |window: &Self, _, _| {
+                    // TODO: fix duplicating non-Web tabs
                     let web_view = window.get_view();
-                    let new_view = window.new_tab_page(&web_context, None, None).0;
+                    if web_view.is_err() {
+                        return;
+                    }
+                    let web_view = web_view.expect("Web view exists");
+                    let new_view = window
+                        .new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                            web_context: &web_context,
+                            related_view: None,
+                            initial_request: None,
+                        })))
+                        .as_web()
+                        .expect("New tab to be Web tab")
+                        .web_view
+                        .clone();
                     new_view.load_uri(&web_view.uri().unwrap_or("oku:home".into()))
                 }
             ))
@@ -628,11 +658,13 @@ impl Window {
         match self.is_fullscreen() {
             true => {
                 let this = self.clone();
-                glib::spawn_future_local(this.get_view().evaluate_javascript_future(
-                    "document.exitFullscreen();",
-                    None,
-                    None,
-                ));
+                if let Ok(web_view) = this.get_view() {
+                    glib::spawn_future_local(web_view.evaluate_javascript_future(
+                        "document.exitFullscreen();",
+                        None,
+                        None,
+                    ));
+                };
                 self.set_fullscreened(false);
             }
             false => {

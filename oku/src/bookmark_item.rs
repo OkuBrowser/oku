@@ -139,17 +139,19 @@ impl BookmarkItem {
                     &bookmark.tags.clone().into_iter().collect::<Vec<_>>(),
                 ),
             ]);
-            favicon_database.favicon(
-                &bookmark.url,
-                Some(&gio::Cancellable::new()),
-                clone!(
-                    #[weak]
-                    this,
-                    move |favicon_result| {
-                        this.set_property("favicon", favicon_result.ok());
-                    }
-                ),
-            );
+            if let Some(favicon_database) = favicon_database {
+                favicon_database.favicon(
+                    &bookmark.url,
+                    Some(&gio::Cancellable::new()),
+                    clone!(
+                        #[weak]
+                        this,
+                        move |favicon_result| {
+                            this.set_property("favicon", favicon_result.ok());
+                        }
+                    ),
+                );
+            }
         });
     }
     pub fn new(
@@ -157,7 +159,7 @@ impl BookmarkItem {
         title: String,
         body: String,
         tags: HashSet<String>,
-        favicon_database: &webkit2gtk::FaviconDatabase,
+        favicon_database: &Option<webkit2gtk::FaviconDatabase>,
     ) -> Self {
         let bookmark_item = glib::Object::builder::<Self>()
             .property("url", url.clone())
@@ -166,17 +168,19 @@ impl BookmarkItem {
             .property("tags", tags.into_iter().collect::<Vec<_>>())
             .build();
 
-        favicon_database.favicon(
-            &url,
-            Some(&gio::Cancellable::new()),
-            clone!(
-                #[weak]
-                bookmark_item,
-                move |favicon_result| {
-                    bookmark_item.set_property("favicon", favicon_result.ok());
-                }
-            ),
-        );
+        if let Some(favicon_database) = favicon_database {
+            favicon_database.favicon(
+                &url,
+                Some(&gio::Cancellable::new()),
+                clone!(
+                    #[weak]
+                    bookmark_item,
+                    move |favicon_result| {
+                        bookmark_item.set_property("favicon", favicon_result.ok());
+                    }
+                ),
+            );
+        }
 
         bookmark_item
     }

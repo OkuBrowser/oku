@@ -267,8 +267,16 @@ impl NoteEditor {
             this.set_tags(bookmark.tags.into_iter().collect());
         } else if let Some(window) = window {
             let view = window.get_view();
-            let url = view.uri().unwrap_or_default().to_string();
-            let title = view.title().unwrap_or_default().to_string();
+            let url = view
+                .as_ref()
+                .map(|x| x.uri().unwrap_or_default())
+                .unwrap_or_default()
+                .to_string();
+            let title = view
+                .as_ref()
+                .map(|x| x.title().unwrap_or_default())
+                .unwrap_or_default()
+                .to_string();
             imp.url_entry.set_text(&url);
             imp.title_entry.set_text(&title);
 
@@ -467,6 +475,8 @@ impl NoteEditor {
 
         imp.tag_view.set_model(Some(&imp.tag_model));
         imp.tag_view.set_factory(Some(&imp.tag_factory));
+        imp.tag_view
+            .set_layout_manager(Some(libadwaita::WrapLayout::new()));
         imp.tag_view.set_enable_rubberband(false);
         imp.tag_view
             .set_hscroll_policy(gtk::ScrollablePolicy::Minimum);
@@ -477,8 +487,6 @@ impl NoteEditor {
         imp.tag_view.add_css_class("navigation-sidebar");
 
         imp.tag_scrolled_window.set_child(Some(&imp.tag_view));
-        imp.tag_scrolled_window
-            .set_hscrollbar_policy(gtk::PolicyType::Never);
         imp.tag_scrolled_window.set_propagate_natural_height(true);
         imp.tag_scrolled_window.set_propagate_natural_width(true);
 

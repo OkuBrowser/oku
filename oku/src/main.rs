@@ -15,7 +15,8 @@ pub mod suggestion_item;
 pub mod vox_providers;
 pub mod widgets;
 pub mod window_util;
-
+use crate::widgets::window::NewTabArguments;
+use crate::widgets::window::NewWebTabArguments;
 use database::DATABASE;
 use directories_next::ProjectDirs;
 use env_logger::Builder;
@@ -304,9 +305,18 @@ async fn main() {
             files.dedup_by_key(|x| x.uri());
             for (file_index, file) in files.iter().enumerate() {
                 let new_view = if file_index == 0 {
-                    new_window.get_view()
+                    new_window.get_or_create_view()
                 } else {
-                    new_window.new_tab_page(&web_context, None, None).0
+                    new_window
+                        .new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                            web_context: &web_context,
+                            related_view: None,
+                            initial_request: None,
+                        })))
+                        .as_web()
+                        .expect("New tab to be Web tab")
+                        .web_view
+                        .clone()
                 };
                 new_view.load_uri(&file.uri());
             }
@@ -369,7 +379,9 @@ async fn main() {
 
     let _ = shutdown_recv.recv().await;
     if let Some(mount_handle) = mount_handle {
-        mount_handle.join();
+        if let Err(e) = mount_handle.join() {
+            error!("{e}");
+        }
     }
     ipfs.exit_daemon().await;
     application.quit();

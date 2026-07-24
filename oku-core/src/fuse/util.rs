@@ -189,7 +189,9 @@ impl OkuFs {
             let fs_entry_type = self.is_file_or_directory(path).await?;
             match fs_entry_type {
                 RegularFile => {
-                    let file_entry = self.get_entry(&namespace_id, &replica_path).await?;
+                    let file_size = self.get_file_size(&namespace_id, &replica_path).await?;
+                    let last_modified =
+                        self.get_last_modified(&namespace_id, &replica_path).await?;
                     let estimated_creation_time = SystemTime::from(
                         chrono::Utc.timestamp_nanos(
                             (self
@@ -200,12 +202,13 @@ impl OkuFs {
                         ),
                     );
                     Ok(FileAttribute {
-                        size: file_entry.content_len(),
-                        blocks: file_entry.content_len() / 512,
+                        size: file_size,
+                        blocks: file_size / 512,
                         atime: SystemTime::now(),
-                        mtime: SystemTime::from(chrono::Utc.timestamp_nanos(
-                            (file_entry.timestamp() * 1000).try_into().unwrap_or(0),
-                        )),
+                        mtime: SystemTime::from(
+                            chrono::Utc
+                                .timestamp_nanos((last_modified * 1_000).try_into().unwrap_or(0)),
+                        ),
                         ctime: estimated_creation_time,
                         crtime: estimated_creation_time,
                         kind: fs_entry_type,

@@ -92,25 +92,31 @@ impl SuggestionItem {
     pub fn favicon(&self) -> Option<gdk::Texture> {
         self.imp().favicon.borrow().clone()
     }
-    pub fn new(title: String, uri: String, favicon_database: &webkit2gtk::FaviconDatabase) -> Self {
+    pub fn new(
+        title: String,
+        uri: String,
+        favicon_database: &Option<webkit2gtk::FaviconDatabase>,
+    ) -> Self {
         let suggestion_item = glib::Object::builder::<Self>()
             .property("title", title)
             .property("uri", uri.clone())
             .build();
 
-        favicon_database.favicon(
-            &uri,
-            Some(&gio::Cancellable::new()),
-            clone!(
-                #[weak]
-                suggestion_item,
-                move |favicon_result| {
-                    if let Ok(favicon) = favicon_result {
-                        suggestion_item.set_property("favicon", favicon);
+        if let Some(favicon_database) = favicon_database {
+            favicon_database.favicon(
+                &uri,
+                Some(&gio::Cancellable::new()),
+                clone!(
+                    #[weak]
+                    suggestion_item,
+                    move |favicon_result| {
+                        if let Ok(favicon) = favicon_result {
+                            suggestion_item.set_property("favicon", favicon);
+                        }
                     }
-                }
-            ),
-        );
+                ),
+            );
+        }
 
         suggestion_item
     }

@@ -46,6 +46,10 @@ impl Window {
             self,
             move |find_search_entry| {
                 let web_view = this.get_view();
+                if web_view.is_err() {
+                    return;
+                }
+                let web_view = web_view.expect("Web view exists");
                 let find_controller = web_view.find_controller().unwrap();
                 let find_options = this.get_find_options();
                 find_controller.search(&find_search_entry.text(), find_options.bits(), u32::MAX);

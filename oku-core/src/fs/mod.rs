@@ -45,9 +45,12 @@ pub struct OkuFs {
     pub(crate) blobs: BlobsProtocol,
     pub(crate) docs: Docs,
     pub(crate) router: iroh::protocol::Router,
-    /// An Iroh node responsible for storing replicas on the local machine, as well as joining swarms to fetch replicas from other nodes.
     /// A watcher for when replicas are created, deleted, or imported.
     pub replica_sender: Sender<()>,
+    /// A watcher for when OkuNet posts are created, deleted, or modified.
+    pub okunet_post_sender: Sender<()>,
+    /// A watcher for when OkuNet user records are created, deleted, or modified.
+    pub okunet_user_sender: Sender<()>,
     /// A watcher for whether or not content is being fetched from the OkuNet.
     pub okunet_fetch_sender: Sender<bool>,
     #[cfg(feature = "fuse")]

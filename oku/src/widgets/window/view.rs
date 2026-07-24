@@ -130,30 +130,29 @@ impl Window {
     }
 
     /// Get the WebKit instance for the current tab
-    pub fn get_view(&self) -> webkit2gtk::WebView {
+    pub fn get_view(&self) -> miette::Result<webkit2gtk::WebView> {
         let imp = self.imp();
 
         if let Some(current_page) = imp.tab_view.selected_page() {
             let current_page_number = imp.tab_view.page_position(&current_page);
             let specific_page = imp.tab_view.nth_page(current_page_number);
-            specific_page
-                .child()
-                .downcast::<gtk::Overlay>()
-                .unwrap()
-                .child()
-                .unwrap()
-                .downcast()
-                .unwrap()
+            get_view_from_page(&specific_page).map(|x| x.1)
         } else {
+            Err(miette::miette!("No current tab page"))
+        }
+    }
+
+    pub fn get_or_create_view(&self) -> webkit2gtk::WebView {
+        self.get_view().unwrap_or({
             let web_view = webkit2gtk::WebView::new();
             web_view.load_uri("oku:home");
             web_view
-        }
+        })
     }
 
     pub async fn get_data(&self) -> miette::Result<Vec<u8>> {
         let resource = Resource(
-            self.get_view()
+            self.get_view()?
                 .main_resource()
                 .ok_or(miette::miette!("No resource loaded to view source of … "))?,
         );
@@ -163,14 +162,15 @@ impl Window {
             .map_err(|e| miette::miette!("{}", e))
     }
 
-    pub fn favicon_database(&self) -> FaviconDatabase {
+    pub fn favicon_database(&self) -> Option<FaviconDatabase> {
         self.get_view()
-            .network_session()
-            .unwrap()
-            .website_data_manager()
-            .unwrap()
-            .favicon_database()
-            .unwrap()
+            .ok()
+            .and_then(|x| {
+                x.network_session()
+                    .map(|y| y.website_data_manager().map(|z| z.favicon_database()))
+            })
+            .flatten()
+            .flatten()
     }
 
     /// Create a new WebKit instance for the current tab
@@ -261,7 +261,13 @@ impl Window {
                     .build();
                 this.add_action_entries([action_close_tab]);
 
-                let (new_view_overlay, new_view) = get_view_from_page(new_page);
+                let view_from_page = get_view_from_page(new_page);
+                if view_from_page.is_err() {
+                    return;
+                }
+
+                let (new_view_overlay, new_view) =
+                    view_from_page.expect("View extracted from tab page");
                 let find_controller = new_view.find_controller().unwrap();
 
                 let found_text = RefCell::new(Some(find_controller.connect_found_text(clone!(
@@ -322,12 +328,15 @@ impl Window {
                     move |w, navigation_action| {
                         let navigation_action = navigation_action.clone();
                         let new_related_view = this
-                            .new_tab_page(
-                                &web_context,
-                                Some(w),
-                                navigation_action.request().as_ref(),
-                            )
-                            .0;
+                            .new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                                web_context: &web_context,
+                                related_view: Some(w),
+                                initial_request: navigation_action.request().as_ref(),
+                            })))
+                            .as_web()
+                            .expect("New tab to be Web tab")
+                            .web_view
+                            .clone();
                         Some(new_related_view.into())
                     }
                 ))));
@@ -400,7 +409,7 @@ impl Window {
                             false => this.set_title(Some(&title)),
                         }
                         update_favicon(tab_view, w);
-                        if this.get_view() == *w {
+                        if this.get_view().ok().as_ref() == Some(w) {
                             back_button.set_sensitive(w.can_go_back());
                             forward_button.set_sensitive(w.can_go_forward());
                         }
@@ -492,7 +501,7 @@ impl Window {
                         #[weak]
                         this,
                         move |w| {
-                            if this.get_view() == *w {
+                            if this.get_view().ok().as_ref() == Some(w) {
                                 zoom_percentage.set_text(&format!("{:.0}%", w.zoom_level() * 100.0))
                             }
                         }
@@ -509,7 +518,7 @@ impl Window {
                     #[weak]
                     this,
                     move |w| {
-                        if this.get_view() == *w {
+                        if this.get_view().ok().as_ref() == Some(w) {
                             update_nav_bar(&nav_entry, w);
                             back_button.set_sensitive(w.can_go_back());
                             forward_button.set_sensitive(w.can_go_forward());
@@ -528,7 +537,7 @@ impl Window {
                         move |w| {
                             let current_page = tab_view.page(w.parent().as_ref().unwrap());
                             current_page.set_loading(w.is_loading());
-                            if this.get_view() == *w {
+                            if this.get_view().ok().as_ref() == Some(w) {
                                 this.update_load_progress(w);
                                 if current_page.is_loading() {
                                     refresh_button.set_icon_name("cross-large-symbolic")
@@ -553,7 +562,7 @@ impl Window {
                         move |w| {
                             let current_page = tab_view.page(w.parent().as_ref().unwrap());
                             current_page.set_loading(w.is_loading());
-                            if this.get_view() == *w {
+                            if this.get_view().ok().as_ref() == Some(w) {
                                 if current_page.is_loading() {
                                     refresh_button.set_icon_name("cross-large-symbolic");
                                     progress_bar.pulse()
@@ -568,7 +577,12 @@ impl Window {
                     #[weak]
                     new_view,
                     move |_, old_page, _page_position| {
-                        let (_old_view_overlay, old_view) = get_view_from_page(old_page);
+                        let view_from_page = get_view_from_page(old_page);
+                        if view_from_page.is_err() {
+                            return;
+                        }
+                        let (_old_view_overlay, old_view) =
+                            view_from_page.expect("View extracted from tab page");
                         if old_view != new_view {
                             // When a page is disconnected from a window, the detached handler runs for all pages in the window.
                             // If we don't stop here, the browser will crash as we'll be disconnecting handlers for unrelated pages that weren't detached.
