@@ -1,4 +1,4 @@
-use crate::fs::watch::ReplicaEvent;
+use crate::fs::watch::{OkuNetPostEvent, ReplicaEvent};
 #[cfg(feature = "fuse")]
 use debug_ignore::DebugIgnore;
 #[cfg(feature = "fuse")]
@@ -51,7 +51,7 @@ pub struct OkuFs {
     /// A watcher for when replicas are created, deleted, or imported.
     pub replica_sender: Sender<ReplicaEvent>,
     /// A watcher for when OkuNet posts are created, deleted, or modified.
-    pub okunet_post_sender: Sender<()>,
+    pub okunet_post_sender: Sender<OkuNetPostEvent>,
     /// A watcher for when OkuNet user records are created, deleted, or modified.
     pub okunet_user_sender: Sender<()>,
     /// A watcher for whether or not content is being fetched from the OkuNet.

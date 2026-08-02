@@ -5,7 +5,7 @@ use crate::{
         posts::core::{OkuNote, OkuPost},
         users::OkuUser,
     },
-    fs::OkuFs,
+    fs::{watch::OkuNetPostEvent, OkuFs},
 };
 use dashmap::DashMap;
 use iroh_blobs::Hash;
@@ -223,7 +223,12 @@ impl OkuFs {
                 toml::to_string_pretty(&new_note).into_diagnostic()?,
             )
             .await?;
-        self.okunet_post_sender.send_replace(());
+        let post = OkuPost {
+            entry: self.get_entry(&home_replica_id, &post_path).await?,
+            note: new_note,
+        };
+        self.okunet_post_sender
+            .send_replace(OkuNetPostEvent::Written(post));
         Ok((home_replica_id, post_path, hash))
     }
 
@@ -238,8 +243,17 @@ impl OkuFs {
     /// The number of entries deleted in the replica, which should be 1 if the file was successfully deleted.
     pub async fn delete_post(&self, path: &PathBuf) -> miette::Result<usize> {
         let home_replica_id = self.home_replica(&None).await;
+        let note = {
+            let bytes = self.read_file(&home_replica_id, path, &None, &None).await?;
+            toml::from_str::<OkuNote>(String::from_utf8_lossy(&bytes).as_ref()).into_diagnostic()?
+        };
+        let post = OkuPost {
+            entry: self.get_entry(&home_replica_id, path).await?,
+            note,
+        };
         let deleted = self.delete_file(&home_replica_id, path).await;
-        self.okunet_post_sender.send_replace(());
+        self.okunet_post_sender
+            .send_replace(OkuNetPostEvent::Deleted(post));
         deleted
     }
 
@@ -271,14 +285,16 @@ impl OkuFs {
             Ok(bytes) => {
                 let note = toml::from_str::<OkuNote>(String::from_utf8_lossy(&bytes).as_ref())
                     .into_diagnostic()?;
-                Ok(OkuPost {
+                let post = OkuPost {
                     entry: self.get_entry(&namespace_id, path).await?,
                     note,
-                })
+                };
+                self.okunet_post_sender
+                    .send_replace(OkuNetPostEvent::Synced(post.clone()));
+                Ok(post)
             }
             Err(e) => Err(miette::miette!("{}", e)),
         };
-        self.okunet_post_sender.send_replace(());
         post
     }
 

@@ -1,5 +1,9 @@
 use super::*;
-use crate::{config::OkuFsConfig, error::OkuFsError, fs::util::path_to_entry_key};
+use crate::{
+    config::OkuFsConfig,
+    error::OkuFsError,
+    fs::{util::path_to_entry_key, watch::OkuNetPostEvent},
+};
 use bytes::Bytes;
 use iroh::protocol::ProtocolHandler;
 #[cfg(feature = "persistent")]
@@ -94,7 +98,8 @@ impl OkuFs {
 
         let (replica_sender, _replica_receiver) = watch::channel(ReplicaEvent::Initialised);
         let (okunet_fetch_sender, _okunet_fetch_receiver) = watch::channel(false);
-        let (okunet_post_sender, _okunet_post_receiver) = watch::channel(());
+        let (okunet_post_sender, _okunet_post_receiver) =
+            watch::channel(OkuNetPostEvent::Initialised);
         let (okunet_user_sender, _okunet_user_receiver) = watch::channel(());
 
         let docs_client = docs.clone();

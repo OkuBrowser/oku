@@ -1,7 +1,6 @@
 use crate::okunet::items::post_item::PostItem;
 use crate::window_util::get_view_stack_page_by_name;
 use crate::NODE;
-use gio::prelude::ListModelExtManual;
 use glib::clone;
 use glib::closure;
 use glib::object::Cast;
@@ -9,9 +8,6 @@ use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassExt;
 use glib::subclass::types::ObjectSubclassIsExt;
-use rayon::iter::FromParallelIterator;
-use rayon::prelude::ParallelSliceMut;
-
 use glib::Object;
 use gtk::prelude::BoxExt;
 use gtk::prelude::GObjectPropertyExpressionExt;
@@ -24,11 +20,13 @@ use gtk::{gio, glib};
 use libadwaita::prelude::*;
 use log::error;
 use log::info;
+use oku_core::fs::watch::OkuNetPostEvent;
 use std::cell::Cell;
 use std::cell::Ref;
 use std::cell::RefCell;
-use std::cmp::Reverse;
 use std::rc::Rc;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 pub mod imp {
     use super::*;
@@ -103,17 +101,18 @@ impl Net {
 
     pub async fn watch_posts(&self) {
         if let Some(node) = NODE.get() {
+            self.setup_posts().await;
             self.imp().posts_initialised.set(true);
             let mut post_rx = node.okunet_post_sender.subscribe();
             loop {
                 post_rx.borrow_and_update();
                 info!("Posts updated … ");
                 let this = self.clone();
-                tokio::spawn(async move {
-                    this.posts_updated().await;
-                });
                 match post_rx.changed().await {
-                    Ok(_) => continue,
+                    Ok(_) => {
+                        let event = post_rx.borrow_and_update().clone();
+                        tokio::spawn(async move { this.posts_updated(&event).await });
+                    }
                     Err(e) => {
                         error!("{}", e);
                         break;
@@ -137,7 +136,7 @@ impl Net {
         })
     }
 
-    pub async fn posts_updated(&self) {
+    pub async fn posts_updated(&self, event: &OkuNetPostEvent) {
         if let Some(home_page) =
             get_view_stack_page_by_name("home".to_string(), &self.imp().view_stack)
         {
@@ -147,35 +146,17 @@ impl Net {
         let node = NODE.get().expect("Node initialised");
         tokio::spawn(node.refresh_users());
 
-        let mut posts = Vec::from_par_iter(node.all_posts().await);
-        posts.par_sort_unstable_by_key(|x| Reverse(x.entry.timestamp()));
-        let posts_store = self.posts_store();
-        let old_store = posts_store.snapshot();
-        for (item_index, item) in old_store
-            .iter()
-            .filter_map(|x| x.clone().downcast::<PostItem>().ok())
-            .enumerate()
-        {
-            match posts.iter().position(|x| PostItem::from(x) == item) {
-                Some(post_index) => {
-                    let post = &posts[post_index];
-                    item.update(post.clone());
-                    posts_store.remove(post_index as u32);
-                }
-                None => posts_store.remove(item_index as u32),
-            }
-        }
         let ctx = glib::MainContext::default();
+        let changed = Arc::new(AtomicBool::new(false));
+        let changed_clone = changed.clone();
         let this = self.clone();
+        let event_clone = event.clone();
         ctx.invoke(move || {
-            let posts_store = this.posts_store();
-            for x in posts.into_iter() {
-                posts_store.append(&PostItem::new(&x));
-            }
+            changed_clone.store(
+                this.handle_post_event(&event_clone),
+                std::sync::atomic::Ordering::Relaxed,
+            );
         });
-
-        let items_changed =
-            self.imp().posts_initialised.get() && old_store != posts_store.snapshot();
 
         if let Some(home_page) =
             get_view_stack_page_by_name("home".to_string(), &self.imp().view_stack)
@@ -188,7 +169,10 @@ impl Net {
                     &self.imp().view_stack,
             ), Some(x) if x == home_page)
             {
-                home_page.set_needs_attention(home_page.needs_attention() || items_changed);
+                home_page.set_needs_attention(
+                    home_page.needs_attention()
+                        || changed.load(std::sync::atomic::Ordering::Relaxed),
+                );
             }
 
             home_page.child().set_sensitive(true);

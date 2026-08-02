@@ -2,14 +2,12 @@ use crate::fs::util::{path_to_entry_key, path_to_entry_prefix};
 use iroh_docs::store::FilterKind;
 use iroh_docs::Author;
 use iroh_docs::DocTicket;
-use iroh_docs::NamespaceId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 /// An Oku user's credentials, which are sensitive, exported from a node, able to be imported into another.
 pub struct ExportedUser {
     pub(crate) author: Author,
-    pub(crate) home_replica: NamespaceId,
     pub(crate) home_replica_ticket: Option<DocTicket>,
 }
 

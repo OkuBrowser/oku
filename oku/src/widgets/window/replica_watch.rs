@@ -126,7 +126,6 @@ impl Window {
         // Add all replicas
         if let Some(node) = NODE.get() {
             if let Ok(replicas) = node.list_replicas().await {
-                let _home_replica = node.home_replica(&None).await; // To create the home replica if it doesn't exist yet
                 let ctx = glib::MainContext::default();
                 let this = self.clone();
                 ctx.invoke(move || {

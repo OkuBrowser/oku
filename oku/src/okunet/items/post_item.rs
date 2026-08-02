@@ -11,6 +11,7 @@ use glib::ParamSpec;
 use glib::ParamSpecBoxed;
 use glib::ParamSpecBuilderExt;
 use glib::ParamSpecString;
+use glib::ParamSpecUInt64;
 use glib::Value;
 use oku_core::database::posts::core::OkuPost;
 use std::cell::RefCell;
@@ -18,7 +19,6 @@ use std::sync::LazyLock;
 use webkit2gtk::functions::uri_for_display;
 
 pub mod imp {
-
     use super::*;
 
     #[derive(Default, Debug)]
@@ -29,6 +29,7 @@ pub mod imp {
         pub(crate) tags: RefCell<Vec<String>>,
         pub(crate) author_id: RefCell<String>,
         pub(crate) author_name: RefCell<Option<String>>,
+        pub(crate) timestamp: RefCell<u64>,
     }
 
     #[glib::object_subclass]
@@ -49,6 +50,7 @@ pub mod imp {
                         .build(),
                     ParamSpecString::builder("author-id").readwrite().build(),
                     ParamSpecString::builder("author-name").readwrite().build(),
+                    ParamSpecUInt64::builder("timestamp").readwrite().build(),
                 ]
             });
             PROPERTIES.as_ref()
@@ -93,6 +95,10 @@ pub mod imp {
                         None => self.author_name.set(None),
                     }
                 }
+                "timestamp" => {
+                    let timestamp = value.get::<u64>().unwrap();
+                    self.timestamp.set(timestamp);
+                }
                 _ => unimplemented!(),
             }
         }
@@ -106,6 +112,7 @@ pub mod imp {
                 "tags" => obj.tags().to_value(),
                 "author-id" => obj.author_id().to_value(),
                 "author-name" => obj.author_name().to_value(),
+                "timestamp" => obj.timestamp().to_value(),
                 _ => unimplemented!(),
             }
         }
@@ -131,6 +138,7 @@ impl From<&OkuPost> for PostItem {
             )
             .property("author-id", oku_core::fs::util::fmt(value.entry.author()))
             .property("author-name", value.user().identity.map(|x| x.name))
+            .property("timestamp", value.entry.timestamp())
             .build()
     }
 }
@@ -160,6 +168,9 @@ impl PostItem {
     pub fn author_name(&self) -> Option<String> {
         self.imp().author_name.borrow().to_owned()
     }
+    pub fn timestamp(&self) -> u64 {
+        *self.imp().timestamp.borrow()
+    }
 
     pub fn update(&self, post: OkuPost) {
         let ctx = glib::MainContext::default();
@@ -175,6 +186,7 @@ impl PostItem {
                 ),
                 ("author-id", &oku_core::fs::util::fmt(post.entry.author())),
                 ("author-name", &post.user().identity.map(|x| x.name)),
+                ("timestamp", &post.entry.timestamp()),
             ]);
         });
     }

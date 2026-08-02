@@ -6,7 +6,10 @@ use crate::{
         posts::core::{OkuNote, OkuPost},
         users::{OkuIdentity, OkuUser},
     },
-    fs::{watch::ReplicaEvent, OkuFs},
+    fs::{
+        watch::{OkuNetPostEvent, ReplicaEvent},
+        OkuFs,
+    },
 };
 use cfg_if::cfg_if;
 use futures::StreamExt;
@@ -83,14 +86,18 @@ impl OkuFs {
     /// A local Oku user's credentials, containing sensitive information.
     pub async fn export_user(&self, author_id: &Option<AuthorId>) -> Option<ExportedUser> {
         let author = self.get_author(author_id).await.ok();
-        let home_replica = self.home_replica(&None).await;
-        let home_replica_ticket = self
-            .create_document_ticket(&home_replica, &ShareMode::Write)
-            .await
-            .ok();
+        let home_replica_ticket = match &author {
+            Some(author) => self
+                .create_document_ticket(
+                    &self.home_replica(&Some(author.id())).await,
+                    &ShareMode::Write,
+                )
+                .await
+                .ok(),
+            None => None,
+        };
         author.map(|author| ExportedUser {
             author,
-            home_replica,
             home_replica_ticket,
         })
     }
@@ -105,26 +112,34 @@ impl OkuFs {
             .author_import(exported_user.author.clone())
             .await
             .map_err(|e| miette::miette!("{}", e))?;
-        self.docs
-            .author_set_default(exported_user.author.id())
-            .await
-            .map_err(|e| miette::miette!("{}", e))?;
-        match exported_user.home_replica_ticket.clone() {
+        let home_replica_id = self.home_replica(&Some(exported_user.author.id())).await;
+        if let Some(home_replica_ticket) = &exported_user.home_replica_ticket {
+            let ticket_home_replica_id = home_replica_ticket.capability.id();
+            if ticket_home_replica_id != home_replica_id {
+                error!("Importing user ending without home replica sync, as the home replica ID in the ticket ({}) is invalid (should be {}).", crate::fs::util::fmt(ticket_home_replica_id), crate::fs::util::fmt(home_replica_id));
+                return Ok(());
+            }
+        }
+        match &exported_user.home_replica_ticket {
             Some(home_replica_ticket) => match self
-                .fetch_replica_by_ticket(&home_replica_ticket, &None, &None)
+                .fetch_replica_by_ticket(home_replica_ticket, &None, &None)
                 .await
             {
                 Ok(_) => (),
                 Err(_e) => self
-                    .fetch_replica_by_id(&exported_user.home_replica, &None)
+                    .fetch_replica_by_id(&home_replica_id, &None)
                     .await
                     .map_err(|e| miette::miette!("{}", e))?,
             },
             None => self
-                .fetch_replica_by_id(&exported_user.home_replica, &None)
+                .fetch_replica_by_id(&home_replica_id, &None)
                 .await
                 .map_err(|e| miette::miette!("{}", e))?,
         }
+        self.docs
+            .author_set_default(exported_user.author.id())
+            .await
+            .map_err(|e| miette::miette!("{}", e))?;
         self.okunet_user_sender.send_replace(());
         Ok(())
     }
@@ -618,14 +633,16 @@ impl OkuFs {
                     let entry = self.get_entry(&ticket.capability.id(), post_path).await?;
                     let note = toml::from_str::<OkuNote>(String::from_utf8_lossy(bytes).as_ref())
                         .into_diagnostic()?;
-                    posts.push(OkuPost { entry, note })
+                    let post = OkuPost { entry, note };
+                    self.okunet_post_sender
+                        .send_replace(OkuNetPostEvent::Synced(post.clone()));
+                    posts.push(post)
                 }
                 Ok(posts)
             }
             Err(e) => Err(miette::miette!("{}", e)),
         };
         self.okunet_user_sender.send_replace(());
-        self.okunet_post_sender.send_replace(());
         posts
     }
 
