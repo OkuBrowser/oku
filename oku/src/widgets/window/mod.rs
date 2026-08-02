@@ -11,6 +11,7 @@ mod sidebar;
 mod suggestions;
 mod tabs;
 mod view;
+mod watch;
 #[allow(unused_imports)]
 pub use self::colour::*;
 #[allow(unused_imports)]
@@ -37,3 +38,5 @@ pub use self::suggestions::*;
 pub use self::tabs::*;
 #[allow(unused_imports)]
 pub use self::view::*;
+#[allow(unused_imports)]
+pub use self::watch::*;

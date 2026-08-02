@@ -29,7 +29,7 @@ impl OkuFs {
     ///
     /// A list of the OkuNet posts by the local user.
     pub async fn posts(&self) -> Option<Vec<OkuPost>> {
-        let home_replica_id = self.home_replica().await?;
+        let home_replica_id = self.home_replica(&None).await;
         let directory_paths = self
             .read_directory(&home_replica_id, Path::new("/posts/"))
             .await
@@ -131,10 +131,7 @@ impl OkuFs {
     ///
     /// The OkuNet post at the given path.
     pub async fn post(&self, path: &PathBuf) -> miette::Result<OkuPost> {
-        let namespace_id = self
-            .home_replica()
-            .await
-            .ok_or(miette::miette!("Home replica not set … "))?;
+        let namespace_id = self.home_replica(&None).await;
         match self.read_file(&namespace_id, path, &None, &None).await {
             Ok(bytes) => {
                 let note = toml::from_str::<OkuNote>(String::from_utf8_lossy(&bytes).as_ref())
@@ -211,10 +208,7 @@ impl OkuFs {
         body: &String,
         tags: &HashSet<String>,
     ) -> miette::Result<(NamespaceId, PathBuf, Option<Hash>)> {
-        let home_replica_id = self
-            .home_replica()
-            .await
-            .ok_or(miette::miette!("No home replica set … "))?;
+        let home_replica_id = self.home_replica(&None).await;
         let new_note = OkuNote {
             url: url.clone(),
             title: title.to_string(),
@@ -243,10 +237,7 @@ impl OkuFs {
     ///
     /// The number of entries deleted in the replica, which should be 1 if the file was successfully deleted.
     pub async fn delete_post(&self, path: &PathBuf) -> miette::Result<usize> {
-        let home_replica_id = self
-            .home_replica()
-            .await
-            .ok_or(miette::miette!("No home replica set … "))?;
+        let home_replica_id = self.home_replica(&None).await;
         let deleted = self.delete_file(&home_replica_id, path).await;
         self.okunet_post_sender.send_replace(());
         deleted

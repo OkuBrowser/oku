@@ -6,7 +6,7 @@ use crate::{
         posts::core::{OkuNote, OkuPost},
         users::{OkuIdentity, OkuUser},
     },
-    fs::OkuFs,
+    fs::{watch::ReplicaEvent, OkuFs},
 };
 use cfg_if::cfg_if;
 use futures::StreamExt;
@@ -16,7 +16,7 @@ use iroh_docs::AuthorId;
 use iroh_docs::DocTicket;
 use iroh_docs::NamespaceId;
 use iroh_docs::{api::protocol::ShareMode, Author, NamespaceSecret};
-use log::debug;
+use log::{debug, error};
 use miette::IntoDiagnostic;
 use rayon::iter::{
     FromParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -29,26 +29,66 @@ impl OkuFs {
     /// # Returns
     ///
     /// The content authorship ID used by the node.
-    pub async fn default_author(&self) -> AuthorId {
+    pub async fn default_author_id(&self) -> AuthorId {
         self.docs.author_default().await.unwrap_or_default()
     }
 
-    /// Exports the local Oku user's credentials.
+    /// Obtain the private key of an author, given their ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `author_id` - An author to find the private key for; if none is given, the default author's key is retrieved.
+    ///
+    /// # Return
+    ///
+    /// The private key of the given author.
+    pub async fn get_author(&self, author_id: &Option<AuthorId>) -> anyhow::Result<Author> {
+        let default_author_id = self.default_author_id().await;
+        let author_id = author_id.unwrap_or(default_author_id);
+
+        self.docs
+            .author_export(author_id)
+            .await
+            .ok()
+            .flatten()
+            .ok_or(anyhow::anyhow!(
+                "Missing private key for author ({}).",
+                crate::fs::util::fmt_short(author_id)
+            ))
+    }
+
+    /// Lists the IDs of all authors in the local Oku node.
     ///
     /// # Returns
     ///
-    /// The local Oku user's credentials, containing sensitive information.
-    pub async fn export_user(&self) -> Option<ExportedUser> {
-        let default_author = self.get_author().await.ok();
-        let home_replica = self.home_replica().await;
-        let home_replica_ticket = match home_replica {
-            Some(home_replica_id) => self
-                .create_document_ticket(&home_replica_id, &ShareMode::Write)
-                .await
-                .ok(),
-            None => None,
-        };
-        default_author.map(|author| ExportedUser {
+    /// The IDs of all authors in the local Oku node.
+    pub async fn list_author_ids(&self) -> HashSet<AuthorId> {
+        match self.docs.author_list().await {
+            Ok(stream) => stream.filter_map(|x| async move { x.ok() }).collect().await,
+            Err(e) => {
+                error!("{e}");
+                HashSet::new()
+            }
+        }
+    }
+
+    /// Exports a local Oku user's credentials.
+    ///
+    /// # Arguments
+    ///
+    /// * `author_id` - The ID of the author to export; if none is given, the default author is exported.
+    ///
+    /// # Returns
+    ///
+    /// A local Oku user's credentials, containing sensitive information.
+    pub async fn export_user(&self, author_id: &Option<AuthorId>) -> Option<ExportedUser> {
+        let author = self.get_author(author_id).await.ok();
+        let home_replica = self.home_replica(&None).await;
+        let home_replica_ticket = self
+            .create_document_ticket(&home_replica, &ShareMode::Write)
+            .await
+            .ok();
+        author.map(|author| ExportedUser {
             author,
             home_replica,
             home_replica_ticket,
@@ -69,25 +109,21 @@ impl OkuFs {
             .author_set_default(exported_user.author.id())
             .await
             .map_err(|e| miette::miette!("{}", e))?;
-        match (
-            exported_user.home_replica,
-            exported_user.home_replica_ticket.clone(),
-        ) {
-            (Some(home_replica), Some(home_replica_ticket)) => match self
+        match exported_user.home_replica_ticket.clone() {
+            Some(home_replica_ticket) => match self
                 .fetch_replica_by_ticket(&home_replica_ticket, &None, &None)
                 .await
             {
                 Ok(_) => (),
                 Err(_e) => self
-                    .fetch_replica_by_id(&home_replica, &None)
+                    .fetch_replica_by_id(&exported_user.home_replica, &None)
                     .await
                     .map_err(|e| miette::miette!("{}", e))?,
             },
-            (Some(home_replica), None) => self
-                .fetch_replica_by_id(&home_replica, &None)
+            None => self
+                .fetch_replica_by_id(&exported_user.home_replica, &None)
                 .await
                 .map_err(|e| miette::miette!("{}", e))?,
-            _ => (),
         }
         self.okunet_user_sender.send_replace(());
         Ok(())
@@ -95,13 +131,17 @@ impl OkuFs {
 
     /// Exports the local Oku user's credentials in TOML format.
     ///
+    /// # Arguments
+    ///
+    /// * `author_id` - The ID of the author to export; if none is given, the default author is exported.
+    ///
     /// # Returns
     ///
     /// The local Oku user's credentials, containing sensitive information.
-    pub async fn export_user_toml(&self) -> miette::Result<String> {
+    pub async fn export_user_toml(&self, author_id: &Option<AuthorId>) -> miette::Result<String> {
         toml::to_string(
             &self
-                .export_user()
+                .export_user(author_id)
                 .await
                 .ok_or(miette::miette!("No authorship credentials to export … "))?,
         )
@@ -122,31 +162,19 @@ impl OkuFs {
     ///
     /// # Arguments
     ///
-    /// * `author` - An optional author keypair to create the home replica for. If not provided, a home replica for the default author is created. The author keypair must be one already imported.
+    /// * `author_id` - An optional author ID to create the home replica for. The author must have a keypair that is already imported.
     ///
     /// # Returns
     ///
     /// The replica ID of the created home replica.
     pub async fn create_home_replica(
         &self,
-        author: &Option<Author>,
+        author_id: &Option<AuthorId>,
     ) -> miette::Result<NamespaceId> {
-        let given_author_id = author.as_ref().map(|x| x.id());
-        if let Some(given_author_id) = given_author_id.as_ref() {
-            let is_known_author_id = self
-                .docs
-                .author_list()
-                .await
-                .map_err(|e| miette::miette!(e))?
-                .any(|x| async move { x.is_ok_and(|x| x == *given_author_id) })
-                .await;
-            if !is_known_author_id {
-                return Err(miette::miette!("Cannot create home replica for authors whose private key is unknown (author ID: {})", crate::fs::util::fmt_short(given_author_id)));
-            }
-        }
-
-        let default_author = self.get_author().await.map_err(|e| miette::miette!(e))?;
-        let author = author.as_ref().unwrap_or(&default_author);
+        let author = self
+            .get_author(author_id)
+            .await
+            .map_err(|e| miette::miette!(e))?;
         debug!(
             "Attempting to create home replica for author with ID {} … ",
             crate::fs::util::fmt_short(author.id())
@@ -158,7 +186,11 @@ impl OkuFs {
             )))
             .await
             .map_err(|e| miette::miette!(e))?;
-        self.replica_sender.send_replace(());
+        self.replica_sender.send_replace(ReplicaEvent::Imported((
+            home_replica.id(),
+            CapabilityKind::Write,
+            true,
+        )));
         self.okunet_user_sender.send_replace(());
         debug!(
             "Created home replica for author with ID {} … ",
@@ -169,11 +201,21 @@ impl OkuFs {
 
     /// Retrieve the home replica of the Oku user, creating it if it does not yet exist.
     ///
+    /// # Arguments
+    ///
+    /// * `author` - An optional author ID to retrieve the home replica for. If not provided, a home replica for the default author is retrieved. The author must have a keypair that is already imported.
+    ///
     /// # Returns
     ///
-    /// The home replica of the Oku user, if it already existed or was able to be created successfully.
-    pub async fn home_replica(&self) -> Option<NamespaceId> {
-        let home_replica = NamespaceId::from(self.default_author().await.as_bytes());
+    /// The ID of the home replica of the Oku user, which may not exist if it cannot be created.
+    pub async fn home_replica(&self, author_id: &Option<AuthorId>) -> NamespaceId {
+        let default_author_id = self.default_author_id().await;
+        let author_id = author_id
+            .as_ref()
+            .map(|x| x.to_bytes())
+            .unwrap_or(default_author_id.to_bytes());
+
+        let home_replica = NamespaceId::from(author_id);
         let home_replica_capability = self.get_replica_capability(&home_replica).await.ok();
         let home_replica_exists = match home_replica_capability {
             Some(CapabilityKind::Write) => Some(home_replica),
@@ -182,10 +224,11 @@ impl OkuFs {
         };
         if home_replica_exists.is_none() {
             debug!("Home replica does not exist; creating … ");
-            self.create_home_replica(&None).await.ok()
-        } else {
-            home_replica_exists
+            if let Err(e) = self.create_home_replica(&Some(author_id.into())).await {
+                error!("{e}");
+            }
         }
+        home_replica
     }
 
     /// Retrieves the OkuNet identity of the local user.
@@ -196,7 +239,7 @@ impl OkuFs {
     pub async fn identity(&self) -> Option<OkuIdentity> {
         let profile_bytes = self
             .read_file(
-                &self.home_replica().await?,
+                &self.home_replica(&None).await,
                 &"/profile.toml".into(),
                 &None,
                 &None,
@@ -218,7 +261,7 @@ impl OkuFs {
     pub async fn set_identity(&self, identity: &OkuIdentity) -> miette::Result<Option<Hash>> {
         // It is not valid to follow or unfollow yourself.
         let mut validated_identity = identity.clone();
-        let me = self.default_author().await;
+        let me = self.default_author_id().await;
         validated_identity.following.retain(|y| me != *y);
         validated_identity.blocked.retain(|y| me != *y);
         // It is not valid to follow blocked people.
@@ -230,10 +273,7 @@ impl OkuFs {
 
         let hash = self
             .create_or_replace_file(
-                &self
-                    .home_replica()
-                    .await
-                    .ok_or(miette::miette!("No home replica set … "))?,
+                &self.home_replica(&None).await,
                 &"/profile.toml".into(),
                 toml::to_string_pretty(&validated_identity).into_diagnostic()?,
             )
@@ -409,7 +449,7 @@ impl OkuFs {
     ///
     /// Whether or not the user's authorship ID is the local user's.
     pub async fn is_me(&self, author_id: &AuthorId) -> bool {
-        &self.default_author().await == author_id
+        &self.default_author_id().await == author_id
     }
 
     /// Retrieves an [`OkuUser`] representing the local user.
@@ -419,7 +459,7 @@ impl OkuFs {
     /// An [`OkuUser`] representing the current user, as if it were retrieved from another Oku user's database.
     pub async fn user(&self) -> miette::Result<OkuUser> {
         Ok(OkuUser {
-            author_id: self.default_author().await,
+            author_id: self.default_author_id().await,
             last_fetched: SystemTime::now(),
             posts: self
                 .posts()

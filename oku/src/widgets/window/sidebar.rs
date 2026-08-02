@@ -11,9 +11,11 @@ use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use libadwaita::prelude::*;
 use log::error;
-use oku_core::iroh_docs::CapabilityKind;
+use oku_core::fs::watch::ReplicaEvent;
 use std::cell::Ref;
 use std::rc::Rc;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::WebContext;
 
@@ -159,74 +161,40 @@ impl Window {
         })
     }
 
-    pub async fn replicas_updated(&self) {
+    pub async fn replicas_updated(&self, event: &ReplicaEvent) {
         if let Some(replicas_page) =
             get_view_stack_page_by_name("replicas".to_string(), &self.imp().side_view_stack)
         {
             replicas_page.child().set_sensitive(false);
         }
-        if let Some(node) = NODE.get() {
-            if let Ok(mut replicas) = node.list_replicas().await {
-                let _home_replica = node.home_replica().await; // To create the home replica if it doesn't exist yet
-                let replicas_store = self.replicas_store();
-                let old_store = replicas_store.snapshot();
-                for (item_index, item) in old_store
-                    .iter()
-                    .filter_map(|x| x.clone().downcast::<ReplicaItem>().ok())
-                    .enumerate()
-                {
-                    match replicas
-                        .iter()
-                        .position(|x| oku_core::fs::util::fmt(x.0) == item.id())
-                    {
-                        Some(replica_index) => {
-                            let (replica, capability_kind, is_home_replica) =
-                                replicas[replica_index];
-                            item.set_properties(&[
-                                ("id", &oku_core::fs::util::fmt(replica)),
-                                (
-                                    "writable",
-                                    &matches!(capability_kind, CapabilityKind::Write),
-                                ),
-                                ("home", &is_home_replica),
-                            ]);
-                            replicas.remove(replica_index);
-                        }
-                        None => replicas_store.remove(item_index as u32),
-                    }
-                }
-                let ctx = glib::MainContext::default();
-                let this = self.clone();
-                ctx.invoke(move || {
-                    let replicas_store = this.replicas_store();
-                    for (replica, capability_kind, is_home_replica) in replicas.iter() {
-                        replicas_store.append(&ReplicaItem::new(
-                            oku_core::fs::util::fmt(replica),
-                            matches!(capability_kind, CapabilityKind::Write),
-                            *is_home_replica,
-                        ));
-                    }
-                });
-
-                let items_changed = self.imp().replicas_sidebar_initialised.get()
-                    && old_store != replicas_store.snapshot();
-                if let Some(replicas_page) =
-                    get_view_stack_page_by_name("replicas".to_string(), &self.imp().side_view_stack)
-                {
-                    if matches!(get_view_stack_page_by_name(
-                        self.imp().side_view_stack
-                            .visible_child_name()
-                            .unwrap_or_default()
-                            .to_string(),
-                            &self.imp().side_view_stack,
-                    ), Some(x) if x == replicas_page)
-                    {
-                        replicas_page
-                            .set_needs_attention(replicas_page.needs_attention() || items_changed);
-                    }
-                    replicas_page.child().set_sensitive(true);
-                }
+        let ctx = glib::MainContext::default();
+        let changed = Arc::new(AtomicBool::new(false));
+        let changed_clone = changed.clone();
+        let this = self.clone();
+        let event_clone = event.clone();
+        ctx.invoke(move || {
+            changed_clone.store(
+                this.handle_replica_event(&event_clone),
+                std::sync::atomic::Ordering::Relaxed,
+            );
+        });
+        if let Some(replicas_page) =
+            get_view_stack_page_by_name("replicas".to_string(), &self.imp().side_view_stack)
+        {
+            if matches!(get_view_stack_page_by_name(
+                self.imp().side_view_stack
+                    .visible_child_name()
+                    .unwrap_or_default()
+                    .to_string(),
+                    &self.imp().side_view_stack,
+            ), Some(x) if x == replicas_page)
+            {
+                replicas_page.set_needs_attention(
+                    replicas_page.needs_attention()
+                        || changed.load(std::sync::atomic::Ordering::Relaxed),
+                );
             }
+            replicas_page.child().set_sensitive(true);
         }
     }
 

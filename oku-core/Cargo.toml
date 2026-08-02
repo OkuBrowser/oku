@@ -66,7 +66,7 @@ tantivy = "0.26.1"
 data-encoding = "2.11.0"
 hex = "0.4.3"
 jiff = { version = "0.2.33", optional = true }
-dashmap = { version = "6.2.1", features = ["inline", "rayon"] }
+dashmap = { version = "6.2.1", features = ["inline", "rayon", "serde"] }
 tree_magic_mini = { version = "3.2.2", features = ["with-gpl-data"] }
 serde_json = "1.0.150"
 easy_fuser = { git = "https://github.com/Alogani/easy_fuser", rev = "2be710342ee27c1058b4be9b5e00ab09929c9e02", features = ["async"], optional = true }

@@ -1,6 +1,5 @@
 use crate::database::{Bookmark, DATABASE};
 use crate::scheme_handlers::oku_path::OkuPath;
-use crate::HOME_REPLICA_SET;
 use crate::NODE;
 use glib::clone;
 use glib::subclass::object::ObjectImpl;
@@ -24,7 +23,6 @@ use log::error;
 use oku_core::database::posts::core::OkuNote;
 use std::cell::RefCell;
 use std::collections::HashSet;
-use std::sync::atomic::Ordering;
 use std::sync::LazyLock;
 use webkit2gtk::functions::uri_for_display;
 use webkit2gtk::prelude::WebViewExt;
@@ -328,55 +326,46 @@ impl NoteEditor {
             ));
         }
 
-        match HOME_REPLICA_SET.load(Ordering::Relaxed) {
-            true => {
-                imp.save_post_button.connect_clicked(clone!(
+        imp.save_post_button.connect_clicked(clone!(
+            #[weak]
+            this,
+            move |_| {
+                // let ctx = glib::MainContext::default();
+                // ctx.spawn_local_with_priority(
+                //     glib::source::Priority::HIGH,
+                tokio::spawn(clone!(
                     #[weak]
                     this,
-                    move |_| {
-                        // let ctx = glib::MainContext::default();
-                        // ctx.spawn_local_with_priority(
-                        //     glib::source::Priority::HIGH,
-                        tokio::spawn(clone!(
-                            #[weak]
-                            this,
-                            async move {
-                                if let Some(node) = NODE.get() {
-                                    match url::Url::parse(&this.url()) {
-                                        Ok(parsed_url) => {
-                                            match node
-                                                .create_or_modify_post(
-                                                    &parsed_url,
-                                                    &this.title_property(),
-                                                    &this.body(),
-                                                    &HashSet::from_iter(this.tags().into_iter()),
-                                                )
-                                                .await
-                                            {
-                                                Ok(_) => {
-                                                    this.close();
-                                                }
-                                                Err(e) => {
-                                                    error!("{}", e);
-                                                }
-                                            }
+                    async move {
+                        if let Some(node) = NODE.get() {
+                            match url::Url::parse(&this.url()) {
+                                Ok(parsed_url) => {
+                                    match node
+                                        .create_or_modify_post(
+                                            &parsed_url,
+                                            &this.title_property(),
+                                            &this.body(),
+                                            &HashSet::from_iter(this.tags().into_iter()),
+                                        )
+                                        .await
+                                    {
+                                        Ok(_) => {
+                                            this.close();
                                         }
                                         Err(e) => {
                                             error!("{}", e);
                                         }
                                     }
                                 }
+                                Err(e) => {
+                                    error!("{}", e);
+                                }
                             }
-                        ));
+                        }
                     }
                 ));
             }
-            false => {
-                imp.save_post_button.set_sensitive(false);
-                imp.save_post_button
-                    .set_tooltip_text(Some("A home replica is required to post to OkuNet."));
-            }
-        }
+        ));
 
         this.set_follows_content_size(true);
         this.set_visible(true);

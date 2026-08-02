@@ -9,19 +9,8 @@ use serde::{Deserialize, Serialize};
 /// An Oku user's credentials, which are sensitive, exported from a node, able to be imported into another.
 pub struct ExportedUser {
     pub(crate) author: Author,
-    pub(crate) home_replica: Option<NamespaceId>,
+    pub(crate) home_replica: NamespaceId,
     pub(crate) home_replica_ticket: Option<DocTicket>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-/// The modality of the data used to create an embedding vector.
-pub enum EmbeddingModality {
-    /// Text
-    Text,
-    /// Image
-    Image,
-    /// Audio
-    Audio,
 }
 
 /// Filters to prevent downloading the entirety of a home replica.

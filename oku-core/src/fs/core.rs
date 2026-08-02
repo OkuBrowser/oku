@@ -5,7 +5,7 @@ use iroh::protocol::ProtocolHandler;
 #[cfg(feature = "persistent")]
 use iroh_blobs::store::fs::FsStore;
 use iroh_blobs::{api::Store, store::mem::MemStore, BlobsProtocol};
-use iroh_docs::{Author, NamespaceId};
+use iroh_docs::NamespaceId;
 use iroh_gossip::Gossip;
 use log::{error, info, trace};
 use miette::IntoDiagnostic;
@@ -25,25 +25,6 @@ use tokio::{
 };
 
 impl OkuFs {
-    /// Obtain the private key of the node's authorship credentials.
-    ///
-    /// # Return
-    ///
-    /// The private key of the node's authorship credentials.
-    pub async fn get_author(&self) -> anyhow::Result<Author> {
-        let default_author_id = self.default_author().await;
-
-        self.docs
-            .author_export(default_author_id)
-            .await
-            .ok()
-            .flatten()
-            .ok_or(anyhow::anyhow!(
-                "Missing private key for default author ({}).",
-                crate::fs::util::fmt_short(default_author_id)
-            ))
-    }
-
     /// Starts an instance of an Oku file system.
     /// In the background, an Iroh node is started if none is running, or is connected to if one is already running.
     ///
@@ -111,7 +92,7 @@ impl OkuFs {
             crate::fs::util::fmt_short(default_author)
         );
 
-        let (replica_sender, _replica_receiver) = watch::channel(());
+        let (replica_sender, _replica_receiver) = watch::channel(ReplicaEvent::Initialised);
         let (okunet_fetch_sender, _okunet_fetch_receiver) = watch::channel(false);
         let (okunet_post_sender, _okunet_post_receiver) = watch::channel(());
         let (okunet_user_sender, _okunet_user_receiver) = watch::channel(());
@@ -189,6 +170,15 @@ impl OkuFs {
             dht: mainline::Dht::server()?.as_async(),
             file_cache,
         };
+
+        // Setup home replicas
+        let oku_core_clone = oku_core.clone();
+        tokio::spawn(async move { oku_core_clone.home_replica(&None).await });
+        for author_id in oku_core.list_author_ids().await {
+            let oku_core_clone = oku_core.clone();
+            tokio::spawn(async move { oku_core_clone.home_replica(&Some(author_id)).await });
+        }
+
         let oku_core_clone = oku_core.clone();
         cfg_if::cfg_if!(
             if #[cfg(any(feature = "persistent"))] {

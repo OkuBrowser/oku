@@ -388,10 +388,21 @@ pub async fn main() -> miette::Result<()> {
     cfg_select! {
         feature = "fuse" => {
             let handle = Handle::current();
-            let node = OkuFs::start(Some(&handle), #[cfg(feature = "persistent")] true).await.map_err(|e| miette::miette!("{}", e))?;
-        },
+            let node = OkuFs::start(
+                Some(&handle),
+                #[cfg(feature = "persistent")]
+                true,
+            )
+            .await
+            .map_err(|e| miette::miette!("{}", e))?;
+        }
         _ => {
-            let node = OkuFs::start(#[cfg(feature = "persistent")] true).await.map_err(|e| miette::miette!("{}", e))?;
+            let node = OkuFs::start(
+                #[cfg(feature = "persistent")]
+                true,
+            )
+            .await
+            .map_err(|e| miette::miette!("{}", e))?;
         }
     }
 
@@ -570,7 +581,7 @@ pub async fn main() -> miette::Result<()> {
             }
             #[cfg(feature = "fuse")]
             FsCommands::Mount { path } => {
-                let default_author_id = node.default_author().await;
+                let default_author_id = node.default_author_id().await;
                 info!(
                     "Node will listen for incoming connections (default author ID: {}).",
                     oku_core::fs::util::fmt(default_author_id)
@@ -581,12 +592,8 @@ pub async fn main() -> miette::Result<()> {
             }
             FsCommands::SetRepublishDelay { republish_delay } => {
                 let config = cfg_select! {
-                    feature = "persistent" => {
-                        OkuFsConfig::load_or_create_config()?
-                    },
-                    _ => {
-                        OkuFsConfig::default()
-                    }
+                    feature = "persistent" => OkuFsConfig::load_or_create_config()?,
+                    _ => OkuFsConfig::default(),
                 };
                 config.set_republish_delay(&republish_delay)?;
                 #[cfg(feature = "persistent")]
@@ -600,12 +607,8 @@ pub async fn main() -> miette::Result<()> {
                 initial_publish_delay,
             } => {
                 let config = cfg_select! {
-                    feature = "persistent" => {
-                        OkuFsConfig::load_or_create_config()?
-                    },
-                    _ => {
-                        OkuFsConfig::default()
-                    }
+                    feature = "persistent" => OkuFsConfig::load_or_create_config()?,
+                    _ => OkuFsConfig::default(),
                 };
                 config.set_initial_publish_delay(&initial_publish_delay)?;
                 #[cfg(feature = "persistent")]
@@ -625,7 +628,7 @@ pub async fn main() -> miette::Result<()> {
                 println!("Import current user from {path:?} … ");
             }
             NetCommands::Export { path } => {
-                let exported_user_toml = node.export_user_toml().await?;
+                let exported_user_toml = node.export_user_toml(&None).await?;
                 std::fs::write(&path, exported_user_toml).into_diagnostic()?;
                 println!("Exported current user to {path:?} … ");
             }
@@ -759,7 +762,7 @@ pub async fn main() -> miette::Result<()> {
             },
         },
         None => {
-            let default_author_id = node.default_author().await;
+            let default_author_id = node.default_author_id().await;
             info!(
                 "Node will listen for incoming connections (default author ID: {}).",
                 oku_core::fs::util::fmt(default_author_id)

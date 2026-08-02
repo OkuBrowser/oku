@@ -4,7 +4,7 @@ use crate::widgets::address_entry::AddressEntry;
 use crate::widgets::settings::core::apply_appearance_config;
 use crate::widgets::window::NewTabArguments;
 use crate::NewWebTabArguments;
-use crate::{APP_ID, HOME_REPLICA_SET, NODE};
+use crate::{APP_ID, NODE};
 use glib::clone;
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
@@ -15,7 +15,6 @@ use log::{error, info};
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::atomic::Ordering;
 use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::{NetworkSession, WebContext};
 
@@ -711,16 +710,19 @@ impl Window {
 
     pub async fn watch_replicas(&self) {
         if let Some(node) = NODE.get() {
+            self.setup_replicas().await;
             self.imp().replicas_sidebar_initialised.set(true);
             let mut replica_rx = node.replica_sender.subscribe();
             loop {
                 replica_rx.borrow_and_update();
                 info!("Replicas updated … ");
                 let this = self.clone();
-                tokio::spawn(async move { this.replicas_updated().await });
-                HOME_REPLICA_SET.store(node.home_replica().await.is_some(), Ordering::Relaxed);
                 match replica_rx.changed().await {
-                    Ok(_) => continue,
+                    Ok(_) => {
+                        let event = replica_rx.borrow_and_update().clone();
+                        tokio::spawn(async move { this.replicas_updated(&event).await });
+                        continue;
+                    }
                     Err(e) => {
                         error!("{}", e);
                         break;

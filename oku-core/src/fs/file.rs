@@ -111,7 +111,7 @@ impl OkuFs {
             None => {
                 // The file doesn't exist
                 Ok(document
-                    .set_bytes(self.default_author().await, file_key, data)
+                    .set_bytes(self.default_author_id().await, file_key, data)
                     .await
                     .map_err(|e| {
                         error!("{}", e);
@@ -167,7 +167,7 @@ impl OkuFs {
                 // The file doesn't exist
                 Ok(Some(
                     document
-                        .set_bytes(self.default_author().await, file_key, data)
+                        .set_bytes(self.default_author_id().await, file_key, data)
                         .await
                         .map_err(|e| {
                             error!("{}", e);
@@ -237,7 +237,7 @@ impl OkuFs {
             })?
             .ok_or(OkuFsError::FsEntryNotFound)?;
         let entry_hash = document
-            .set_bytes(self.default_author().await, file_key, new_data)
+            .set_bytes(self.default_author_id().await, file_key, new_data)
             .await
             .map_err(|e| {
                 error!("{}", e);

@@ -35,18 +35,16 @@ impl OkuDatabase {
     /// An Oku database.
     pub fn new() -> miette::Result<Self> {
         cfg_select! {
-            feature = "persistent" => {
-                Ok(Self {
-                        database: native_db::Builder::new()
-                            .create(&MODELS, &*DATABASE_PATH)
-                            .into_diagnostic()?,
-                    })
-                },
-            _ => {
-                Ok(Self{
-                    database: native_db::Builder::new().create_in_memory(&MODELS).into_diagnostic()?
-                })
-            }
+            feature = "persistent" => Ok(Self {
+                database: native_db::Builder::new()
+                    .create(&MODELS, &*DATABASE_PATH)
+                    .into_diagnostic()?,
+            }),
+            _ => Ok(Self {
+                database: native_db::Builder::new()
+                    .create_in_memory(&MODELS)
+                    .into_diagnostic()?,
+            }),
         }
     }
 

@@ -1,12 +1,11 @@
 use super::core::Settings;
 use crate::window_util::get_window_from_widget;
-use crate::{HOME_REPLICA_SET, NODE};
+use crate::NODE;
 use glib::clone;
 use gtk::glib;
 use gtk::subclass::prelude::*;
 use libadwaita::{prelude::*, ResponseAppearance};
 use log::error;
-use std::sync::atomic::Ordering;
 
 impl Settings {
     pub fn setup_okunet_group(&self) {
@@ -111,39 +110,33 @@ impl Settings {
                 node,
                 async move {
                     imp.author_row
-                        .set_subtitle(&oku_core::fs::util::fmt(node.default_author().await));
+                        .set_subtitle(&oku_core::fs::util::fmt(node.default_author_id().await));
                 }
             ));
-            let home_replica_set = HOME_REPLICA_SET.load(Ordering::Relaxed);
-            match home_replica_set {
-                true => {
+            ctx.spawn_local(clone!(
+                #[weak]
+                imp,
+                async move {
+                    if let Some(current_identity) = node.identity().await {
+                        imp.display_name_row.set_text(&current_identity.name);
+                    }
+                }
+            ));
+            imp.display_name_row
+                .connect_apply(clone!(move |display_name_row| {
                     ctx.spawn_local(clone!(
                         #[weak]
-                        imp,
+                        display_name_row,
                         async move {
-                            if let Some(current_identity) = node.identity().await {
-                                imp.display_name_row.set_text(&current_identity.name);
+                            if let Err(e) =
+                                node.set_display_name(&display_name_row.text().into()).await
+                            {
+                                error!("{}", e);
                             }
                         }
                     ));
-                    imp.display_name_row
-                        .connect_apply(clone!(move |display_name_row| {
-                            ctx.spawn_local(clone!(
-                                #[weak]
-                                display_name_row,
-                                async move {
-                                    if let Err(e) =
-                                        node.set_display_name(&display_name_row.text().into()).await
-                                    {
-                                        error!("{}", e);
-                                    }
-                                }
-                            ));
-                        }));
-                }
-                false => imp.display_name_row.set_text(""),
-            }
-            imp.display_name_row.set_sensitive(home_replica_set);
+                }));
+            imp.display_name_row.set_sensitive(true);
         }
     }
 
@@ -151,7 +144,7 @@ impl Settings {
         let node = NODE
             .get()
             .ok_or(miette::miette!("Oku node has not yet started … "))?;
-        let exported_user_toml = node.export_user_toml().await?;
+        let exported_user_toml = node.export_user_toml(&None).await?;
         let dialog = libadwaita::AlertDialog::new(
             Some("Export user credentials?"),
             Some("Do not share your user credentials with anyone."),

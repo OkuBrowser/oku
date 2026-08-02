@@ -64,9 +64,7 @@ pub(crate) static POST_INDEX: LazyLock<Index> = LazyLock::new(|| {
                 Box::new(MmapDirectory::open(&*POST_INDEX_PATH).unwrap());
             Index::open_or_create(mmap_directory, POST_SCHEMA.0.clone()).unwrap()
         }
-        _ => {
-            Index::create_in_ram(POST_SCHEMA.0.clone())
-        }
+        _ => Index::create_in_ram(POST_SCHEMA.0.clone()),
     }
 });
 pub(crate) static POST_INDEX_READER: LazyLock<IndexReader> =

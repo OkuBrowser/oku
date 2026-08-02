@@ -59,8 +59,6 @@ static CONFIG_DIR: LazyLock<PathBuf> = LazyLock::new(|| DATA_DIR.join("browser_c
 static VERSION: LazyLock<&'static str> = LazyLock::new(|| env!("CARGO_PKG_VERSION"));
 
 static NODE: OnceLock<OkuFs> = OnceLock::new();
-static HOME_REPLICA_SET: LazyLock<Arc<AtomicBool>> =
-    LazyLock::new(|| Arc::new(AtomicBool::new(false)));
 static REPLICAS_MOUNTED: LazyLock<Arc<AtomicBool>> =
     LazyLock::new(|| Arc::new(AtomicBool::new(false)));
 

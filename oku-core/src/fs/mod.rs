@@ -1,3 +1,4 @@
+use crate::fs::watch::ReplicaEvent;
 #[cfg(feature = "fuse")]
 use debug_ignore::DebugIgnore;
 #[cfg(feature = "fuse")]
@@ -26,6 +27,8 @@ pub mod net;
 pub mod replica;
 /// Useful functions for implementing the Oku file system.
 pub mod util;
+/// Everything that makes subscribing to Oku events nice.
+pub mod watch;
 
 mod file_test;
 
@@ -46,7 +49,7 @@ pub struct OkuFs {
     pub(crate) docs: Docs,
     pub(crate) router: iroh::protocol::Router,
     /// A watcher for when replicas are created, deleted, or imported.
-    pub replica_sender: Sender<()>,
+    pub replica_sender: Sender<ReplicaEvent>,
     /// A watcher for when OkuNet posts are created, deleted, or modified.
     pub okunet_post_sender: Sender<()>,
     /// A watcher for when OkuNet user records are created, deleted, or modified.
