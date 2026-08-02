@@ -7,11 +7,11 @@ mod headerbar;
 mod menu;
 mod navigation;
 mod note;
+mod replica_watch;
 mod sidebar;
 mod suggestions;
 mod tabs;
 mod view;
-mod watch;
 #[allow(unused_imports)]
 pub use self::colour::*;
 #[allow(unused_imports)]
@@ -31,6 +31,8 @@ pub use self::navigation::*;
 #[allow(unused_imports)]
 pub use self::note::*;
 #[allow(unused_imports)]
+pub use self::replica_watch::*;
+#[allow(unused_imports)]
 pub use self::sidebar::*;
 #[allow(unused_imports)]
 pub use self::suggestions::*;
@@ -38,5 +40,3 @@ pub use self::suggestions::*;
 pub use self::tabs::*;
 #[allow(unused_imports)]
 pub use self::view::*;
-#[allow(unused_imports)]
-pub use self::watch::*;
