@@ -230,6 +230,10 @@ impl Net {
                 .property_expression("item")
                 .chain_property::<crate::okunet::items::post_item::PostItem>("author-name")
                 .bind(&row, "author-name", gtk::Widget::NONE);
+            list_item
+                .property_expression("item")
+                .chain_property::<crate::okunet::items::post_item::PostItem>("timestamp")
+                .bind(&row, "timestamp", gtk::Widget::NONE);
         }));
 
         imp.posts_view.set_model(Some(&imp.posts_model));

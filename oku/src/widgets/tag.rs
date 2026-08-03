@@ -4,6 +4,7 @@ use glib::subclass::types::ObjectSubclassExt;
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::value::ToValue;
 use glib::ParamSpec;
+use glib::ParamSpecBoolean;
 use glib::ParamSpecString;
 use glib::Value;
 use gtk::prelude::BoxExt;
@@ -22,6 +23,7 @@ pub mod imp {
     pub struct Tag {
         pub(crate) text: RefCell<String>,
         pub(crate) text_label: gtk::Label,
+        pub(crate) deletable: RefCell<bool>,
         pub(crate) delete_button: gtk::Button,
     }
 
@@ -53,8 +55,12 @@ pub mod imp {
         }
 
         fn properties() -> &'static [ParamSpec] {
-            static PROPERTIES: LazyLock<Vec<ParamSpec>> =
-                LazyLock::new(|| vec![ParamSpecString::builder("text").build()]);
+            static PROPERTIES: LazyLock<Vec<ParamSpec>> = LazyLock::new(|| {
+                vec![
+                    ParamSpecString::builder("text").build(),
+                    ParamSpecBoolean::builder("deletable").build(),
+                ]
+            });
             PROPERTIES.as_ref()
         }
 
@@ -64,6 +70,10 @@ pub mod imp {
                     let text = value.get::<String>().unwrap();
                     self.obj().set_text(text);
                 }
+                "deletable" => {
+                    let deletable = value.get::<bool>().unwrap();
+                    self.obj().set_deletable(&deletable);
+                }
                 _ => unimplemented!(),
             }
         }
@@ -71,6 +81,7 @@ pub mod imp {
         fn property(&self, _id: usize, pspec: &ParamSpec) -> Value {
             match pspec.name() {
                 "text" => self.obj().text().to_value(),
+                "deletable" => self.obj().deletable().to_value(),
                 _ => unimplemented!(),
             }
         }
@@ -109,8 +120,19 @@ impl Tag {
         imp.delete_button.add_css_class("flat");
         imp.delete_button.add_css_class("circular");
 
+        self.property_expression("deletable").bind(
+            &imp.delete_button,
+            "visible",
+            gtk::Widget::NONE,
+        );
+        self.property_expression("deletable").bind(
+            &imp.delete_button,
+            "can-target",
+            gtk::Widget::NONE,
+        );
+
         self.add_css_class("toolbar");
-        self.add_css_class("osd");
+        self.add_css_class("card");
         self.set_orientation(gtk::Orientation::Horizontal);
         self.append(&imp.text_label);
         self.append(&imp.delete_button);
@@ -119,9 +141,19 @@ impl Tag {
         self.imp().text.borrow().to_owned()
     }
 
+    pub fn deletable(&self) -> bool {
+        *self.imp().deletable.borrow()
+    }
+
     pub fn set_text(&self, text: String) {
         let imp = self.imp();
 
         imp.text.replace(text);
+    }
+
+    pub fn set_deletable(&self, deletable: &bool) {
+        let imp = self.imp();
+
+        imp.deletable.replace(*deletable);
     }
 }

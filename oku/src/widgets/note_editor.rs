@@ -444,6 +444,7 @@ impl NoteEditor {
             self,
             move |_, item| {
                 let tag = crate::widgets::tag::Tag::new();
+                tag.set_deletable(&true);
                 let list_item = item.downcast_ref::<gtk::ListItem>().unwrap();
                 list_item.set_child(Some(&tag));
                 list_item
@@ -464,16 +465,22 @@ impl NoteEditor {
 
         imp.tag_view.set_model(Some(&imp.tag_model));
         imp.tag_view.set_factory(Some(&imp.tag_factory));
-        imp.tag_view
-            .set_layout_manager(Some(libadwaita::WrapLayout::new()));
+        imp.tag_view.set_layout_manager(Some(
+            libadwaita::WrapLayout::builder()
+                .orientation(gtk::Orientation::Vertical)
+                .build(),
+        ));
         imp.tag_view.set_enable_rubberband(false);
         imp.tag_view
-            .set_hscroll_policy(gtk::ScrollablePolicy::Minimum);
+            .set_hscroll_policy(gtk::ScrollablePolicy::Natural);
         imp.tag_view
             .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
+        imp.tag_view.set_hexpand(true);
         imp.tag_view.set_vexpand(true);
         imp.tag_view.add_css_class("boxed-list-separate");
         imp.tag_view.add_css_class("navigation-sidebar");
+        imp.tag_view
+            .set_layout_manager(Some(libadwaita::WrapLayout::new()));
 
         imp.tag_scrolled_window.set_child(Some(&imp.tag_view));
         imp.tag_scrolled_window.set_propagate_natural_height(true);
