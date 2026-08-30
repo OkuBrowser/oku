@@ -522,7 +522,7 @@ impl Window {
                             update_nav_bar(&nav_entry, w);
                             back_button.set_sensitive(w.can_go_back());
                             forward_button.set_sensitive(w.can_go_forward());
-                            this.update_color(w, &style_manager);
+                            this.update_color(&Some(&w), &style_manager);
                         }
                     }
                 ))));

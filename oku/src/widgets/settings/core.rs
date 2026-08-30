@@ -54,9 +54,7 @@ pub fn apply_appearance_config(
     window: &crate::widgets::window::Window,
 ) {
     style_manager.set_color_scheme(window.imp().config.imp().colour_scheme().into());
-    if let Ok(web_view) = window.get_view() {
-        window.update_color(&web_view, style_manager);
-    }
+    window.update_color(&window.get_view().as_ref().ok(), style_manager);
 }
 
 impl Settings {

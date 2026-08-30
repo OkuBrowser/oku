@@ -298,7 +298,6 @@ impl Window {
             .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
         imp.bookmarks_view.set_vexpand(true);
         imp.bookmarks_view.add_css_class("boxed-list-separate");
-        imp.bookmarks_view.add_css_class("navigation-sidebar");
 
         imp.bookmarks_scrolled_window
             .set_child(Some(&imp.bookmarks_view));
@@ -509,8 +508,6 @@ impl Window {
         imp.bookmarks_search_view.set_vexpand(true);
         imp.bookmarks_search_view
             .add_css_class("boxed-list-separate");
-        imp.bookmarks_search_view
-            .add_css_class("navigation-sidebar");
 
         imp.bookmarks_search_scrolled_window
             .set_child(Some(&imp.bookmarks_search_view));
@@ -613,7 +610,6 @@ impl Window {
             .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
         imp.history_view.set_vexpand(true);
         imp.history_view.add_css_class("boxed-list-separate");
-        imp.history_view.add_css_class("navigation-sidebar");
 
         imp.history_scrolled_window
             .set_child(Some(&imp.history_view));
@@ -791,7 +787,6 @@ impl Window {
             .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
         imp.history_search_view.set_vexpand(true);
         imp.history_search_view.add_css_class("boxed-list-separate");
-        imp.history_search_view.add_css_class("navigation-sidebar");
 
         imp.history_search_scrolled_window
             .set_child(Some(&imp.history_search_view));
@@ -910,7 +905,6 @@ impl Window {
             .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
         imp.replicas_view.set_vexpand(true);
         imp.replicas_view.add_css_class("boxed-list-separate");
-        imp.replicas_view.add_css_class("navigation-sidebar");
 
         imp.replicas_scrolled_window
             .set_child(Some(&imp.replicas_view));

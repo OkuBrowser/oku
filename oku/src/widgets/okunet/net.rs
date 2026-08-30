@@ -245,7 +245,6 @@ impl Net {
             .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
         imp.posts_view.set_vexpand(true);
         imp.posts_view.add_css_class("boxed-list-separate");
-        imp.posts_view.add_css_class("navigation-sidebar");
 
         imp.posts_scrolled_window.set_child(Some(&imp.posts_view));
         imp.posts_scrolled_window

@@ -43,20 +43,24 @@ pub mod imp {
         pub(crate) tag_model: gtk::SingleSelection,
         pub(crate) tag_view: gtk::ListView,
         pub(crate) tag_scrolled_window: gtk::ScrolledWindow,
-        // Top box
+        // Avatar box
+        pub(crate) author_avatar: libadwaita::Avatar,
+        pub(crate) avatar_box: gtk::Box,
+        // Author name wrapbox (horizontal: author name, author ID)
         pub(crate) author_name_label: gtk::Label,
         pub(crate) author_id_label: gtk::Label,
-        pub(crate) author_avatar: libadwaita::Avatar,
+        pub(crate) author_name_wrapbox: libadwaita::WrapBox,
+        // Top box (horizontal: author name wrapbox, URL, time)
         pub(crate) timestamp_label: gtk::Label,
-        pub(crate) post_top_box: gtk::Box,
-        // Middle box
-        pub(crate) url_label: gtk::Label,
+        pub(crate) top_box: gtk::Box,
+        // Post title box
         pub(crate) title_label: gtk::Label,
-        pub(crate) post_middle_box: gtk::Box,
-        // Body box
+        pub(crate) url_label: gtk::Label,
+        pub(crate) post_title_box: gtk::Box,
+        // Post box (vertical: top box, post title box, post text, post tags)
         pub(crate) body_label: gtk::Label,
-        pub(crate) post_body_box: gtk::Box,
-        // Main
+        pub(crate) post_box: gtk::Box,
+        // Main box (horizontal: avatar box, post box)
         pub(crate) main: gtk::Box,
     }
 
@@ -188,7 +192,7 @@ impl PostRow {
 
         imp.tag_factory.connect_setup(clone!(move |_, item| {
             let tag = crate::widgets::tag::Tag::new();
-            tag.set_deletable(&false);
+            tag.set_property("deletable", &false);
             let list_item = item.downcast_ref::<gtk::ListItem>().unwrap();
             list_item.set_child(Some(&tag));
             list_item
@@ -208,7 +212,6 @@ impl PostRow {
             .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
         imp.tag_view.set_vexpand(true);
         imp.tag_view.add_css_class("boxed-list-separate");
-        imp.tag_view.add_css_class("navigation-sidebar");
         imp.tag_view
             .set_layout_manager(Some(libadwaita::WrapLayout::new()));
 
@@ -244,7 +247,7 @@ impl PostRow {
                     .map(|x| x.to_rfc2822())
                     .unwrap_or_default()
             }))
-            .bind(&imp.author_id_label, "label", gtk::Widget::NONE);
+            .bind(&imp.timestamp_label, "label", gtk::Widget::NONE);
         let this = self.clone();
         self.property_expression("author-name")
             .chain_closure::<String>(closure!(
@@ -263,35 +266,50 @@ impl PostRow {
         imp.timestamp_label.add_css_class("dimmed");
         imp.url_label.add_css_class("dimmed");
 
-        imp.post_top_box.append(&imp.author_avatar);
-        imp.post_top_box.append(&imp.author_name_label);
-        imp.post_top_box.append(&imp.author_id_label);
-        imp.post_top_box.append(&imp.timestamp_label);
-        imp.post_top_box.set_vexpand(true);
-        imp.post_top_box.set_hexpand(true);
-        imp.post_top_box
+        imp.avatar_box.append(&imp.author_avatar);
+        imp.avatar_box.set_valign(gtk::Align::Start);
+
+        imp.author_name_wrapbox.append(&imp.author_name_label);
+        imp.author_name_wrapbox.append(&imp.author_id_label);
+        imp.author_name_wrapbox.set_valign(gtk::Align::Start);
+        imp.author_name_wrapbox
             .set_orientation(gtk::Orientation::Horizontal);
+        imp.author_name_wrapbox.set_child_spacing(6);
 
-        imp.post_middle_box.append(&imp.title_label);
-        imp.post_middle_box.append(&imp.url_label);
-        imp.post_middle_box.set_vexpand(true);
-        imp.post_middle_box.set_hexpand(true);
-        imp.post_middle_box
+        imp.timestamp_label.set_halign(gtk::Align::End);
+        imp.top_box.append(&imp.timestamp_label);
+        imp.top_box.set_vexpand(true);
+        imp.top_box.set_hexpand(true);
+        imp.top_box.set_orientation(gtk::Orientation::Horizontal);
+
+        imp.title_label.set_halign(gtk::Align::Start);
+        imp.post_title_box.append(&imp.title_label);
+        imp.post_title_box.append(&imp.url_label);
+        imp.post_title_box.set_vexpand(true);
+        imp.post_title_box.set_hexpand(true);
+        imp.post_title_box
             .set_orientation(gtk::Orientation::Horizontal);
+        imp.post_title_box.set_spacing(16);
 
-        imp.post_body_box.append(&imp.tag_box);
-        imp.post_body_box.append(&imp.body_label);
-        imp.post_body_box.set_vexpand(true);
-        imp.post_body_box.set_hexpand(true);
-        imp.post_body_box
-            .set_orientation(gtk::Orientation::Vertical);
+        imp.body_label.set_halign(gtk::Align::Start);
+        imp.post_box.append(&imp.top_box);
+        imp.post_box.append(&imp.post_title_box);
+        imp.post_box.append(&imp.body_label);
+        imp.post_box.append(&imp.tag_box);
+        imp.post_box.set_vexpand(true);
+        imp.post_box.set_hexpand(true);
+        imp.post_box.set_orientation(gtk::Orientation::Vertical);
 
-        imp.main.append(&imp.post_top_box);
-        imp.main.append(&imp.post_middle_box);
-        imp.main.append(&imp.post_body_box);
+        imp.main.append(&imp.avatar_box);
+        imp.main.append(&imp.post_box);
         imp.main.set_vexpand(true);
         imp.main.set_hexpand(true);
-        imp.main.set_orientation(gtk::Orientation::Vertical);
+        imp.main.set_orientation(gtk::Orientation::Horizontal);
+        imp.main.set_spacing(14);
+        imp.main.set_margin_start(8);
+        imp.main.set_margin_top(8);
+        imp.main.set_margin_bottom(8);
+        imp.main.set_margin_end(8);
 
         self.set_child(Some(&imp.main));
         self.set_vexpand(true);

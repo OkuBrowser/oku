@@ -240,6 +240,7 @@ impl Window {
                     selected_page.set_needs_attention(false);
                 }
                 let web_view = this.get_view();
+                this.update_color(&web_view.as_ref().ok(), &style_manager);
                 if web_view.is_err() {
                     return;
                 }
@@ -258,7 +259,7 @@ impl Window {
                 }
                 imp.back_button.set_sensitive(web_view.can_go_back());
                 imp.forward_button.set_sensitive(web_view.can_go_forward());
-                this.update_color(&web_view, &style_manager);
+                this.update_color(&Some(&web_view), &style_manager);
                 imp.zoom_percentage
                     .set_text(&format!("{:.0}%", web_view.zoom_level() * 100.0))
             }

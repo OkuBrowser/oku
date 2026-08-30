@@ -444,7 +444,7 @@ impl NoteEditor {
             self,
             move |_, item| {
                 let tag = crate::widgets::tag::Tag::new();
-                tag.set_deletable(&true);
+                tag.set_property("deletable", &true);
                 let list_item = item.downcast_ref::<gtk::ListItem>().unwrap();
                 list_item.set_child(Some(&tag));
                 list_item
@@ -468,25 +468,25 @@ impl NoteEditor {
         imp.tag_view.set_layout_manager(Some(
             libadwaita::WrapLayout::builder()
                 .orientation(gtk::Orientation::Vertical)
+                .child_spacing(4)
                 .build(),
         ));
         imp.tag_view.set_enable_rubberband(false);
         imp.tag_view
-            .set_hscroll_policy(gtk::ScrollablePolicy::Natural);
+            .set_hscroll_policy(gtk::ScrollablePolicy::Minimum);
         imp.tag_view
             .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
         imp.tag_view.set_hexpand(true);
         imp.tag_view.set_vexpand(true);
         imp.tag_view.add_css_class("boxed-list-separate");
-        imp.tag_view.add_css_class("navigation-sidebar");
-        imp.tag_view
-            .set_layout_manager(Some(libadwaita::WrapLayout::new()));
 
         imp.tag_scrolled_window.set_child(Some(&imp.tag_view));
+        imp.tag_scrolled_window
+            .set_hscrollbar_policy(gtk::PolicyType::Never);
         imp.tag_scrolled_window.set_propagate_natural_height(true);
         imp.tag_scrolled_window.set_propagate_natural_width(true);
 
-        imp.tag_box.set_orientation(gtk::Orientation::Horizontal);
+        imp.tag_box.set_orientation(gtk::Orientation::Vertical);
         imp.tag_box.set_spacing(4);
         imp.tag_box.append(&imp.tag_scrolled_window);
     }

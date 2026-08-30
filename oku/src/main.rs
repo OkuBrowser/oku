@@ -4,6 +4,7 @@
     html_logo_url = "https://github.com/OkuBrowser/oku/raw/master/branding/logo-filled.svg",
     html_favicon_url = "https://github.com/OkuBrowser/oku/raw/master/branding/logo-filled.svg"
 )]
+#![recursion_limit = "256"] // Due to https://github.com/rust-lang/rust/issues/159228, to address overflow evaluating the requirement `<libp2p_core::upgrade::select::SelectUpgrade<SendWrapper<libp2p_core::upgrade::select::SelectUpgrade<SendWrapper<libp2p_core::upgrade::select::SelectUpgrade<SendWrapper<libp2p_core::upgrade::select::SelectUpgrade<SendWrapper<libp2p_core::upgrade::select::SelectUpgrade<SendWrapper<libp2p_core::upgrade::select::SelectUpgrade<_, _>>, _>>, _>>, _>>, _>>, _> as UpgradeInfoSend>::InfoIter == std::iter::Chain<std::iter::Map<std::iter::Chain<std::iter::Map<std::iter::Chain<std::iter::Map<std::iter::Chain<std::iter::Map<std::iter::Chain<std::iter::Map<std::iter::Chain<_, _>, _>, _>, _>, _>, _>, _>, _>, _>, _>, _>`
 pub mod bookmark_item;
 pub mod config;
 pub mod database;
@@ -63,6 +64,9 @@ static REPLICAS_MOUNTED: LazyLock<Arc<AtomicBool>> =
     LazyLock::new(|| Arc::new(AtomicBool::new(false)));
 
 pub const APP_ID: &str = "io.github.OkuBrowser.oku";
+
+pub const DEFAULT_STYLESHEET: &str = "listview.view { background-color: rgba(0, 0, 0, 0); }
+row.activatable { background-color: rgba(0, 0, 0, 0); };";
 
 async fn create_web_context() -> (WebContext, Option<FuseSession<PathBuf>>, Ipfs) {
     debug!("Creating Oku client … ");

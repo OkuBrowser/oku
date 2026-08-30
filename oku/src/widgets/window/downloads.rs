@@ -51,7 +51,6 @@ impl Window {
             .set_vscroll_policy(gtk::ScrollablePolicy::Natural);
         imp.downloads_view.set_vexpand(true);
         imp.downloads_view.add_css_class("boxed-list-separate");
-        imp.downloads_view.add_css_class("navigation-sidebar");
 
         imp.downloads_scrolled_window
             .set_child(Some(&imp.downloads_view));

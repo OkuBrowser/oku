@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::enums::Palette;
+use crate::{config::enums::Palette, DEFAULT_STYLESHEET};
 use gtk::subclass::prelude::*;
 use std::hash::{Hash, Hasher};
 use webkit2gtk::prelude::WebViewExt;
@@ -7,31 +7,33 @@ use webkit2gtk::prelude::WebViewExt;
 impl Window {
     pub fn update_color(
         &self,
-        web_view: &webkit2gtk::WebView,
+        web_view: &Option<&webkit2gtk::WebView>,
         style_manager: &libadwaita::StyleManager,
     ) {
         let imp = self.imp();
 
         let config = imp.config.imp();
         if !config.colour_per_domain() {
-            imp.style_provider.borrow().load_from_string("");
+            imp.style_provider
+                .borrow()
+                .load_from_string(DEFAULT_STYLESHEET);
             if config.palette() != Palette::None {
                 self.update_from_palette(web_view, style_manager, &config.palette());
-            } else {
+            } else if let Some(web_view) = web_view {
                 web_view.set_background_color(if style_manager.is_dark() {
                     &gdk::RGBA::BLACK
                 } else {
                     &gdk::RGBA::WHITE
                 });
             }
-        } else {
+        } else if let Some(web_view) = web_view {
             self.update_domain_color(web_view, style_manager);
         }
     }
 
     pub fn update_from_palette(
         &self,
-        web_view: &webkit2gtk::WebView,
+        web_view: &Option<&webkit2gtk::WebView>,
         style_manager: &libadwaita::StyleManager,
         palette_colour: &Palette,
     ) {
@@ -88,9 +90,13 @@ impl Window {
         } else {
             gdk::RGBA::WHITE
         });
-        web_view.set_background_color(&rgba);
+        if let Some(web_view) = web_view {
+            web_view.set_background_color(&rgba);
+        }
 
-        imp.style_provider.borrow().load_from_string(&stylesheet);
+        imp.style_provider
+            .borrow()
+            .load_from_string(&format!("{DEFAULT_STYLESHEET}{stylesheet}"));
     }
 
     /// Adapted from Geopard (https://github.com/ranfdev/Geopard)
@@ -170,6 +176,8 @@ impl Window {
         });
         web_view.set_background_color(&rgba);
 
-        imp.style_provider.borrow().load_from_string(&stylesheet);
+        imp.style_provider
+            .borrow()
+            .load_from_string(&format!("{DEFAULT_STYLESHEET}{stylesheet}"));
     }
 }
