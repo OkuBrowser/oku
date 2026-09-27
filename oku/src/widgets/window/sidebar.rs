@@ -129,7 +129,9 @@ impl Window {
                         x.id,
                         x.title.unwrap_or_default(),
                         x.uri,
-                        x.timestamp.to_rfc2822(),
+                        jiff::fmt::rfc2822::DateTimePrinter::new()
+                            .timestamp_to_rfc9110_string(&x.timestamp)
+                            .unwrap_or_default(),
                         &favicon_database,
                     ),
                 );

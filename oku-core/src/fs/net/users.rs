@@ -11,7 +11,6 @@ use crate::{
         OkuFs,
     },
 };
-use cfg_if::cfg_if;
 use futures::StreamExt;
 use iroh_blobs::Hash;
 use iroh_docs::sync::CapabilityKind;
@@ -658,7 +657,14 @@ impl OkuFs {
     ///
     /// An OkuNet user's content.
     pub async fn get_or_fetch_user(&self, author_id: &AuthorId) -> miette::Result<OkuUser> {
-        cfg_if!(if #[cfg(any(feature = "persistent"))]{let config = OkuFsConfig::load_or_create_config().unwrap_or_default();}else{let config = OkuFsConfig::default();});
+        cfg_select! {
+            feature = "persistent" => {
+                let config = OkuFsConfig::load_or_create_config().unwrap_or_default();
+            }
+            _ => {
+                let config = OkuFsConfig::default();
+            }
+        }
         let republish_delay = config.get_republish_delay();
         match DATABASE.get_user(author_id).ok().flatten() {
             Some(user) => {

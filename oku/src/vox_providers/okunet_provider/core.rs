@@ -111,14 +111,9 @@ impl OkuNetProvider {
         let parser = self.0.create_liquid_parser()?;
         let global = self.0.get_global_context()?;
         let (dag, _pages, _layouts) = self.0.generate_dag()?;
-        let (_updated_pages, _updated_dag) = self.0.generate_site(
-            parser.clone(),
-            global.0.clone(),
-            global.1,
-            dag,
-            false,
-            false,
-        )?;
+        let (_updated_pages, _updated_dag) = self
+            .0
+            .generate_site(&parser, &global.0, &global.1, &dag, &false, &false)?;
         self.0.read_to_string(path)
     }
 }

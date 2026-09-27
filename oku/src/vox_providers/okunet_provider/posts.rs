@@ -55,11 +55,9 @@ impl OkuNetProvider {
             .ok_or(miette::miette!("No running Oku node … "))?;
         let page_permalink = self.get_post_permalink(post).await?;
         let post_date = toml::value::Datetime::from_str(
-            &chrono::DateTime::from_timestamp_micros(
-                post.entry.timestamp().try_into().unwrap_or(0),
-            )
-            .map(|x| x.to_rfc3339())
-            .unwrap_or_default(),
+            &jiff::Timestamp::from_microsecond(post.entry.timestamp().try_into().unwrap_or(0))
+                .map(|x| x.to_string())
+                .unwrap_or_default(),
         )
         .into_diagnostic()?;
         let author_identity = if let Some(identity) = user.identity.clone() {

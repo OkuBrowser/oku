@@ -128,7 +128,12 @@ impl HistoryItem {
             this.set_properties(&[
                 ("id", &history_record.id.to_string()),
                 ("title", &history_record.title.clone().unwrap_or_default()),
-                ("timestamp", &history_record.timestamp.to_rfc2822()),
+                (
+                    "timestamp",
+                    &jiff::fmt::rfc2822::DateTimePrinter::new()
+                        .timestamp_to_rfc9110_string(&history_record.timestamp)
+                        .unwrap_or_default(),
+                ),
                 ("uri", &history_record.uri),
             ]);
             if let Some(favicon_database) = favicon_database {

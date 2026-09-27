@@ -444,7 +444,7 @@ impl NoteEditor {
             self,
             move |_, item| {
                 let tag = crate::widgets::tag::Tag::new();
-                tag.set_property("deletable", &true);
+                tag.set_property("deletable", true);
                 let list_item = item.downcast_ref::<gtk::ListItem>().unwrap();
                 list_item.set_child(Some(&tag));
                 list_item

@@ -192,7 +192,7 @@ impl PostRow {
 
         imp.tag_factory.connect_setup(clone!(move |_, item| {
             let tag = crate::widgets::tag::Tag::new();
-            tag.set_property("deletable", &false);
+            tag.set_property("deletable", false);
             let list_item = item.downcast_ref::<gtk::ListItem>().unwrap();
             list_item.set_child(Some(&tag));
             list_item
@@ -243,8 +243,10 @@ impl PostRow {
             .bind(&imp.author_id_label, "label", gtk::Widget::NONE);
         self.property_expression("timestamp")
             .chain_closure::<String>(closure!(|_: Option<Object>, timestamp: u64| {
-                chrono::DateTime::from_timestamp_micros(timestamp.try_into().unwrap_or(0))
-                    .map(|x| x.to_rfc2822())
+                jiff::Timestamp::from_microsecond(timestamp.try_into().unwrap_or(0))
+                    .and_then(|x| {
+                        jiff::fmt::rfc2822::DateTimePrinter::new().timestamp_to_rfc9110_string(&x)
+                    })
                     .unwrap_or_default()
             }))
             .bind(&imp.timestamp_label, "label", gtk::Widget::NONE);

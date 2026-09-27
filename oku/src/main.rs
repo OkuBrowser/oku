@@ -52,6 +52,9 @@ static PROJECT_DIRECTORIES: LazyLock<ProjectDirs> =
     LazyLock::new(|| ProjectDirs::from("io", "github.OkuBrowser", "oku").unwrap());
 /// The platform-specific directory where Oku stores user data
 static DATA_DIR: LazyLock<PathBuf> = LazyLock::new(|| PROJECT_DIRECTORIES.data_dir().to_path_buf());
+/// The platform-specific directory where Oku stores user data
+static CACHE_DIR: LazyLock<PathBuf> =
+    LazyLock::new(|| PROJECT_DIRECTORIES.cache_dir().to_path_buf());
 /// The platform-specific directory where the Oku file system is mounted
 static MOUNT_DIR: LazyLock<PathBuf> = LazyLock::new(|| DATA_DIR.join("mount"));
 /// The platform-specific file path where Oku settings are stored

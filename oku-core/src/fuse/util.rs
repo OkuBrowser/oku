@@ -1,6 +1,5 @@
 use crate::error::OkuFuseError;
 use crate::fs::OkuFs;
-use chrono::TimeZone;
 use easy_fuser::types::FileAttribute;
 use easy_fuser::types::FileIdType;
 use easy_fuser::types::FileKind::Directory;
@@ -193,21 +192,21 @@ impl OkuFs {
                     let last_modified =
                         self.get_last_modified(&namespace_id, &replica_path).await?;
                     let estimated_creation_time = SystemTime::from(
-                        chrono::Utc.timestamp_nanos(
+                        jiff::Timestamp::from_nanosecond(
                             (self
                                 .get_oldest_entry_timestamp(&namespace_id, &replica_path)
                                 .await?)
-                                .try_into()
-                                .unwrap_or(0),
-                        ),
+                                .into(),
+                        )
+                        .unwrap_or_default(),
                     );
                     Ok(FileAttribute {
                         size: file_size,
                         blocks: file_size / 512,
                         atime: SystemTime::now(),
                         mtime: SystemTime::from(
-                            chrono::Utc
-                                .timestamp_nanos((last_modified * 1_000).try_into().unwrap_or(0)),
+                            jiff::Timestamp::from_nanosecond((last_modified * 1_000).into())
+                                .unwrap_or_default(),
                         ),
                         ctime: estimated_creation_time,
                         crtime: estimated_creation_time,
@@ -237,25 +236,22 @@ impl OkuFs {
                         blocks: directory_size_estimate / 512,
                         atime: SystemTime::now(),
                         mtime: SystemTime::from(
-                            chrono::Utc.timestamp_nanos(
-                                (directory_modification_time_estimate * 1000)
-                                    .try_into()
-                                    .unwrap_or(0),
-                            ),
+                            jiff::Timestamp::from_nanosecond(
+                                (directory_modification_time_estimate * 1000).into(),
+                            )
+                            .unwrap_or_default(),
                         ),
                         ctime: SystemTime::from(
-                            chrono::Utc.timestamp_nanos(
-                                (directory_creation_time_estimate * 1000)
-                                    .try_into()
-                                    .unwrap_or(0),
-                            ),
+                            jiff::Timestamp::from_nanosecond(
+                                (directory_creation_time_estimate * 1000).into(),
+                            )
+                            .unwrap_or_default(),
                         ),
                         crtime: SystemTime::from(
-                            chrono::Utc.timestamp_nanos(
-                                (directory_creation_time_estimate * 1000)
-                                    .try_into()
-                                    .unwrap_or(0),
-                            ),
+                            jiff::Timestamp::from_nanosecond(
+                                (directory_creation_time_estimate * 1000).into(),
+                            )
+                            .unwrap_or_default(),
                         ),
                         kind: Directory,
                         perm: fs_entry_permission,
@@ -280,21 +276,18 @@ impl OkuFs {
                 blocks: root_size_estimate / 512,
                 atime: SystemTime::now(),
                 mtime: SystemTime::from(
-                    chrono::Utc.timestamp_nanos(
-                        (root_modification_time_estimate * 1000)
-                            .try_into()
-                            .unwrap_or(0),
-                    ),
+                    jiff::Timestamp::from_nanosecond(
+                        (root_modification_time_estimate * 1000).into(),
+                    )
+                    .unwrap_or_default(),
                 ),
                 ctime: SystemTime::from(
-                    chrono::Utc.timestamp_nanos(
-                        (root_creation_time_estimate * 1000).try_into().unwrap_or(0),
-                    ),
+                    jiff::Timestamp::from_nanosecond((root_creation_time_estimate * 1000).into())
+                        .unwrap_or_default(),
                 ),
                 crtime: SystemTime::from(
-                    chrono::Utc.timestamp_nanos(
-                        (root_creation_time_estimate * 1000).try_into().unwrap_or(0),
-                    ),
+                    jiff::Timestamp::from_nanosecond((root_creation_time_estimate * 1000).into())
+                        .unwrap_or_default(),
                 ),
                 kind: Directory,
                 perm: 0o444u16,

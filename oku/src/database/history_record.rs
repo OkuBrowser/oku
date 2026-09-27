@@ -65,7 +65,7 @@ pub struct HistoryRecord {
     pub original_uri: String,
     pub uri: String,
     pub title: Option<String>,
-    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub timestamp: jiff::Timestamp,
 }
 
 impl HistoryRecord {
@@ -89,7 +89,7 @@ impl From<HistoryRecord> for TantivyDocument {
         }
         doc.add_date(
             HISTORY_RECORD_SCHEMA.1["timestamp"],
-            tantivy::DateTime::from_timestamp_millis(value.timestamp.timestamp_millis()),
+            tantivy::DateTime::from_timestamp_millis(value.timestamp.as_millisecond()),
         );
         doc
     }

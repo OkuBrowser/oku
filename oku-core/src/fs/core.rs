@@ -54,36 +54,42 @@ impl OkuFs {
             .bind()
             .await?;
 
-        cfg_if::cfg_if!(
-            if #[cfg(any(feature = "persistent"))] {
+        cfg_select! {
+            feature = "persistent" => {
                 let store: Store = match persistent {
                     true => Store::from(FsStore::load(NODE_PATH.clone()).await?),
-                    false => MemStore::new().into()
+                    false => MemStore::new().into(),
                 };
-            } else {
+            }
+            _ => {
                 let store: Store = MemStore::new().into();
             }
-        );
+        }
 
         let blobs = BlobsProtocol::new(&store, None);
 
         let gossip = Gossip::builder().spawn(endpoint.clone());
-        cfg_if::cfg_if!(
-            if #[cfg(any(feature = "persistent"))] {
+        cfg_select! {
+            feature = "persistent" => {
                 let docs = match persistent {
-                    true => iroh_docs::protocol::Docs::persistent(NODE_PATH.clone())
-                        .spawn(endpoint.clone(), store, gossip.clone())
-                        .await?,
-                    false => iroh_docs::protocol::Docs::memory()
-                        .spawn(endpoint.clone(), store, gossip.clone())
-                        .await?
+                    true => {
+                        iroh_docs::protocol::Docs::persistent(NODE_PATH.clone())
+                            .spawn(endpoint.clone(), store, gossip.clone())
+                            .await?
+                    }
+                    false => {
+                        iroh_docs::protocol::Docs::memory()
+                            .spawn(endpoint.clone(), store, gossip.clone())
+                            .await?
+                    }
                 };
-            } else {
+            }
+            _ => {
                 let docs = iroh_docs::protocol::Docs::memory()
                     .spawn(endpoint.clone(), store, gossip.clone())
                     .await?;
             }
-        );
+        }
 
         let router = iroh::protocol::Router::builder(endpoint.clone())
             .accept(iroh_blobs::ALPN, blobs.clone())
@@ -185,16 +191,17 @@ impl OkuFs {
         }
 
         let oku_core_clone = oku_core.clone();
-        cfg_if::cfg_if!(
-            if #[cfg(any(feature = "persistent"))] {
+        cfg_select! {
+            feature = "persistent" => {
                 let config = match persistent {
                     true => OkuFsConfig::load_or_create_config().unwrap_or_default(),
-                    false => OkuFsConfig::default()
+                    false => OkuFsConfig::default(),
                 };
-            } else {
+            }
+            _ => {
                 let config = OkuFsConfig::default();
             }
-        );
+        }
         let republish_delay = config.get_republish_delay();
         let initial_publish_delay = config.get_initial_publish_delay();
 
@@ -398,7 +405,7 @@ impl OkuFs {
                             easy_fuser::fuse_async::prelude::MountOption::Exec,
                             easy_fuser::fuse_async::prelude::MountOption::Async,
                         ],
-                        None,
+                        Some(1),
                     )
                     .into_diagnostic()
                 })

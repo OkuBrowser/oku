@@ -1,6 +1,5 @@
 use super::*;
 use crate::widgets;
-use chrono::Utc;
 use glib::{clone, closure};
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
@@ -319,7 +318,7 @@ impl Window {
                                 let file_dialog =
                                     gtk::FileDialog::builder()
                                         .accept_label("Save")
-                                        .initial_name(format!("{}.png", Utc::now()))
+                                        .initial_name(format!("{}.png", jiff::Timestamp::now()))
                                         .initial_folder(&gio::File::for_path(glib::user_special_dir(glib::enums::UserDirectory::Pictures).unwrap()))
                                         .title("Select a destination to save the screenshot")
                                         .build();
@@ -416,7 +415,7 @@ impl Window {
                                     let file_dialog =
                                         gtk::FileDialog::builder()
                                             .accept_label("Save")
-                                            .initial_name(format!("{}.png", Utc::now()))
+                                            .initial_name(format!("{}.png", jiff::Timestamp::now()))
                                             .initial_folder(&gio::File::for_path(glib::user_special_dir(glib::enums::UserDirectory::Pictures).unwrap()))
                                             .title("Select a destination to save the screenshot")
                                             .build();

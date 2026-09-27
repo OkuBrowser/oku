@@ -6,7 +6,7 @@ use crate::window_util::{
     get_title, get_view_from_page, new_webkit_settings, update_favicon, update_nav_bar,
     update_title,
 };
-use crate::{DATA_DIR, VERSION};
+use crate::{CACHE_DIR, DATA_DIR, VERSION};
 use glib::clone;
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
@@ -163,14 +163,29 @@ impl Window {
     }
 
     pub fn favicon_database(&self) -> Option<FaviconDatabase> {
-        self.get_view()
+        let from_view = self
+            .get_view()
             .ok()
             .and_then(|x| {
                 x.network_session()
                     .map(|y| y.website_data_manager().map(|z| z.favicon_database()))
             })
             .flatten()
-            .flatten()
+            .flatten();
+        match from_view {
+            Some(favicon_database) => Some(favicon_database),
+            // If there's no running `WebView`, we're going to need to start a `NetworkSession`, create a `WebsiteDataManager`, enable favicons on it, and then grab the `FaviconDatabase` handle inside it that's been created.
+            None => {
+                let network_session = webkit2gtk::NetworkSession::default().unwrap_or(
+                    webkit2gtk::NetworkSession::new(DATA_DIR.to_str(), CACHE_DIR.to_str()),
+                );
+                let website_data_manager = network_session.website_data_manager();
+                if let Some(ref website_data_manager) = website_data_manager {
+                    website_data_manager.set_favicons_enabled(true);
+                }
+                website_data_manager.and_then(|x| x.favicon_database())
+            }
+        }
     }
 
     /// Create a new WebKit instance for the current tab
@@ -427,7 +442,7 @@ impl Window {
                                             .to_string(),
                                         uri: current_item.uri().unwrap_or_default().to_string(),
                                         title: Some(title),
-                                        timestamp: chrono::Utc::now(),
+                                        timestamp: jiff::Timestamp::now(),
                                     }) {
                                         error!("{}", e)
                                     }
@@ -522,7 +537,7 @@ impl Window {
                             update_nav_bar(&nav_entry, w);
                             back_button.set_sensitive(w.can_go_back());
                             forward_button.set_sensitive(w.can_go_forward());
-                            this.update_color(&Some(&w), &style_manager);
+                            this.update_color(&Some(w), &style_manager);
                         }
                     }
                 ))));
