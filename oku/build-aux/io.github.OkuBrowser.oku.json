@@ -75,7 +75,7 @@
                 {
                     "type" : "git",
                     "url" : "https://github.com/OkuBrowser/oku.git",
-                    "tag": "v0.1.2"
+                    "commit": "a600e340c519ac3adb07bff9309869ac9512e877"
                 },
                 "cargo-sources.json"
             ]
