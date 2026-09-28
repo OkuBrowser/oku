@@ -7215,7 +7215,7 @@ dependencies = [
 [[package]]
 name = "rust-ipfs"
 version = "0.16.0"
-source = "git+https://github.com/dariusc93/rust-ipfs.git?branch=libp2p-next#a1f64c3976735e9bf4f7fe3fd9ebe354cd5260b2"
+source = "git+https://github.com/dariusc93/rust-ipfs.git?rev=a1f64c39#a1f64c3976735e9bf4f7fe3fd9ebe354cd5260b2"
 dependencies = [
  "anyhow",
  "async-rt",
@@ -7273,7 +7273,7 @@ dependencies = [
 [[package]]
 name = "rust-ipns"
 version = "0.9.0"
-source = "git+https://github.com/dariusc93/rust-ipfs.git?branch=libp2p-next#a1f64c3976735e9bf4f7fe3fd9ebe354cd5260b2"
+source = "git+https://github.com/dariusc93/rust-ipfs.git?rev=a1f64c39#a1f64c3976735e9bf4f7fe3fd9ebe354cd5260b2"
 dependencies = [
  "bytes",
  "chrono",
@@ -7299,7 +7299,7 @@ dependencies = [
 [[package]]
 name = "rust-unixfs"
 version = "0.6.0"
-source = "git+https://github.com/dariusc93/rust-ipfs.git?branch=libp2p-next#a1f64c3976735e9bf4f7fe3fd9ebe354cd5260b2"
+source = "git+https://github.com/dariusc93/rust-ipfs.git?rev=a1f64c39#a1f64c3976735e9bf4f7fe3fd9ebe354cd5260b2"
 dependencies = [
  "either",
  "filetime",

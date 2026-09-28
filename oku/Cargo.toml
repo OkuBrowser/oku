@@ -38,7 +38,7 @@ glib-macros = { version = "0.22.9" }
 gtk = { version = "0.11.5", package = "gtk4", features = [
     "gnome_50", "v4_22"
 ], default-features = false }
-ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", branch = "libp2p-next", package = "rust-ipfs" }
+ipfs = { git = "https://github.com/dariusc93/rust-ipfs.git", rev = "a1f64c39", package = "rust-ipfs" }
 libadwaita = { version = "0.9.2", features = ["gtk_v4_22", "v1_9", "gio_v2_80"] }
 # oku-fs = { git = "https://github.com/OkuBrowser/oku-fs", features = ["fuse"] }
 oku-core = { path = "../oku-core", features = ["fuse", "persistent"] }
