@@ -14,8 +14,7 @@ impl Window {
         let suggestions_store = self.imp().suggestions_store.borrow();
 
         Ref::map(suggestions_store, |suggestions_store| {
-            let suggestions_store = suggestions_store.as_deref().unwrap();
-            suggestions_store
+            (suggestions_store.as_deref().unwrap()) as _
         })
     }
 

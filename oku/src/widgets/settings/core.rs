@@ -2,7 +2,7 @@ use crate::config::Config;
 use gtk::glib;
 use gtk::subclass::prelude::*;
 use libadwaita::subclass::{dialog::AdwDialogImpl, preferences_dialog::PreferencesDialogImpl};
-use libadwaita::{prelude::*, StyleManager};
+use libadwaita::{StyleManager, prelude::*};
 
 pub mod imp {
     use super::*;

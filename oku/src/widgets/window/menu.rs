@@ -4,10 +4,10 @@ use glib::{clone, closure};
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
-use libadwaita::{prelude::*, ResponseAppearance};
+use libadwaita::{ResponseAppearance, prelude::*};
 use log::{error, info, warn};
-use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::WebContext;
+use webkit2gtk::prelude::WebViewExt;
 
 impl Window {
     pub fn setup_menu_popover(&self) {

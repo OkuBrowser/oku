@@ -236,7 +236,7 @@ impl OkuFs {
                 }
             }
             None => {
-                if let Some(replica) = docs_client.open(namespace_id).await.unwrap_or(None) {
+                match docs_client.open(namespace_id).await.unwrap_or(None) { Some(replica) => {
                     replica
                         .set_download_policy(iroh_docs::store::DownloadPolicy::default())
                         .await?;
@@ -256,7 +256,7 @@ impl OkuFs {
                             break;
                         }
                     }
-                } else {
+                } _ => {
                     let (_replica, mut events) = docs_client.import_and_subscribe(ticket).await?;
                     let sync_start = std::time::Instant::now();
                     while let Some(event) = events.next().await {
@@ -272,7 +272,7 @@ impl OkuFs {
                             break;
                         }
                     }
-                }
+                }}
             }
         }
         Ok(())
@@ -329,7 +329,7 @@ impl OkuFs {
                 }
             }
             None => {
-                if let Some(replica) = docs_client.open(namespace_id).await.unwrap_or(None) {
+                match docs_client.open(namespace_id).await.unwrap_or(None) { Some(replica) => {
                     replica
                         .set_download_policy(iroh_docs::store::DownloadPolicy::default())
                         .await?;
@@ -349,7 +349,7 @@ impl OkuFs {
                             break;
                         }
                     }
-                } else {
+                } _ => {
                     let (_replica, mut events) =
                         docs_client.import_and_subscribe(ticket.clone()).await?;
                     self.replica_sender.send_replace(ReplicaEvent::Imported(
@@ -369,7 +369,7 @@ impl OkuFs {
                             break;
                         }
                     }
-                }
+                }}
             }
         };
         Ok(())

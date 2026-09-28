@@ -26,6 +26,11 @@
     -->
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.1.2" date="2026-09-27">
+      <description>
+        <p>Mostly a point release with a lot of bug fixes and dependency updates. I've been too busy since the start of 2025 to do much feature development,but I have a lot of things I want to do with Oku, so stay tuned.</p>
+      </description>
+    </release>
     <release version="0.1.1" date="2024-12-08">
       <description>
         <p>Added download manager to library. Added toolbox to address bar. Added overlays for entering fullscreen, fetching from the OkuNet, and when a page is unresponsive.</p>

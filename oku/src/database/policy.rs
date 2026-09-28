@@ -1,18 +1,18 @@
 use super::BrowserDatabase;
+use glib::ParamSpec;
+use glib::ParamSpecBuilderExt;
+use glib::ParamSpecEnum;
+use glib::ParamSpecString;
+use glib::Value;
 use glib::object::ObjectExt;
 use glib::property::PropertySet;
 use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::value::ToValue;
-use glib::ParamSpec;
-use glib::ParamSpecBuilderExt;
-use glib::ParamSpecEnum;
-use glib::ParamSpecString;
-use glib::Value;
 use miette::IntoDiagnostic;
 use native_db::*;
-use native_model::{native_model, Model};
+use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::sync::LazyLock;
@@ -279,7 +279,8 @@ impl From<PolicySettingRecord> for PolicySetting {
 impl Default for PolicySetting {
     fn default() -> Self {
         let default_record = PolicySettingRecord::default();
-        let object = glib::Object::builder::<Self>()
+
+        glib::Object::builder::<Self>()
             .property("uri", &default_record.uri)
             .property("clipboard-policy", default_record.clipboard_policy)
             .property("device-info-policy", default_record.device_info_policy)
@@ -289,8 +290,7 @@ impl Default for PolicySetting {
             .property("pointer-lock-policy", default_record.pointer_lock_policy)
             .property("user-media-policy", default_record.user_media_policy)
             .property("data-access-policy", default_record.data_access_policy)
-            .build();
-        object
+            .build()
     }
 }
 

@@ -1,14 +1,14 @@
+use glib::ParamSpec;
+use glib::ParamSpecBoolean;
+use glib::ParamSpecBuilderExt;
+use glib::ParamSpecString;
+use glib::Value;
 use glib::property::PropertySet;
 use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassExt;
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::value::ToValue;
-use glib::ParamSpec;
-use glib::ParamSpecBoolean;
-use glib::ParamSpecBuilderExt;
-use glib::ParamSpecString;
-use glib::Value;
 use std::cell::RefCell;
 use std::sync::LazyLock;
 
@@ -88,12 +88,10 @@ impl ReplicaItem {
         *self.imp().home.borrow()
     }
     pub fn new(id: String, writable: bool, home: bool) -> Self {
-        let replica_item = glib::Object::builder::<Self>()
+        glib::Object::builder::<Self>()
             .property("id", id)
             .property("writable", writable)
             .property("home", home)
-            .build();
-
-        replica_item
+            .build()
     }
 }

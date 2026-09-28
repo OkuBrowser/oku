@@ -6,8 +6,8 @@ use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use libadwaita::prelude::*;
-use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::WebContext;
+use webkit2gtk::prelude::WebViewExt;
 
 pub struct NewWebTabArguments<'a> {
     pub web_context: &'a WebContext,

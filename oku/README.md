@@ -7,7 +7,7 @@ Unleash your creativity and join a network of users supporting an independent ef
 
 ## Build instructions
 
-If you are interested in using Oku, please follow the [documented build instructions](https://github.com/OkuBrowser/oku/blob/master/BUILDING.md).
+If you are interested in using Oku, please follow the [documented build instructions](https://github.com/OkuBrowser/oku/blob/master/oku/BUILDING.md).
 
 ## Installation
 - Linux: [Flathub](https://flathub.org/apps/io.github.OkuBrowser.oku)

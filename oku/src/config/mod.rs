@@ -1,11 +1,11 @@
 use crate::CONFIG_DIR;
-use glib::subclass::object::ObjectImpl;
-use glib::subclass::types::ObjectSubclass;
-use glib::value::ToValue;
 use glib::ParamSpec;
 use glib::ParamSpecBoolean;
 use glib::ParamSpecBuilderExt;
 use glib::Value;
+use glib::subclass::object::ObjectImpl;
+use glib::subclass::types::ObjectSubclass;
+use glib::value::ToValue;
 use glib::{ParamSpecEnum, ParamSpecInt};
 use log::error;
 use serde::Deserialize;

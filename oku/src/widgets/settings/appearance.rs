@@ -1,9 +1,9 @@
 use super::core::Settings;
 use crate::config::enums::{ColourScheme, Palette};
-use glib::{closure, Object};
+use glib::{Object, closure};
 use gtk::glib;
 use gtk::subclass::prelude::*;
-use libadwaita::{prelude::*, StyleManager};
+use libadwaita::{StyleManager, prelude::*};
 
 impl Settings {
     pub fn setup_appearance_bindings(

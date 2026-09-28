@@ -1,6 +1,6 @@
 use super::*;
 use crate::database::policy::PolicySettingRecord;
-use crate::database::{HistoryRecord, DATABASE};
+use crate::database::{DATABASE, HistoryRecord};
 use crate::scheme_handlers::view_source::Resource;
 use crate::window_util::{
     get_title, get_view_from_page, new_webkit_settings, update_favicon, update_nav_bar,
@@ -11,7 +11,7 @@ use glib::clone;
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
-use libadwaita::{prelude::*, ResponseAppearance};
+use libadwaita::{ResponseAppearance, prelude::*};
 use log::error;
 use std::cell::RefCell;
 use uuid::Uuid;
@@ -34,7 +34,10 @@ impl Window {
                 "This page is requesting permission to read the contents of your clipboard.",
             )
         } else if permission_request.is::<webkit2gtk::DeviceInfoPermissionRequest>() {
-            ("Allow access to audio & video devices?", "This page is requesting access to information regarding your audio & video devices.")
+            (
+                "Allow access to audio & video devices?",
+                "This page is requesting access to information regarding your audio & video devices.",
+            )
         } else if permission_request.is::<webkit2gtk::GeolocationPermissionRequest>() {
             (
                 "Allow access to location?",
@@ -133,12 +136,13 @@ impl Window {
     pub fn get_view(&self) -> miette::Result<webkit2gtk::WebView> {
         let imp = self.imp();
 
-        if let Some(current_page) = imp.tab_view.selected_page() {
-            let current_page_number = imp.tab_view.page_position(&current_page);
-            let specific_page = imp.tab_view.nth_page(current_page_number);
-            get_view_from_page(&specific_page).map(|x| x.1)
-        } else {
-            Err(miette::miette!("No current tab page"))
+        match imp.tab_view.selected_page() {
+            Some(current_page) => {
+                let current_page_number = imp.tab_view.page_position(&current_page);
+                let specific_page = imp.tab_view.nth_page(current_page_number);
+                get_view_from_page(&specific_page).map(|x| x.1)
+            }
+            _ => Err(miette::miette!("No current tab page")),
         }
     }
 
@@ -360,16 +364,19 @@ impl Window {
                         #[weak]
                         imp,
                         move |_w, hit_test_result, _modifier| {
-                            if let Some(link_uri) = hit_test_result.link_uri() {
-                                imp.url_status.set_text(
-                                    uri_for_display(link_uri.as_str())
-                                        .unwrap_or_default()
-                                        .as_str(),
-                                );
-                                imp.url_status_box.set_visible(true);
-                            } else {
-                                imp.url_status.set_text("");
-                                imp.url_status_box.set_visible(false);
+                            match hit_test_result.link_uri() {
+                                Some(link_uri) => {
+                                    imp.url_status.set_text(
+                                        uri_for_display(link_uri.as_str())
+                                            .unwrap_or_default()
+                                            .as_str(),
+                                    );
+                                    imp.url_status_box.set_visible(true);
+                                }
+                                _ => {
+                                    imp.url_status.set_text("");
+                                    imp.url_status_box.set_visible(false);
+                                }
                             }
                         }
                     ))));
@@ -431,23 +438,20 @@ impl Window {
                         if !matches!(w.uri(), Some(x) if x == "oku:home")
                             && !imp.is_private.get()
                             && load_event == LoadEvent::Finished
+                            && let Some(back_forward_list) = w.back_forward_list()
+                            && let Some(current_item) = back_forward_list.current_item()
+                            && let Err(e) = DATABASE.upsert_history_record(HistoryRecord {
+                                id: Uuid::now_v7(),
+                                original_uri: current_item
+                                    .original_uri()
+                                    .unwrap_or_default()
+                                    .to_string(),
+                                uri: current_item.uri().unwrap_or_default().to_string(),
+                                title: Some(title),
+                                timestamp: jiff::Timestamp::now(),
+                            })
                         {
-                            if let Some(back_forward_list) = w.back_forward_list() {
-                                if let Some(current_item) = back_forward_list.current_item() {
-                                    if let Err(e) = DATABASE.upsert_history_record(HistoryRecord {
-                                        id: Uuid::now_v7(),
-                                        original_uri: current_item
-                                            .original_uri()
-                                            .unwrap_or_default()
-                                            .to_string(),
-                                        uri: current_item.uri().unwrap_or_default().to_string(),
-                                        title: Some(title),
-                                        timestamp: jiff::Timestamp::now(),
-                                    }) {
-                                        error!("{}", e)
-                                    }
-                                }
-                            }
+                            error!("{}", e)
                         }
                     }
                 ))));

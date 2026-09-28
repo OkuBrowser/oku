@@ -1,7 +1,7 @@
 {
     "app-id" : "io.github.OkuBrowser.oku",
     "runtime" : "org.gnome.Platform",
-    "runtime-version" : "47",
+    "runtime-version" : "50",
     "sdk" : "org.gnome.Sdk",
     "sdk-extensions" : [
         "org.freedesktop.Sdk.Extension.rust-stable"
@@ -25,13 +25,7 @@
     "cleanup": [
         "/include",
         "/lib/pkgconfig",
-        "/man",
-        "/share/doc",
-        "/share/gtk-doc",
-        "/share/man",
-        "/share/pkgconfig",
-        "*.la",
-        "*.a"
+        "/share/doc"
     ],
     "build-options" : {
         "append-path" : "/usr/lib/sdk/rust-stable/bin",
@@ -52,8 +46,7 @@
                 {
                     "type": "git",
                     "url": "https://github.com/libfuse/libfuse.git",
-                    "tag": "fuse-3.16.1",
-                    "commit": "1f0dfae4084577997291bb0e1b94aeff89a5e70f"
+                    "tag": "fuse-3.18.3"
                 }
             ]
         },
@@ -80,8 +73,9 @@
                     "path": "./fusermount-wrapper.sh"
                 },
                 {
-                    "type" : "dir",
-                    "path" : "../"
+                    "type" : "git",
+                    "url" : "https://github.com/OkuBrowser/oku.git",
+                    "tag": "v0.1.2"
                 },
                 "cargo-sources.json"
             ]

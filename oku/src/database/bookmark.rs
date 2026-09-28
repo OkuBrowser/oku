@@ -1,7 +1,7 @@
 use super::{BrowserDatabase, DATABASE};
 use miette::IntoDiagnostic;
 use native_db::*;
-use native_model::{native_model, Model};
+use native_model::{Model, native_model};
 use oku_core::{database::posts::core::OkuNote, fs::FS_PATH};
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
@@ -11,11 +11,11 @@ use std::{
     sync::{Arc, LazyLock},
 };
 use tantivy::{
+    Directory, Index, IndexReader, IndexWriter, TantivyDocument, Term,
     collector::TopDocs,
     directory::MmapDirectory,
     query::QueryParser,
-    schema::{Field, Schema, Value, STORED, TEXT},
-    Directory, Index, IndexReader, IndexWriter, TantivyDocument, Term,
+    schema::{Field, STORED, Schema, TEXT, Value},
 };
 use tokio::sync::Mutex;
 

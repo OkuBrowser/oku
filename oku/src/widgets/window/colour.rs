@@ -1,5 +1,5 @@
 use super::*;
-use crate::{config::enums::Palette, DEFAULT_STYLESHEET};
+use crate::{DEFAULT_STYLESHEET, config::enums::Palette};
 use gtk::subclass::prelude::*;
 use std::hash::{Hash, Hasher};
 use webkit2gtk::prelude::WebViewExt;

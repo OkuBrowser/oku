@@ -1,10 +1,10 @@
 use super::core::Settings;
-use crate::window_util::get_window_from_widget;
 use crate::NODE;
+use crate::window_util::get_window_from_widget;
 use glib::clone;
 use gtk::glib;
 use gtk::subclass::prelude::*;
-use libadwaita::{prelude::*, ResponseAppearance};
+use libadwaita::{ResponseAppearance, prelude::*};
 use log::error;
 
 impl Settings {
@@ -181,11 +181,10 @@ impl Settings {
                                     exported_user_toml,
                                     move |destination| {
                                         let path = destination.ok().and_then(|x| x.path());
-                                        if let Some(path) = path {
-                                            if let Err(e) = std::fs::write(path, exported_user_toml)
-                                            {
-                                                error!("{}", e);
-                                            }
+                                        if let Some(path) = path
+                                            && let Err(e) = std::fs::write(path, exported_user_toml)
+                                        {
+                                            error!("{}", e);
                                         }
                                     }
                                 ),

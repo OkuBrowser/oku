@@ -1,21 +1,21 @@
+use crate::NODE;
 use crate::database::{Bookmark, DATABASE};
 use crate::scheme_handlers::oku_path::OkuPath;
-use crate::NODE;
+use glib::ParamSpec;
+use glib::ParamSpecBoxed;
+use glib::ParamSpecString;
+use glib::Value;
 use glib::clone;
 use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassExt;
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::value::ToValue;
-use glib::ParamSpec;
-use glib::ParamSpecBoxed;
-use glib::ParamSpecString;
-use glib::Value;
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
 use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::*;
-use gtk::{glib, StringObject};
+use gtk::{StringObject, glib};
 use libadwaita::prelude::PreferencesRowExt;
 use libadwaita::prelude::*;
 use libadwaita::subclass::dialog::AdwDialogImpl;
@@ -210,10 +210,10 @@ impl NoteEditor {
             #[strong]
             bookmark,
             move |_| {
-                if let Some(bookmark) = &bookmark {
-                    if let Err(e) = DATABASE.delete_bookmark(bookmark.clone()) {
-                        error!("{}", e)
-                    }
+                if let Some(bookmark) = &bookmark
+                    && let Err(e) = DATABASE.delete_bookmark(bookmark.clone())
+                {
+                    error!("{}", e)
                 }
                 if let Err(e) = DATABASE.upsert_bookmark(Bookmark {
                     url: this.url(),
@@ -289,8 +289,8 @@ impl NoteEditor {
                             .map(|x| x.to_string())
                             .unwrap_or(url)
                             .replacen("oku:", "", 1);
-                        let post_at_url = if let Ok(oku_path) = OkuPath::parse(url.clone()) {
-                            match oku_path {
+                        let post_at_url = match OkuPath::parse(url.clone()) {
+                            Ok(oku_path) => match oku_path {
                                 OkuPath::User(author_id, Some(path)) => {
                                     if node.is_me(&author_id).await {
                                         node.post(
@@ -307,9 +307,8 @@ impl NoteEditor {
                                     .await
                                     .ok(),
                                 _ => None,
-                            }
-                        } else {
-                            None
+                            },
+                            _ => None,
                         };
                         let post_from_url = {
                             let path = OkuNote::post_path_from_url(&url);

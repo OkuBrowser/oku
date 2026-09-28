@@ -1,3 +1,11 @@
+use glib::Object;
+use glib::ParamSpec;
+use glib::ParamSpecBoolean;
+use glib::ParamSpecBuilderExt;
+use glib::ParamSpecDouble;
+use glib::ParamSpecObject;
+use glib::ParamSpecString;
+use glib::Value;
 use glib::clone;
 use glib::closure;
 use glib::object::ObjectExt;
@@ -7,14 +15,6 @@ use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassExt;
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::value::ToValue;
-use glib::Object;
-use glib::ParamSpec;
-use glib::ParamSpecBoolean;
-use glib::ParamSpecBuilderExt;
-use glib::ParamSpecDouble;
-use glib::ParamSpecObject;
-use glib::ParamSpecString;
-use glib::Value;
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
 use gtk::prelude::GObjectPropertyExpressionExt;
@@ -26,9 +26,9 @@ use libadwaita::subclass::prelude::*;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::sync::LazyLock;
-use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::Download;
 use webkit2gtk::URIResponse;
+use webkit2gtk::prelude::WebViewExt;
 
 pub mod imp {
     use super::*;

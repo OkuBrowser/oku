@@ -1,6 +1,6 @@
 use super::*;
 use crate::database::policy::PolicySettingRecord;
-use crate::{suggestion_item::SuggestionItem, DATA_DIR};
+use crate::{DATA_DIR, suggestion_item::SuggestionItem};
 use miette::IntoDiagnostic;
 use native_db::*;
 use oku_core::database::core::OkuDatabase;

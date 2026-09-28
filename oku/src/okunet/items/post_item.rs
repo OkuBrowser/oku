@@ -1,5 +1,11 @@
 // Not used yet.
 
+use glib::ParamSpec;
+use glib::ParamSpecBoxed;
+use glib::ParamSpecBuilderExt;
+use glib::ParamSpecString;
+use glib::ParamSpecUInt64;
+use glib::Value;
 use glib::object::ObjectExt;
 use glib::property::PropertySet;
 use glib::subclass::object::ObjectImpl;
@@ -7,12 +13,6 @@ use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassExt;
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::value::ToValue;
-use glib::ParamSpec;
-use glib::ParamSpecBoxed;
-use glib::ParamSpecBuilderExt;
-use glib::ParamSpecString;
-use glib::ParamSpecUInt64;
-use glib::Value;
 use oku_core::database::posts::core::OkuPost;
 use std::cell::RefCell;
 use std::sync::LazyLock;

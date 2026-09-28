@@ -24,28 +24,28 @@ use env_logger::Builder;
 use gio::prelude::*;
 use glib_macros::clone;
 use gtk::prelude::GtkApplicationExt;
-use ipfs::builder::DefaultIpfsBuilder as UninitializedIpfs;
 use ipfs::Ipfs;
 use ipfs::Keypair;
+use ipfs::builder::DefaultIpfsBuilder as UninitializedIpfs;
+use log::LevelFilter;
 use log::debug;
 use log::error;
-use log::LevelFilter;
 use oku_core::fs::OkuFs;
 use oku_core::fuse_prelude::FuseSession;
-use scheme_handlers::util::handle_request;
 use scheme_handlers::util::RequestScheme;
 use scheme_handlers::util::SchemeRequest;
+use scheme_handlers::util::handle_request;
 use std::net::Ipv4Addr;
 use std::path::PathBuf;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::sync::OnceLock;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use tokio::runtime::Handle;
-use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::URISchemeRequest;
 use webkit2gtk::WebContext;
+use webkit2gtk::prelude::WebViewExt;
 
 /// The platform-specific directories intended for Oku's use
 static PROJECT_DIRECTORIES: LazyLock<ProjectDirs> =
@@ -259,17 +259,17 @@ async fn main() {
             }
             return std::ops::ControlFlow::Continue(());
         }
-        if let Some(initial_uri) = dict.lookup::<String>("new-window").unwrap_or(None) {
-            if application.register(Some(&gio::Cancellable::new())).is_ok() {
-                let file = gio::File::for_uri(&initial_uri);
-                application.open(&[file], "false,false");
-            }
+        if let Some(initial_uri) = dict.lookup::<String>("new-window").unwrap_or(None)
+            && application.register(Some(&gio::Cancellable::new())).is_ok()
+        {
+            let file = gio::File::for_uri(&initial_uri);
+            application.open(&[file], "false,false");
         };
-        if let Some(initial_uri) = dict.lookup::<String>("new-private-window").unwrap_or(None) {
-            if application.register(Some(&gio::Cancellable::new())).is_ok() {
-                let file = gio::File::for_uri(&initial_uri);
-                application.open(&[file], "true,false");
-            }
+        if let Some(initial_uri) = dict.lookup::<String>("new-private-window").unwrap_or(None)
+            && application.register(Some(&gio::Cancellable::new())).is_ok()
+        {
+            let file = gio::File::for_uri(&initial_uri);
+            application.open(&[file], "true,false");
         };
         std::ops::ControlFlow::Continue(())
     }));
@@ -383,10 +383,10 @@ async fn main() {
     application.run();
 
     let _ = shutdown_recv.recv().await;
-    if let Some(mount_handle) = mount_handle {
-        if let Err(e) = mount_handle.join() {
-            error!("{e}");
-        }
+    if let Some(mount_handle) = mount_handle
+        && let Err(e) = mount_handle.join()
+    {
+        error!("{e}");
     }
     ipfs.exit_daemon().await;
     application.quit();

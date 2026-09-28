@@ -19,7 +19,7 @@ pub async fn ipns_scheme(ipfs: &Ipfs, request: SchemeRequest) {
 pub async fn ipfs_scheme_handler(
     ipfs: &Ipfs,
     request: SchemeRequest,
-) -> miette::Result<impl Into<Bytes>> {
+) -> miette::Result<impl Into<Bytes> + use<>> {
     let request_uri = request.uri().ok_or(miette::miette!(
         "Could read request URI ({:?}) … ",
         request.uri()
@@ -38,7 +38,7 @@ pub async fn ipfs_scheme_handler(
 pub async fn ipns_scheme_handler(
     ipfs: &Ipfs,
     request: SchemeRequest,
-) -> miette::Result<impl Into<Bytes>> {
+) -> miette::Result<impl Into<Bytes> + use<>> {
     let request_uri = request.uri().ok_or(miette::miette!(
         "Could read request URI ({:?}) … ",
         request.uri()
@@ -53,7 +53,10 @@ pub async fn ipns_scheme_handler(
     cat_unixfs(ipfs, decoded_url).await
 }
 
-pub async fn cat_unixfs(ipfs: &Ipfs, path: ipfs::IpfsPath) -> miette::Result<impl Into<Bytes>> {
+pub async fn cat_unixfs(
+    ipfs: &Ipfs,
+    path: ipfs::IpfsPath,
+) -> miette::Result<impl Into<Bytes> + use<>> {
     let ipfs_stream = ipfs.cat_unixfs(path);
     let mut bytes_vec: Vec<u8> = vec![];
     pin_mut!(ipfs_stream);

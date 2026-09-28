@@ -1,12 +1,12 @@
+use glib::ParamSpec;
+use glib::ParamSpecBoolean;
+use glib::ParamSpecString;
+use glib::Value;
 use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassExt;
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::value::ToValue;
-use glib::ParamSpec;
-use glib::ParamSpecBoolean;
-use glib::ParamSpecString;
-use glib::Value;
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
 use gtk::prelude::GObjectPropertyExpressionExt;

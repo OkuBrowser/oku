@@ -1,9 +1,9 @@
 use super::*;
 use crate::window_util::{get_view_stack_page_by_name, get_window_from_widget};
-use glib::{clone, closure, Object};
+use glib::{Object, clone, closure};
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
-use libadwaita::{prelude::*, ResponseAppearance};
+use libadwaita::{ResponseAppearance, prelude::*};
 use std::cell::Ref;
 use std::rc::Rc;
 use webkit2gtk::Download;
@@ -13,8 +13,7 @@ impl Window {
         let downloads_store = self.imp().downloads_store.borrow();
 
         Ref::map(downloads_store, |downloads_store| {
-            let downloads_store = downloads_store.as_deref().unwrap();
-            downloads_store
+            (downloads_store.as_deref().unwrap()) as _
         })
     }
 
@@ -191,17 +190,15 @@ impl Window {
                             if let Some(downloads_page) = get_view_stack_page_by_name(
                                 "downloads".to_string(),
                                 &imp.side_view_stack,
-                            ) {
-                                if matches!(get_view_stack_page_by_name(
+                            ) && matches!(get_view_stack_page_by_name(
                                     imp.side_view_stack
                                         .visible_child_name()
                                         .unwrap_or_default()
                                         .to_string(),
                                         &imp.side_view_stack,
                                 ), Some(x) if x == downloads_page)
-                                {
-                                    downloads_page.set_needs_attention(true)
-                                }
+                            {
+                                downloads_page.set_needs_attention(true)
                             }
                         }
                     ));

@@ -23,20 +23,22 @@ impl HivePath {
             .and_then(|_x| path.as_ref().strip_prefix(first_component.clone()).ok())
             .map(|x| PathBuf::from("/").join(x))
             .unwrap_or("/".into());
-        if let Ok(ticket) = DocTicket::from_str(&first_component.to_string_lossy()) {
-            Ok(Self::ByTicket(Box::new(ticket), replica_path))
-        } else if let Ok(namespace_id_bytes) =
-            oku_core::fs::util::parse_array_hex_or_base32::<32>(&first_component.to_string_lossy())
-        {
-            Ok(Self::ById(
-                NamespaceId::from(namespace_id_bytes),
-                replica_path,
-            ))
-        } else {
-            Err(miette::miette!(
-                "{:?} does not contain a replica ID or ticket … ",
-                path.as_ref()
-            ))
+        match DocTicket::from_str(&first_component.to_string_lossy()) {
+            Ok(ticket) => Ok(Self::ByTicket(Box::new(ticket), replica_path)),
+            _ => {
+                match oku_core::fs::util::parse_array_hex_or_base32::<32>(
+                    &first_component.to_string_lossy(),
+                ) {
+                    Ok(namespace_id_bytes) => Ok(Self::ById(
+                        NamespaceId::from(namespace_id_bytes),
+                        replica_path,
+                    )),
+                    _ => Err(miette::miette!(
+                        "{:?} does not contain a replica ID or ticket … ",
+                        path.as_ref()
+                    )),
+                }
+            }
         }
     }
 }

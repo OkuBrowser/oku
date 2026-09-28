@@ -2,6 +2,11 @@ use crate::bookmark_item::BookmarkItem;
 use crate::database::Bookmark;
 use crate::database::DATABASE;
 use crate::window_util::get_window_from_widget;
+use glib::ParamSpec;
+use glib::ParamSpecBoxed;
+use glib::ParamSpecObject;
+use glib::ParamSpecString;
+use glib::Value;
 use glib::clone;
 use glib::object::Cast;
 use glib::object::CastNone;
@@ -10,11 +15,6 @@ use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassExt;
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::value::ToValue;
-use glib::ParamSpec;
-use glib::ParamSpecBoxed;
-use glib::ParamSpecObject;
-use glib::ParamSpecString;
-use glib::Value;
 use gtk::prelude::ButtonExt;
 use gtk::prelude::ListBoxRowExt;
 use gtk::prelude::WidgetExt;
@@ -199,10 +199,10 @@ impl BookmarkRow {
             #[weak(rename_to = this)]
             self,
             move |_| {
-                if let Some(bookmark) = DATABASE.get_bookmark(this.url()).ok().flatten() {
-                    if let Err(e) = DATABASE.delete_bookmark(bookmark) {
-                        error!("{}", e)
-                    }
+                if let Some(bookmark) = DATABASE.get_bookmark(this.url()).ok().flatten()
+                    && let Err(e) = DATABASE.delete_bookmark(bookmark)
+                {
+                    error!("{}", e)
                 }
             }
         ));

@@ -4,8 +4,8 @@ use crate::database::DATABASE;
 use crate::history_item::HistoryItem;
 use crate::replica_item::ReplicaItem;
 use crate::window_util::get_view_stack_page_by_name;
-use crate::{widgets, NODE};
-use glib::{clone, closure, Object};
+use crate::{NODE, widgets};
+use glib::{Object, clone, closure};
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
@@ -14,18 +14,17 @@ use log::error;
 use oku_core::fs::watch::ReplicaEvent;
 use std::cell::Ref;
 use std::rc::Rc;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use webkit2gtk::prelude::WebViewExt;
+use std::sync::atomic::AtomicBool;
 use webkit2gtk::WebContext;
+use webkit2gtk::prelude::WebViewExt;
 
 impl Window {
     pub fn bookmarks_store(&self) -> Ref<'_, gio::ListStore> {
         let bookmarks_store = self.imp().bookmarks_store.borrow();
 
         Ref::map(bookmarks_store, |bookmarks_store| {
-            let bookmarks_store = bookmarks_store.as_deref().unwrap();
-            bookmarks_store
+            (bookmarks_store.as_deref().unwrap()) as _
         })
     }
 
@@ -89,8 +88,7 @@ impl Window {
         let history_store = self.imp().history_store.borrow();
 
         Ref::map(history_store, |history_store| {
-            let history_store = history_store.as_deref().unwrap();
-            history_store
+            (history_store.as_deref().unwrap()) as _
         })
     }
 
@@ -158,8 +156,7 @@ impl Window {
         let replicas_store = self.imp().replicas_store.borrow();
 
         Ref::map(replicas_store, |replicas_store| {
-            let replicas_store = replicas_store.as_deref().unwrap();
-            replicas_store
+            (replicas_store.as_deref().unwrap()) as _
         })
     }
 

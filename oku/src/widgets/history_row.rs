@@ -2,6 +2,10 @@ use crate::database::DATABASE;
 use crate::window_util::get_window_from_widget;
 use gdk::prelude::DisplayExt;
 use gio::prelude::ApplicationExt;
+use glib::ParamSpec;
+use glib::ParamSpecObject;
+use glib::ParamSpecString;
+use glib::Value;
 use glib::clone;
 use glib::object::Cast;
 use glib::object::CastNone;
@@ -10,10 +14,6 @@ use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassExt;
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::value::ToValue;
-use glib::ParamSpec;
-use glib::ParamSpecObject;
-use glib::ParamSpecString;
-use glib::Value;
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
 use gtk::prelude::GtkWindowExt;
@@ -180,10 +180,9 @@ impl HistoryRow {
             self,
             move |_| {
                 if let Some(history_record) = DATABASE.get_history_record(this.id()).ok().flatten()
+                    && let Err(e) = DATABASE.delete_history_record(history_record)
                 {
-                    if let Err(e) = DATABASE.delete_history_record(history_record) {
-                        error!("{}", e)
-                    }
+                    error!("{}", e)
                 }
             }
         ));

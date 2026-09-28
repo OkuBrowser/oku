@@ -1,9 +1,13 @@
-use crate::window_util::get_window_from_widget;
 use crate::MOUNT_DIR;
 use crate::NODE;
 use crate::REPLICAS_MOUNTED;
+use crate::window_util::get_window_from_widget;
 use gdk::prelude::DisplayExt;
 use gio::prelude::ApplicationExt;
+use glib::ParamSpec;
+use glib::ParamSpecBoolean;
+use glib::ParamSpecString;
+use glib::Value;
 use glib::clone;
 use glib::object::CastNone;
 use glib::object::ObjectExt;
@@ -12,10 +16,6 @@ use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassExt;
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::value::ToValue;
-use glib::ParamSpec;
-use glib::ParamSpecBoolean;
-use glib::ParamSpecString;
-use glib::Value;
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
 use gtk::prelude::GtkWindowExt;
@@ -25,12 +25,12 @@ use gtk::subclass::prelude::*;
 use libadwaita::prelude::ActionRowExt;
 use libadwaita::subclass::prelude::*;
 use log::error;
-use oku_core::iroh_docs::api::protocol::ShareMode;
 use oku_core::iroh_docs::NamespaceId;
+use oku_core::iroh_docs::api::protocol::ShareMode;
 use oku_core::iroh_tickets::Ticket;
 use std::cell::RefCell;
-use std::sync::atomic::Ordering;
 use std::sync::LazyLock;
+use std::sync::atomic::Ordering;
 
 pub mod imp {
     use super::*;
@@ -178,8 +178,8 @@ impl ReplicaRow {
                         #[weak]
                         this,
                         async move {
-                            if let Some(node) = NODE.get() {
-                                if let Ok(ticket) = node
+                            if let Some(node) = NODE.get()
+                                && let Ok(ticket) = node
                                     .create_document_ticket(
                                         &NamespaceId::from(oku_core::fs::util::parse_array_hex_or_base32::<32>(&this.id()).unwrap_or_default()),
                                         &ShareMode::Read,
@@ -194,7 +194,6 @@ impl ReplicaRow {
                                     notification.set_body(Some(&format!("A read-only ticket for a replica ({}) has been copied to the clipboard.", this.id())));
                                     app.send_notification(None, &notification);
                                 }
-                            }
                         }
                     ),
                 );
@@ -220,8 +219,8 @@ impl ReplicaRow {
                         #[weak]
                         this,
                         async move {
-                            if let Some(node) = NODE.get() {
-                                if let Ok(ticket) = node
+                            if let Some(node) = NODE.get()
+                                && let Ok(ticket) = node
                                     .create_document_ticket(
                                         &NamespaceId::from(oku_core::fs::util::parse_array_hex_or_base32::<32>(&this.id()).unwrap_or_default()),
                                         &ShareMode::Write,
@@ -236,7 +235,6 @@ impl ReplicaRow {
                                     notification.set_body(Some(&format!("A read & write ticket for a replica ({}) has been copied to the clipboard.", this.id())));
                                     app.send_notification(None, &notification);
                                 }
-                            }
                         }
                     ),
                 );

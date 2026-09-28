@@ -1,16 +1,16 @@
+use crate::NewWebTabArguments;
 use crate::config::Config;
 use crate::database::DATABASE;
 use crate::widgets::address_entry::AddressEntry;
 use crate::widgets::settings::core::apply_appearance_config;
 use crate::widgets::window::NewTabArguments;
-use crate::NewWebTabArguments;
 use crate::{APP_ID, NODE};
 use glib::clone;
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
-use libadwaita::{prelude::*, ResponseAppearance};
+use libadwaita::{ResponseAppearance, prelude::*};
 use log::{error, info};
 use std::cell::Cell;
 use std::cell::RefCell;

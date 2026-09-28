@@ -1,12 +1,12 @@
 use super::{oku_path::OkuPath, util::SchemeRequest};
 use crate::{
-    vox_providers::okunet_provider::core::OkuNetProvider, window_util::get_window_from_widget, NODE,
+    NODE, vox_providers::okunet_provider::core::OkuNetProvider, window_util::get_window_from_widget,
 };
 use bytes::Bytes;
 use glib::clone;
 use libadwaita::{
-    prelude::{AdwDialogExt, AlertDialogExt, AlertDialogExtManual},
     ResponseAppearance,
+    prelude::{AdwDialogExt, AlertDialogExt, AlertDialogExtManual},
 };
 use log::error;
 use oku_core::iroh_docs::AuthorId;
@@ -98,11 +98,14 @@ pub fn delete(request: SchemeRequest, replica_path: PathBuf) -> miette::Result<(
                             #[strong]
                             request,
                             async move {
-                                if let Err(e) = node.delete_post(&replica_path).await {
-                                    error!("{}", e);
-                                } else {
-                                    let web_view = request.0.web_view().unwrap();
-                                    web_view.reload_bypass_cache();
+                                match node.delete_post(&replica_path).await {
+                                    Err(e) => {
+                                        error!("{}", e);
+                                    }
+                                    _ => {
+                                        let web_view = request.0.web_view().unwrap();
+                                        web_view.reload_bypass_cache();
+                                    }
                                 }
                             }
                         ));

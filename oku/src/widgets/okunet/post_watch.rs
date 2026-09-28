@@ -1,7 +1,7 @@
+use crate::NODE;
 use crate::okunet::items::post_item::PostItem;
 use crate::widgets::okunet::net::Net;
 use crate::window_util::get_view_stack_page_by_name;
-use crate::NODE;
 use gtk::glib;
 use gtk::subclass::prelude::*;
 use libadwaita::prelude::*;

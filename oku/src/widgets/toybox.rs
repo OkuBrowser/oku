@@ -1,10 +1,14 @@
+use crate::NODE;
 use crate::bookmark_item::BookmarkItem;
 use crate::database::policy::PolicyDecision;
 use crate::database::policy::PolicySetting;
 use crate::database::policy::PolicySettingRecord;
 use crate::scheme_handlers::oku_path::OkuPath;
 use crate::widgets::bookmark_row::BookmarkRow;
-use crate::NODE;
+use glib::ParamSpec;
+use glib::ParamSpecObject;
+use glib::ParamSpecString;
+use glib::Value;
 use glib::clone;
 use glib::closure;
 use glib::property::PropertySet;
@@ -12,10 +16,6 @@ use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::value::ToValue;
-use glib::ParamSpec;
-use glib::ParamSpecObject;
-use glib::ParamSpecString;
-use glib::Value;
 use gtk::glib;
 use gtk::prelude::BoxExt;
 use gtk::prelude::ButtonExt;
@@ -234,37 +234,37 @@ impl Toybox {
     }
 
     pub fn add_similar(&self, window_opt: &Option<&super::window::Window>) {
-        if let Some(_node) = NODE.get() {
-            if let Some(window_obj) = *window_opt {
-                let this = self.clone();
-                let window = window_obj.clone();
-                tokio::spawn(async move {
-                    let _data = bytes::Bytes::from(window.get_data().await.unwrap_or_default());
-                    let similar_posts: Vec<OkuPost> = vec![]; // TODO: implement finding posts similar to current page
-                    if similar_posts.is_empty() {
-                        this.imp()
-                            .no_recommendation_label
-                            .set_label("No browsing suggestions … ");
-                        this.imp().no_recommendation_label.set_margin_top(24);
-                        this.imp().no_recommendation_label.set_margin_bottom(24);
-                        this.imp().no_recommendation_label.add_css_class("title-2");
-                        this.imp().recommendation_carousel.set_visible(false);
-                    } else {
-                        this.imp().no_recommendation_label.set_visible(false);
-                    }
-                    for post in similar_posts {
-                        let item = BookmarkItem::new(
-                            post.note.url.to_string(),
-                            post.note.title,
-                            post.note.body,
-                            post.note.tags,
-                            &window.favicon_database(),
-                        );
-                        let row = BookmarkRow::from(&item);
-                        this.imp().recommendation_carousel.append(&row);
-                    }
-                });
-            }
+        if let Some(_node) = NODE.get()
+            && let Some(window_obj) = *window_opt
+        {
+            let this = self.clone();
+            let window = window_obj.clone();
+            tokio::spawn(async move {
+                let _data = bytes::Bytes::from(window.get_data().await.unwrap_or_default());
+                let similar_posts: Vec<OkuPost> = vec![]; // TODO: implement finding posts similar to current page
+                if similar_posts.is_empty() {
+                    this.imp()
+                        .no_recommendation_label
+                        .set_label("No browsing suggestions … ");
+                    this.imp().no_recommendation_label.set_margin_top(24);
+                    this.imp().no_recommendation_label.set_margin_bottom(24);
+                    this.imp().no_recommendation_label.add_css_class("title-2");
+                    this.imp().recommendation_carousel.set_visible(false);
+                } else {
+                    this.imp().no_recommendation_label.set_visible(false);
+                }
+                for post in similar_posts {
+                    let item = BookmarkItem::new(
+                        post.note.url.to_string(),
+                        post.note.title,
+                        post.note.body,
+                        post.note.tags,
+                        &window.favicon_database(),
+                    );
+                    let row = BookmarkRow::from(&item);
+                    this.imp().recommendation_carousel.append(&row);
+                }
+            });
         }
     }
 

@@ -1,7 +1,7 @@
 use super::*;
+use crate::NODE;
 use crate::replica_item::ReplicaItem;
 use crate::window_util::get_view_stack_page_by_name;
-use crate::NODE;
 use gtk::glib;
 use gtk::subclass::prelude::*;
 use libadwaita::prelude::*;
@@ -124,21 +124,21 @@ impl Window {
             replicas_page.child().set_sensitive(false);
         }
         // Add all replicas
-        if let Some(node) = NODE.get() {
-            if let Ok(replicas) = node.list_replicas().await {
-                let ctx = glib::MainContext::default();
-                let this = self.clone();
-                ctx.invoke(move || {
-                    let replicas_store = this.replicas_store();
-                    for (replica, capability_kind, is_home_replica) in replicas.iter() {
-                        replicas_store.append(&ReplicaItem::new(
-                            oku_core::fs::util::fmt(replica),
-                            matches!(capability_kind, CapabilityKind::Write),
-                            *is_home_replica,
-                        ));
-                    }
-                });
-            }
+        if let Some(node) = NODE.get()
+            && let Ok(replicas) = node.list_replicas().await
+        {
+            let ctx = glib::MainContext::default();
+            let this = self.clone();
+            ctx.invoke(move || {
+                let replicas_store = this.replicas_store();
+                for (replica, capability_kind, is_home_replica) in replicas.iter() {
+                    replicas_store.append(&ReplicaItem::new(
+                        oku_core::fs::util::fmt(replica),
+                        matches!(capability_kind, CapabilityKind::Write),
+                        *is_home_replica,
+                    ));
+                }
+            });
         }
         // Allow interaction again
         if let Some(replicas_page) =

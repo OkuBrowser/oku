@@ -3,8 +3,8 @@ use glib::clone;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use libadwaita::prelude::*;
-use webkit2gtk::prelude::WebViewExt;
 use webkit2gtk::FindOptions;
+use webkit2gtk::prelude::WebViewExt;
 
 impl Window {
     pub fn get_find_options(&self) -> FindOptions {

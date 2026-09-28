@@ -1,13 +1,13 @@
+use glib::ParamSpec;
+use glib::ParamSpecObject;
+use glib::ParamSpecString;
+use glib::Value;
 use glib::object::Cast;
 use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassExt;
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::value::ToValue;
-use glib::ParamSpec;
-use glib::ParamSpecObject;
-use glib::ParamSpecString;
-use glib::Value;
 use gtk::prelude::WidgetExt;
 use gtk::subclass::prelude::*;
 use libadwaita::prelude::ActionRowExt;

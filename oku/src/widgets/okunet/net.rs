@@ -1,6 +1,7 @@
+use crate::NODE;
 use crate::okunet::items::post_item::PostItem;
 use crate::window_util::get_view_stack_page_by_name;
-use crate::NODE;
+use glib::Object;
 use glib::clone;
 use glib::closure;
 use glib::object::Cast;
@@ -8,7 +9,6 @@ use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassExt;
 use glib::subclass::types::ObjectSubclassIsExt;
-use glib::Object;
 use gtk::prelude::BoxExt;
 use gtk::prelude::GObjectPropertyExpressionExt;
 use gtk::prelude::OrientableExt;
@@ -25,8 +25,8 @@ use std::cell::Cell;
 use std::cell::Ref;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 pub mod imp {
     use super::*;

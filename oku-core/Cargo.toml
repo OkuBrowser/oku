@@ -1,7 +1,7 @@
 [package]
 name = "oku-core"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["Emil Sayahi <limesayahi@gmail.com>"]
 description = "A distributed file system for use with the Oku browser."
 readme = "README.md"
@@ -81,3 +81,7 @@ default = []
 persistent = []
 fuse = ["dep:libc", "dep:easy_fuser", "dep:jiff", "dep:debug-ignore"]
 cli = ["dep:clap", "dep:env_logger", "dep:jiff", "dep:humantime"]
+
+[lints.clippy]
+cargo = "warn"
+pedantic = "warn"
