@@ -57,6 +57,7 @@
             "build-commands" : [
                 "install -Dm755 fusermount-wrapper.sh /app/bin/fusermount3",
                 "./prebuild.sh",
+                "cp -avr ./cargo-config.toml .cargo/config.toml",
                 "cargo --frozen build --release --verbose",
                 "install -Dm755 ./target/release/oku -t /app/bin/",
                 "install -Dm755 ./resources.gresource -t /app/bin/",
@@ -71,6 +72,10 @@
                 {
                     "type": "file",
                     "path": "./fusermount-wrapper.sh"
+                },
+                {
+                    "type": "file",
+                    "path": "./cargo-config.toml"
                 },
                 {
                     "type" : "git",
