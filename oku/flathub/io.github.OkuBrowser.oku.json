@@ -80,7 +80,7 @@
                 {
                     "type" : "git",
                     "url" : "https://github.com/OkuBrowser/oku.git",
-                    "commit": "a251d68b260b279a94b71f78716eb9edc0828d10"
+                    "commit": "0e4ea562f237cb0561ca85f9d078b01a8bc97ef5"
                 },
                 "cargo-sources.json"
             ]
