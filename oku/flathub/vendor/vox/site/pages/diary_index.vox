@@ -1,7 +1,0 @@
----
-layout = "default"
-depends = ["diary"]
-permalink = "diary/index.html"
----
-{% assign posts = diary | sort: "date.rfc_3339" | reverse %}
-{% include index.voxs posts = posts minimal = true %}

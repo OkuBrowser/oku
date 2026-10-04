@@ -1,5 +1,0 @@
-error: expected `|`
- --> tests/closure_compiletest/19-closure-block-no-parens.rs:4:27
-  |
-4 |     closure!(#[strong] v, {println!("foo");});
-  |                           ^

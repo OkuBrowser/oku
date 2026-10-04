@@ -1,5 +1,0 @@
-error: unexpected token in attribute
- --> tests/clone_compiletest/09-clone-upgrade-or-invalid.rs:4:35
-  |
-4 |     clone!(#[weak] v, #[upgrade_or(abort)] move || {});
-  |                                   ^

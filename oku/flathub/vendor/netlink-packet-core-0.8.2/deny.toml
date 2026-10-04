@@ -1,9 +1,0 @@
-[licenses]
-allow = [
-    "Apache-2.0",
-    "MIT",
-]
-
-[[advisories.ignore]]
-id = "RUSTSEC-2024-0436"
-reason = "Unmaintained paste is consider as finished which is better than un-vetted altertives"
