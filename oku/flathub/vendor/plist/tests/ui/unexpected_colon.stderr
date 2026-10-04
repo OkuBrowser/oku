@@ -1,0 +1,7 @@
+error: no rules expected `:`
+ --> tests/ui/unexpected_colon.rs:4:14
+  |
+4 |     plist!({ : true });
+  |              ^ no rules expected this token in macro call
+  |
+  = note: while trying to match end of macro

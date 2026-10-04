@@ -1,0 +1,83 @@
+name: ci
+on  : [push, pull_request]
+
+jobs:
+
+  linux-stable:
+
+    name: Linux Rust Stable
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Install latest stable Rust
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: stable
+            override: true
+            components: clippy
+
+
+      - name: Checkout crate
+        uses: actions/checkout@v2
+
+      - name: Run tests
+        run: bash ci/test.bash
+
+
+  linux-nightly:
+
+    name: Linux Rust Nightly
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Install latest nightly Rust
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly
+            override: true
+            components: clippy
+
+
+      - name: Checkout crate
+        uses: actions/checkout@v2
+
+
+      - name: Run clippy
+        run : bash ci/clippy.bash
+
+
+      - name: Build documentation
+        run : bash ci/doc.bash
+
+
+      - name: Run tests
+        run : bash ci/test.bash
+
+
+      - name: Install cargo-tarpaulin binary crate
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-tarpaulin
+          version: latest
+          use-tool-cache: true
+
+      - name: Run cargo-tarpaulin
+        run : |
+          cargo tarpaulin --out Xml
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v1.5.2
+
+
+      - name: install wasm-pack
+        uses: jetli/wasm-pack-action@v0.3.0
+        with:
+          # Optional version of wasm-pack to install(eg. 'v0.9.1', 'latest')
+          version: 'latest'
+
+      - name: Run tests on wasm
+        run: bash ci/wasm.bash
+
+

@@ -1,0 +1,58 @@
+---
+title = "Watching Bugs & Meta"
+date = 2024-05-30T00:00:00+00:00
+layout = "post"
+permalink = "date"
+---
+
+{% markdown %}
+
+## Goals
+
+Today's agenda:
+- Fixing how page removal is handled while watching for changes.
+- Investigating a bug during watching where only the most recently rendered collection page will be rendered to its children.
+- Adding a `meta` context.
+- Improving the GitHub workflow for publishing this site.
+
+### Page Removal
+
+When computing which pages need rendering, we need to consider the following: if the removed page is a parent, the pages that once depended on it need to be re-rendered.
+Additionally, removed pages should have their outputs deleted.
+
+### Collection Page Rendering Lost
+
+This bug arose from improperly merging DAGs.
+
+### `meta` Context
+
+The `meta` context comprises the following:
+- `meta.date`, being the current date-time of the build.
+- `meta.builder`, being the name of the software building the site ('Vox').
+- `meta.version`, being the current version number of Vox.
+
+This was added when retrieving the {% raw %}{{ global }}{% endraw %} context.
+
+### GitHub Workflow
+
+Since this site exists in the same Git repository as Vox itself, it is not useful to pin the latest installation of Vox to the latest Git commit.
+Instead, Vox should be considered out-of-date when any of the following are changed:
+- `src` folder
+- `.cargo` folder
+- `Cargo.toml` file
+- `rust-toolchain.toml` file
+
+---
+
+## Future Goals
+- Re-rendering when layouts are modified during watching.
+- Including the contexts of all parent layouts when rendering.
+- Finishing the user guide.
+- Pointing site pages to indices, setting appropriate HTML titles.
+- Implementing partial date-times.
+- Parallelising both rendering and writing to disk.
+- Documenting the CLI code.
+- Creating a logo for Vox.
+- Updating all dependent crates.
+
+{% endmarkdown %}

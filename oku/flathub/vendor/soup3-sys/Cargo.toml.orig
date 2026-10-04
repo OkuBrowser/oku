@@ -1,0 +1,64 @@
+[package]
+name = "soup3-sys"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "FFI bindings of Soup 3"
+repository.workspace = true
+license.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+build = "build.rs"
+
+[package.metadata.system-deps.libsoup_3_0]
+name = "libsoup-3.0"
+version = "3.0"
+
+[package.metadata.system-deps.libsoup_3_0.v3_2]
+version = "3.2"
+
+[package.metadata.system-deps.libsoup_3_0.v3_4]
+version = "3.4"
+
+[package.metadata.system-deps.libsoup_3_0.v3_6]
+version = "3.6"
+
+[package.metadata.system-deps.libsoup_3_0.v3_8]
+version = "3.7"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]
+all-features = true
+
+[dependencies]
+libc = "0.2"
+
+[dependencies.glib-sys]
+git = "https://github.com/gtk-rs/gtk-rs-core"
+branch = "0.22"
+version = "0.22"
+
+[dependencies.gio-sys]
+git = "https://github.com/gtk-rs/gtk-rs-core"
+branch = "0.22"
+version = "0.22"
+
+[dependencies.gobject-sys]
+git = "https://github.com/gtk-rs/gtk-rs-core"
+branch = "0.22"
+version = "0.22"
+
+[build-dependencies]
+system-deps = "7"
+
+[dev-dependencies]
+shell-words = "1.0.0"
+tempfile = "3"
+
+[features]
+v3_0 = []
+v3_2 = []
+v3_4 = ["v3_2"]
+v3_6 = ["v3_4"]
+v3_8 = ["v3_6"]

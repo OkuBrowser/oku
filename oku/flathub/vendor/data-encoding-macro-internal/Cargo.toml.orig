@@ -1,0 +1,24 @@
+[package]
+name = "data-encoding-macro-internal"
+version = "0.1.19"
+license = "MIT"
+edition = "2018"
+rust-version = "1.48"
+description = "Internal library for data-encoding-macro"
+readme = "README.md"
+repository = "https://github.com/ia0/data-encoding"
+include = ["Cargo.toml", "LICENSE", "README.md", "src/lib.rs"]
+
+[lib]
+proc-macro = true
+
+[dependencies.data-encoding]
+version = "2.11.1"
+path = "../.."
+default-features = false
+features = ["alloc"]
+
+[dependencies.syn]
+version = ">= 1, < 4"
+default-features = false
+features = ["parsing", "proc-macro"]

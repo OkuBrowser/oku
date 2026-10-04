@@ -1,0 +1,17 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc e98e965672ca7e3d31b5af624977ea993a8dab4214fabc07f086faf465eb407d # shrinks to input = _PreTraversalOffsetProptestArgs { size: 65537, block_size: 0 }
+cc 4b390dcd40d1fa54c349a244c7fc1c4e4831c4bd0390bc7d39c2bfbe65d0746e # shrinks to input = _ValidateOutboardProptestArgs { tree: BaoTree { size: 36865, block_size: BlockSize(2) }, rand: 4087446703244641600 }
+cc 9e8eba3f75629328405f7a9fd2a67d5221d7d4a0b2ace17db4cd5e0cc980aad0 # shrinks to input = _ValidateOutboardProptestArgs { tree: BaoTree { size: 49153, block_size: BlockSize(4) }, rand: 2975804608 }
+cc 340acffb7fac4a5f0a91f567c9fbb7dd7c1e9714bee1f763cc0b6ca2c719a828 # shrinks to input = _ValidateOutboardSyncNegProptestArgs { tree: BaoTree { size: 98305, block_size: BlockSize(5) }, rand: 64 }
+cc 352a71725b15ecf4222c586e5ed81b3af565b4a27eb82d7ee38f9483a53d801f # shrinks to input = _ValidateOutboardSyncNegProptestArgs { tree: BaoTree { size: 24577, block_size: BlockSize(3) }, rand: 64 }
+cc d548623db5ccd4f9e88b4a47eec67c08e2b8990eda3c98a2ca33262ecfee0eff # shrinks to input = _ValidateOutboardSyncNegProptestArgs { tree: BaoTree { size: 45057, block_size: BlockSize(2) }, rand: 3254585472 }
+cc 764f9e82e6d0813de8e2e710bdc5fe0941b376112d0e7b162faeffce3fa8303d # shrinks to input = _PreOrderNodeIterArgs { tree: BaoTree { size: 0, block_size: BlockSize(0) } }
+cc b59509e6b50b0a63780a84b3119fe2aee21e2e530cfffb9c198f96fd3525b8e3 # shrinks to input = _SelectionReferenceComparisonProptestArgs { size_and_selection: (1026, RangeSet{0..}), block_size: BlockSize(1) }
+cc 0880f9808ca097286a58956e1cf0dd877d1a8f20ec699cfd2438453496ab653f # shrinks to input = _EncodeDecodePartialFsmProptestArgs { size_and_selection: (4170, RangeSet{0..}), block_size: BlockSize(2) }
+cc 6b1eb0fd7884f0b06660892d74ea91beadccb780ab251d6104dc6a60cf66bf74 # shrinks to input = _SelectionReferenceComparisonProptestArgs { size_and_selection: (1045, RangeSet{0..}), block_size: BlockSize(0) }
+cc 5ecce08d6e5172833cff76a71b9ef7d5d7e1555ff68153cd394b0e0c2cc25472 # shrinks to input = _ValidateFsmPosProptestArgs { tree: BaoTree { size: 1025, block_size: BlockSize(0) } }

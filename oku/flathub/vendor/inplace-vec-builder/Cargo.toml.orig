@@ -1,0 +1,22 @@
+[package]
+name = "inplace-vec-builder"
+version = "0.1.1"
+edition = "2021"
+authors = ["Rüdiger Klaehn <rklaehn@protonmail.com>"]
+description = "Build a vec from a vec, in place"
+repository = "https://github.com/rklaehn/inplace-vec-builder"
+license = "MIT OR Apache-2.0"
+keywords = ["array", "vec", "inplace"]
+categories = ["data-structures"]
+
+[features]
+stdvec = []
+default = ["stdvec"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+smallvec = { version = "1.7.0", optional = true }
+
+[dev-dependencies]
+testdrop = "0.1.2"

@@ -1,0 +1,33 @@
+[package]
+name = "multibase"
+version = "0.9.3"
+authors = ["Friedel Ziegelmayer <dignifiedquire@gmail.com>"]
+edition = "2018"
+license = "MIT"
+readme = "README.md"
+description = "multibase in rust"
+homepage = "https://github.com/multiformats/rust-multibase"
+repository = "https://github.com/multiformats/rust-multibase"
+keywords = ["ipld", "ipfs", "multihash", "cid", "no_std"]
+
+[features]
+default = ["std"]
+std = ["data-encoding/std", "base45/std"]
+
+[dependencies]
+base-x = { version = "0.2.7", default-features = false }
+base256emoji = "1.0.2"
+data-encoding = { version = "2.3.1", default-features = false, features = ["alloc"] }
+data-encoding-macro = "0.1.9"
+base45 = { version = "3.2.0", default-features = false }
+
+[dev-dependencies]
+criterion = "0.8"
+rand = "0.10.1"
+
+[[bench]]
+name = "multibase"
+harness = false
+
+[workspace]
+members = ["cli"]

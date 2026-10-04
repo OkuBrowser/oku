@@ -1,0 +1,1 @@
+A procedural macro for [native_model](https://github.com/vincent-herlemont/native_model).

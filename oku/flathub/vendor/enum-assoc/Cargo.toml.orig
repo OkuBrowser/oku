@@ -1,0 +1,23 @@
+[package]
+name = "enum-assoc"
+version = "1.4.1"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+authors = ["Griffin O'Neill <gsoneill1003@gmail.com>"]
+edition = "2024"
+description = """
+Procedural macro to associate constants with enum variants.
+"""
+keywords = ["enum", "constant", "variant", "const"]
+homepage = "https://github.com/Eolu/enum-assoc"
+repository = "https://github.com/Eolu/enum-assoc"
+categories = ["rust-patterns", "data-structures"]
+documentation = "https://docs.rs/enum-assoc"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = {version = "3.0", features = ["full"]}
+quote = "1.0"
+proc-macro2 = "1.0"

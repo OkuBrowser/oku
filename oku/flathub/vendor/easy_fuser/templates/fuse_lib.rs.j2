@@ -1,0 +1,24 @@
+mod fuse_driver {
+    include!(concat!(env!("OUT_DIR"), "/{{ mode }}/fuse_driver.rs"));
+}
+pub mod fuse_handler {
+    include!(concat!(env!("OUT_DIR"), "/{{ mode }}/fuse_handler.rs"));
+}
+pub mod mounting {
+    include!(concat!(env!("OUT_DIR"), "/{{ mode }}/mounting.rs"));
+}
+
+pub use fuse_handler::FuseHandler;
+pub use mounting::*;
+
+pub mod prelude {
+    //! Re-exports the necessary types and functions from the `easy_fuser` crate.
+    pub use crate::session::{FusePruner, FuseSession};
+    pub use crate::types::*;
+
+    pub use fuser::{BackgroundSession, MountOption, Session, SessionUnmounter};
+
+    pub use super::{mount, spawn_mount};
+    pub use super::FuseHandler;
+}
+

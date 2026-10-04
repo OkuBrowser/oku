@@ -1,0 +1,51 @@
+[package]
+name = "yasna"
+version = "0.6.0"
+rust-version = "1.60"
+authors = ["Masaki Hara <ackie.h.gmai@gmail.com>"]
+
+description = "ASN.1 library for Rust"
+documentation = "https://docs.rs/yasna"
+homepage = "https://github.com/qnighy/yasna.rs"
+repository = "https://github.com/qnighy/yasna.rs"
+readme = "README.md"
+keywords = ["parser", "serialization"]
+license = "MIT OR Apache-2.0"
+edition = "2021"
+include = [
+  "src/**/*.rs",
+  "Cargo.toml",
+  "LICENSE-*",
+  "README.md",
+]
+
+[features]
+default = []
+std = ["bit-vec?/std", "time?/std"]
+
+[package.metadata.docs.rs]
+features = ["num-bigint", "bit-vec", "time", "std"]
+
+[dependencies]
+
+[dependencies.num-bigint]
+version = "0.4"
+default-features = false
+optional = true
+
+[dev-dependencies.num-traits]
+version = "0.2"
+default-features = false
+
+[dependencies.bit-vec]
+version = "0.9.1"
+default-features = false
+optional = true
+
+[dependencies.time]
+version = "0.3.1"
+optional = true
+default-features = false
+
+[workspace]
+members = ["fuzz"]

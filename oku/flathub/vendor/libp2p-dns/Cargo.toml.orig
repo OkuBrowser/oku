@@ -1,0 +1,36 @@
+[package]
+name = "libp2p-dns"
+edition.workspace = true
+rust-version = { workspace = true }
+description = "DNS transport implementation for libp2p"
+version = "0.45.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+license = "MIT"
+repository = "https://github.com/libp2p/rust-libp2p"
+keywords = ["peer-to-peer", "libp2p", "networking"]
+categories = ["network-programming", "asynchronous"]
+
+[dependencies]
+futures = { workspace = true }
+libp2p-core = { workspace = true }
+libp2p-identity = { workspace = true }
+parking_lot = "0.12"
+hickory-resolver = { workspace = true, features = ["system-config"] }
+smallvec = "1.15"
+tracing = { workspace = true }
+
+[dev-dependencies]
+libp2p-identity = { workspace = true, features = ["rand"] }
+tokio = { workspace = true, features = ["rt", "time"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+[features]
+tokio = ["hickory-resolver/tokio"]
+
+# Passing arguments to the docsrs builder in order to properly document cfg's.
+# More information: https://docs.rs/about/builds#cross-compiling
+[package.metadata.docs.rs]
+all-features = true
+
+[lints]
+workspace = true

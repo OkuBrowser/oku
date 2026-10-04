@@ -1,0 +1,11 @@
+error: no rules expected `~`
+ --> tests/ui/parse_expr.rs:4:20
+  |
+4 |     plist!({ "a" : ~ });
+  |                    ^ no rules expected this token in macro call
+  |
+note: while trying to match meta-variable `$e:expr`
+ --> src/macros.rs
+  |
+  |     ($e:expr , $($tt:tt)*) => {};
+  |      ^^^^^^^

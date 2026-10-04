@@ -1,0 +1,34 @@
+[package]
+name = "deunicode"
+version = "1.6.2"
+authors = ["Kornel Lesinski <kornel@geekhood.net>", "Amit Chowdhury <amitc97@gmail.com>"]
+description = "Convert Unicode strings to pure ASCII by intelligently transliterating them. Suppors Emoji and Chinese."
+documentation = "https://docs.rs/deunicode"
+categories = ["text-processing", "internationalization"]
+homepage = "https://lib.rs/crates/deunicode"
+repository = "https://github.com/kornelski/deunicode/"
+readme = "README.md"
+include = ["src/*", "Cargo.toml", "README.md", "LICENSE"]
+edition = "2021"
+rust-version = "1.66"
+
+keywords = [
+  "unidecode",
+  "emoji",
+  "Unicode",
+  "ASCII",
+  "transliteration"
+]
+license = "BSD-3-Clause"
+
+[features]
+default = ["alloc"]
+# Disable for no-std compatibility
+alloc = []
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+rustdoc-args = ["--generate-link-to-definition"]

@@ -1,0 +1,14 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 742b398eeb931bf57a74ab810084d7681cc0bd7160ea36b90d8f7c6b8dc999a7 # shrinks to len = 0
+cc 3fe7650029cae29f149166cfed2caf2febb9dd0026c27a38e1653c8067a0daa5 # shrinks to (len, start, size) = (ByteNum(0), ChunkNum(0), ChunkNum(1))
+cc 4d4e4f73f5beac5aad5f47e28cc4ff178edb2309551cd46d8c9e536b24bede4b # shrinks to len = 0
+cc b3b79d3cde6c7203240b3e8f4d2281f8b6fd8b3f8691fec07e3aed5240bcb564 # shrinks to (len, start, size) = (ByteNum(0), ChunkNum(0), ChunkNum(1)), level = 0
+cc cb36a58bd7a6b05065baa0aca36a7f0cbea6eecb67d4d74450c263b912f8f0f2 # shrinks to (len, start, size) = (ByteNum(0), ChunkNum(0), ChunkNum(0))
+cc 8cdc7a5b0122451297bf3fc15ea55296846a3f6b8855fdd21ccb65f850f9e298 # shrinks to (len, start, size) = (ByteNum(10456), ChunkNum(0), ChunkNum(11)), level = 1
+cc 2fdd6d99376c7e8f825410e9ba62b5a32bec0f9f7361e287e3e88c9eee4b204c # shrinks to (len, start, size) = (ByteNum(8201), ChunkNum(0), ChunkNum(1)), level = 3
+cc 0864fda659f38b6c7655a64597cc713f7db0f527b1131c06379c83123574d3ca # shrinks to (len, start, size) = (ByteNum(2174), ChunkNum(3), ChunkNum(0))

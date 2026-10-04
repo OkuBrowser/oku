@@ -1,0 +1,11 @@
+freebsd_instance:
+  image_family: freebsd-14-3
+
+task:
+  name: FreeBSD
+  setup_script:
+    - pkg install -y pkgconf fusefs-libs fusefs-libs3 rust
+  build_script:
+    - cargo build --features "parallel libfuse"
+  test_script:
+    - cargo test --features "parallel libfuse"

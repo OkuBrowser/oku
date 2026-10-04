@@ -1,0 +1,47 @@
+name: Build and Release
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions: write-all
+    
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install libfuse-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libfuse-dev
+
+    - name: Set PKG_CONFIG_PATH
+      run: echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig" >> $GITHUB_ENV
+
+    - name: Build crates inside examples folder
+      run: |
+        target="$(rustc -vV | grep 'host:' | sed 's/host: //')"
+        mkdir bin
+        for dir in examples/*/; do
+          if [ -f "${dir}Cargo.toml" ]; then
+            echo "Building in ${dir}"
+            (
+              cd "${dir}"
+              cargo build --release
+              example_name=$(basename "${dir}")
+              cp "target/release/${example_name}" "../../bin/${target}-${example_name}"
+            )
+          fi
+        done
+
+    - name: Upload Assets to Release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        git fetch --prune --unshallow --tags
+        TAG_NAME=$(git describe --tags --abbrev=0)
+        gh release upload "$TAG_NAME" bin/* --clobber

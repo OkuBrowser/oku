@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug mirror_fs",
+            "program": "${workspaceFolder}/examples/mirror_fs/target/debug/mirror_fs",
+            "args": [],
+            "cwd": "${workspaceFolder}/examples/mirror_fs",
+            "cargo": {
+                "cwd": "${workspaceFolder}/examples/mirror_fs",
+                "args": ["build"],
+                "filter": {
+                    "name": "mirror_fs",
+                    "kind": "bin"
+                }
+            },
+            "sourceLanguages": ["rust"]
+        }
+    ]
+}

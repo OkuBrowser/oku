@@ -1,0 +1,23 @@
+[package]
+name = "proc-macro-error-attr"
+version = "0.4.12"
+authors = ["CreepySkeleton <creepy-skeleton@yandex.ru>"]
+edition = "2018"
+description = "Attribute macro for proc-macro-error crate"
+license = "MIT OR Apache-2.0"
+repository = "https://gitlab.com/CreepySkeleton/proc-macro-error"
+
+build = "build.rs"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1"
+proc-macro2 = "1"
+syn-mid = "0.5"
+# "derive" is for `Attribute`, "parsing" is for `Parse`
+syn = { version = "1", default-features = false, features = ["derive", "parsing", "proc-macro", "printing"] }
+
+[build-dependencies]
+version_check = "0.9"

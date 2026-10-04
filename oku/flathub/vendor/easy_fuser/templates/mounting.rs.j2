@@ -1,0 +1,106 @@
+use std::io;
+use std::path::Path;
+
+use fuser::{mount2, spawn_mount2, Config, MountOption};
+
+use crate::types::*;
+use crate::FuseSession;
+use super::FuseHandler;
+use super::fuse_driver::FuseDriver;
+
+/// Mounts a FUSE filesystem at the specified mountpoint.
+/// 
+/// # Parameters
+/// 
+/// * `filesystem`: The filesystem implementation.
+/// * `mountpoint`: The path where the filesystem should be mounted.
+/// * `options`: Mount options for the filesystem.
+/// * `num_threads` (not available in serial mode): Number of threads for handling filesystem operations concurrently.
+/// 
+/// # Type Parameters
+/// 
+/// * `T`: Implements `FileIdType` for file identifier conversion.
+/// * `FS`: Implements `FuseHandler<T>` for filesystem operations.
+/// 
+/// # Unmounting
+/// The FUSE filesystem can only be unmounted using the `fusermount -u` command, executed externally from the program. However, the `fusermount` command will fail if the filesystem is busy.
+/// 
+/// If the program crashes, the mount point may be left in an inconsistent state. To resolve this, you will need to run `fusermount -u` to restore the mount point to a proper state.
+/// 
+/// # Returns
+/// 
+/// `io::Result<()>` indicating success or failure of the mount operation.
+pub fn mount<TId, FS, P>(
+    filesystem: FS,
+    mountpoint: P,
+    options: &[MountOption],
+    num_threads: Option<usize>,
+) -> io::Result<()>
+where
+    TId: FileIdType,
+    FS: FuseHandler<TId = TId>,
+    P: AsRef<Path>,
+{
+    let driver = FuseDriver::new(
+        filesystem,
+        num_threads,
+        );
+    let mut config = Config::default();
+    config.mount_options = options.to_vec();
+    config.n_threads = num_threads;
+    mount2(driver, mountpoint, &config)
+}
+
+/// Spawns a FUSE filesystem in the background at the specified mountpoint.
+/// 
+/// This function mounts a FUSE filesystem and returns a `BackgroundSession` that can be used
+/// to manage the mounted filesystem.
+/// 
+/// # Parameters
+/// 
+/// * `filesystem`: The filesystem implementation that handles FUSE operations.
+/// * `mountpoint`: The path where the filesystem should be mounted.
+/// * `options`: A slice of mount options for configuring the filesystem mount.
+/// * `num_threads` (non serial argument): Number of threads for handling filesystem operations concurrently.
+/// 
+/// # Type Parameters
+/// 
+/// * `T`: Implements `FileIdType` for file identifier conversion.
+/// * `FS`: Implements `FuseHandler<T>` for filesystem operations.
+///   FS must implement the `Send`, which is not the case by defualt in serial mode.
+///   In that case, it is advised to create the filesystem in the same dedicated thread and use mount function.
+/// 
+/// # Unmounting
+/// Using spawn_mount, the FUSE filesystem can be unmounted using two methods:  
+/// 1. **Programmatically**: By calling the `join` method on the `BackgroundSession` returned during mounting. This will stop the filesystem and unmount it.  
+/// 2. **Manually**: Using the `fusermount -u` command, executed externally. Note that `fusermount` will fail if the filesystem is busy.
+/// 
+/// If the program crashes, the mount point may be left in an inconsistent state. To resolve this, you must manually unmount the filesystem using `fusermount -u`.
+/// 
+/// # Returns
+/// 
+/// Returns `io::Result<BackgroundSession>`, which is:
+/// * `Ok(BackgroundSession)` on successful mount, providing a handle to manage the mounted filesystem.
+/// * `Err(io::Error)` if the mount operation fails.
+pub fn spawn_mount<TId, FS, P>(
+    filesystem: FS,
+    mountpoint: P,
+    options: &[MountOption],
+    num_threads: Option<usize>,
+) -> io::Result<FuseSession<TId>>
+where
+    TId: FileIdType,
+    FS: FuseHandler<TId = TId> + Send,
+    P: AsRef<Path>,
+{
+    let driver = FuseDriver::new(
+        filesystem,
+        num_threads,
+        );
+    let resolver = driver.resolver.clone();
+    let mut config = Config::default();
+    config.mount_options = options.to_vec();
+    config.n_threads = num_threads;
+    let session = spawn_mount2(driver, mountpoint, &config)?;
+    Ok(FuseSession::new(session, resolver))
+}

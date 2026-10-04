@@ -1,0 +1,54 @@
+[package]
+name = "fs4"
+# NB: When modifying, also modify html_root_url in lib.rs
+version = "0.13.1"
+rust-version = "1.75.0"
+authors = ["Dan Burkert <dan@danburkert.com>", "Al Liu <scygliu1@gmail.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/al8n/fs4-rs"
+documentation = "https://docs.rs/fs4"
+description = "No libc, pure Rust cross-platform file locks. Original fs2, now supports async and replace libc by rustix."
+keywords = ["file", "fs2", "lock", "duplicate", "flock"]
+categories = ["filesystem", "external-ffi-bindings", "asynchronous"]
+edition = "2021"
+
+[features]
+default = ["sync"]
+sync = []
+async-std = ["dep:async-std"]
+tokio = ["dep:tokio"]
+smol = ["dep:smol"]
+fs-err2 = ["dep:fs-err2", "fs-err2/io_safety"]
+fs-err2-tokio = ["fs-err2", "fs-err2/tokio"]
+fs-err3 = ["dep:fs-err3"]
+fs-err3-tokio = ["fs-err3", "fs-err3/tokio"]
+
+
+[target.'cfg(not(windows))'.dependencies]
+rustix = { version = "1", features = ["fs"] }
+
+[target.'cfg(windows)'.dependencies.windows-sys]
+version = "0.59"
+features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_IO"]
+
+[dependencies]
+async-std = { version = "1", optional = true }
+fs-err2 = { package = "fs-err", version = "2", optional = true }
+fs-err3 = { package = "fs-err", version = "3", optional = true }
+smol = { version = "2", optional = true }
+tokio = { version = "1", optional = true, default-features = false, features = [
+  "fs",
+] }
+
+[dev-dependencies]
+async-std = { version = "1", features = ["attributes"] }
+fs-err2 = { package = "fs-err", version = "2", features = ["io_safety", "tokio"] }
+fs-err3 = { package = "fs-err", version = "3", features = ["tokio"] }
+smol-potat = "1.1"
+tempfile = "3"
+tokio = { version = "1", features = ["full"] }
+libc = "0.2"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

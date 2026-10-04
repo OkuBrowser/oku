@@ -1,0 +1,512 @@
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
+//! Message metadata
+
+#[cfg(test)]
+use alloc::vec::Vec;
+use core::{convert::From, fmt, ops::Deref};
+
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+use crate::{
+    error::*,
+    op::{op_code::OpCode, response_code::ResponseCode},
+    serialize::binary::*,
+};
+
+/// Metadata for the `Message` struct.
+///
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+///
+/// ```text
+/// 4.1.1. Header section format
+///
+/// The header contains the following fields
+///
+///                                    1  1  1  1  1  1
+///      0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                      ID                       |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |QR|   Opcode  |AA|TC|RD|RA|ZZ|AD|CD|   RCODE   |  /// AD and CD from RFC4035
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    QDCOUNT / ZCOUNT           |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    ANCOUNT / PRCOUNT          |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    NSCOUNT / UPCOUNT          |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    ARCOUNT / ADCOUNT          |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///
+/// where
+///
+/// Z               Reserved for future use.  Must be zero in all queries
+///                 and responses.
+///
+/// ```
+///
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+pub struct Header {
+    /// The message metadata (ID, flags, response and op code)
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub metadata: Metadata,
+    /// Record counts for the message, for use during encoding/decoding
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub counts: HeaderCounts,
+}
+
+impl BinEncodable for Header {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        // Id
+        encoder.emit_u16(self.id)?;
+
+        // IsQuery, OpCode, Authoritative, Truncation, RecursionDesired
+        let mut q_opcd_a_t_r = if let MessageType::Response = self.message_type {
+            0x80
+        } else {
+            0x00
+        };
+        q_opcd_a_t_r |= u8::from(self.op_code) << 3;
+        q_opcd_a_t_r |= if self.authoritative { 0x4 } else { 0x0 };
+        q_opcd_a_t_r |= if self.truncation { 0x2 } else { 0x0 };
+        q_opcd_a_t_r |= if self.recursion_desired { 0x1 } else { 0x0 };
+        encoder.emit(q_opcd_a_t_r)?;
+
+        // IsRecursionAvailable, Triple 0's, ResponseCode
+        let mut r_z_ad_cd_rcod = if self.recursion_available {
+            0b1000_0000
+        } else {
+            0b0000_0000
+        };
+        r_z_ad_cd_rcod |= if self.authentic_data {
+            0b0010_0000
+        } else {
+            0b0000_0000
+        };
+        r_z_ad_cd_rcod |= if self.checking_disabled {
+            0b0001_0000
+        } else {
+            0b0000_0000
+        };
+        r_z_ad_cd_rcod |= self.response_code.low();
+        encoder.emit(r_z_ad_cd_rcod)?;
+
+        encoder.emit_u16(self.counts.queries)?;
+        encoder.emit_u16(self.counts.answers)?;
+        encoder.emit_u16(self.counts.authorities)?;
+        encoder.emit_u16(self.counts.additionals)?;
+
+        Ok(())
+    }
+}
+
+impl<'r> BinDecodable<'r> for Header {
+    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
+        let id = decoder.read_u16()?.unverified(/*it is valid for this to be any u16*/);
+
+        let q_opcd_a_t_r = decoder.pop()?.unverified(/*used as a bitfield, this is safe*/);
+        // if the first bit is set
+        let message_type = if (0b1000_0000 & q_opcd_a_t_r) == 0b1000_0000 {
+            MessageType::Response
+        } else {
+            MessageType::Query
+        };
+        // the 4bit opcode, masked and then shifted right 3bits for the u8...
+        let op_code = OpCode::from_u8((0b0111_1000 & q_opcd_a_t_r) >> 3);
+        let authoritative = (0b0000_0100 & q_opcd_a_t_r) == 0b0000_0100;
+        let truncation = (0b0000_0010 & q_opcd_a_t_r) == 0b0000_0010;
+        let recursion_desired = (0b0000_0001 & q_opcd_a_t_r) == 0b0000_0001;
+
+        let r_z_ad_cd_rcod = decoder.pop()?.unverified(/*used as a bitfield, this is safe*/); // fail fast...
+
+        let recursion_available = (0b1000_0000 & r_z_ad_cd_rcod) == 0b1000_0000;
+        let authentic_data = (0b0010_0000 & r_z_ad_cd_rcod) == 0b0010_0000;
+        let checking_disabled = (0b0001_0000 & r_z_ad_cd_rcod) == 0b0001_0000;
+        let response_code: u8 = 0b0000_1111 & r_z_ad_cd_rcod;
+        let response_code = ResponseCode::from_low(response_code);
+
+        let metadata = Metadata {
+            id,
+            message_type,
+            op_code,
+            authoritative,
+            truncation,
+            recursion_desired,
+            recursion_available,
+            authentic_data,
+            checking_disabled,
+            response_code,
+        };
+
+        let counts = HeaderCounts {
+            queries: decoder.read_u16()?.unverified(/*this must be verified when reading queries*/),
+            answers: decoder.read_u16()?.unverified(/*this must be verified when reading answers*/),
+            authorities: decoder.read_u16()?.unverified(/*this must be verified when reading answers*/),
+            additionals: decoder.read_u16()?.unverified(/*this must be verified when reading answers*/),
+        };
+
+        Ok(Self { metadata, counts })
+    }
+}
+
+impl EncodedSize for Header {
+    const LEN: usize = 12;
+}
+
+impl Deref for Header {
+    type Target = Metadata;
+
+    fn deref(&self) -> &Self::Target {
+        &self.metadata
+    }
+}
+
+/// Message metadata, including the message ID, flags, response code, and op code.
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+pub struct Metadata {
+    /// ```text
+    /// ID              A 16 bit identifier assigned by the program that
+    ///                 generates any kind of query.  This identifier is copied
+    ///                 the corresponding reply and can be used by the requester
+    ///                 to match up replies to outstanding queries.
+    /// ```
+    pub id: u16,
+    /// ```text
+    /// QR              A one bit field that specifies whether this message is a
+    ///                 query (0), or a response (1).
+    /// ```
+    pub message_type: MessageType,
+    /// ```text
+    /// OPCODE          A four bit field that specifies kind of query in this
+    ///                 message.  This value is set by the originator of a query
+    ///                 and copied into the response.  The values are: <see super::op_code>
+    /// ```
+    pub op_code: OpCode,
+    /// ```text
+    /// AA              Authoritative Answer - this bit is valid in responses,
+    ///                 and specifies that the responding name server is an
+    ///                 authority for the domain name in question section.
+    ///
+    ///                 Note that the contents of the answer section may have
+    ///                 multiple owner names because of aliases.  The AA bit
+    ///                 corresponds to the name which matches the query name, or
+    ///                 the first owner name in the answer section.
+    /// ```
+    pub authoritative: bool,
+    /// ```text
+    /// TC              TrunCation - specifies that this message was truncated
+    ///                 due to length greater than that permitted on the
+    ///                 transmission channel.
+    /// ```
+    pub truncation: bool,
+    /// ```text
+    /// RD              Recursion Desired - this bit may be set in a query and
+    ///                 is copied into the response.  If RD is set, it directs
+    ///                 the name server to pursue the query recursively.
+    ///                 Recursive query support is optional.
+    /// ```
+    pub recursion_desired: bool,
+    /// ```text
+    /// RA              Recursion Available - this be is set or cleared in a
+    ///                 response, and denotes whether recursive query support is
+    ///                 available in the name server.
+    /// ```
+    pub recursion_available: bool,
+    /// [RFC 4035, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4035#section-3.1.6)
+    ///
+    /// ```text
+    ///
+    /// 3.1.6.  The AD and CD Bits in an Authoritative Response
+    ///
+    ///   The CD and AD bits are designed for use in communication between
+    ///   security-aware resolvers and security-aware recursive name servers.
+    ///   These bits are for the most part not relevant to query processing by
+    ///   security-aware authoritative name servers.
+    ///
+    ///   A security-aware name server does not perform signature validation
+    ///   for authoritative data during query processing, even when the CD bit
+    ///   is clear.  A security-aware name server SHOULD clear the CD bit when
+    ///   composing an authoritative response.
+    ///
+    ///   A security-aware name server MUST NOT set the AD bit in a response
+    ///   unless the name server considers all RRsets in the Answer and
+    ///   Authority sections of the response to be authentic.  A security-aware
+    ///   name server's local policy MAY consider data from an authoritative
+    ///   zone to be authentic without further validation.  However, the name
+    ///   server MUST NOT do so unless the name server obtained the
+    ///   authoritative zone via secure means (such as a secure zone transfer
+    ///   mechanism) and MUST NOT do so unless this behavior has been
+    ///   configured explicitly.
+    ///
+    ///   A security-aware name server that supports recursion MUST follow the
+    ///   rules for the CD and AD bits given in Section 3.2 when generating a
+    ///   response that involves data obtained via recursion.
+    /// ```
+    pub authentic_data: bool,
+    /// See [`Metadata::authentic_data`] for more information on the CD bit.
+    pub checking_disabled: bool,
+    /// ```text
+    /// RCODE           Response code - this 4 bit field is set as part of
+    ///                 responses.  The values have the following
+    ///                 interpretation: <see super::response_code>
+    /// ```
+    pub response_code: ResponseCode,
+}
+
+impl Metadata {
+    /// Construct a new `Metadata` with the given `id`, `message_type`, and `op_code`.
+    pub const fn new(id: u16, message_type: MessageType, op_code: OpCode) -> Self {
+        Self {
+            id,
+            message_type,
+            op_code,
+            authoritative: false,
+            truncation: false,
+            recursion_desired: false,
+            recursion_available: false,
+            authentic_data: false,
+            checking_disabled: false,
+            response_code: ResponseCode::NoError,
+        }
+    }
+
+    /// Construct new metadata based off the request metadata.
+    ///
+    /// This copies over the RD (recursion-desired) and CD (checking-disabled),
+    /// as well as the op_code and id of the request.
+    ///
+    /// See <https://datatracker.ietf.org/doc/html/rfc6895#section-2>
+    ///
+    /// ```text
+    /// The AA, TC, RD, RA, and CD bits are each theoretically meaningful
+    ///    only in queries or only in responses, depending on the bit.  The AD
+    ///    bit was only meaningful in responses but is expected to have a
+    ///    separate but related meaning in queries (see Section 5.7 of
+    ///    [RFC6840]).  Only the RD and CD bits are expected to be copied from
+    ///    the query to the response; however, some DNS implementations copy all
+    ///    the query header as the initial value of the response header.  Thus,
+    ///    any attempt to use a "query" bit with a different meaning in a
+    ///    response or to define a query meaning for a "response" bit may be
+    ///    dangerous, given the existing implementation.  Meanings for these
+    ///    bits may only be assigned by a Standards Action.
+    /// ```
+    pub fn response_from_request(req: &Self) -> Self {
+        Self {
+            id: req.id,
+            message_type: MessageType::Response,
+            op_code: req.op_code,
+            authoritative: false,
+            truncation: false,
+            recursion_desired: req.recursion_desired,
+            recursion_available: false,
+            authentic_data: false,
+            checking_disabled: req.checking_disabled,
+            response_code: ResponseCode::default(),
+        }
+    }
+
+    /// A method to get all header flags (useful for Display purposes)
+    pub fn flags(&self) -> Flags {
+        Flags {
+            authoritative: self.authoritative,
+            authentic_data: self.authentic_data,
+            checking_disabled: self.checking_disabled,
+            recursion_available: self.recursion_available,
+            recursion_desired: self.recursion_desired,
+            truncation: self.truncation,
+        }
+    }
+
+    /// This combines the high and low response code values to form the complete ResponseCode from the EDNS record.
+    ///   The existing high order bits will be overwritten (if set), and `high_response_code` will be merge with
+    ///   the existing low order bits.
+    ///
+    /// This is intended for use during decoding.
+    #[doc(hidden)]
+    pub fn merge_response_code(&mut self, high_response_code: u8) {
+        self.response_code = ResponseCode::from(high_response_code, self.response_code.low());
+    }
+}
+
+impl fmt::Display for Metadata {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "{id}:{message_type}:{flags}:{code:?}:{op_code}",
+            id = self.id,
+            message_type = self.message_type,
+            flags = self.flags(),
+            code = self.response_code,
+            op_code = self.op_code,
+        )
+    }
+}
+
+/// Tracks the counts of the records in the Message.
+///
+/// This is only used internally during serialization.
+#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+pub struct HeaderCounts {
+    /// The number of queries in the Message
+    pub queries: u16,
+    /// The number of answer records in the Message
+    pub answers: u16,
+    /// The number of authority records in the Message
+    pub authorities: u16,
+    /// The number of additional records in the Message
+    pub additionals: u16,
+}
+
+/// Message types are either Query (also Update) or Response
+#[derive(Debug, PartialEq, Eq, PartialOrd, Copy, Clone, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+pub enum MessageType {
+    /// Queries are Client requests, these are either Queries or Updates
+    Query,
+    /// Response message from the Server or upstream Resolver
+    Response,
+}
+
+impl fmt::Display for MessageType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        let s = match self {
+            Self::Query => "QUERY",
+            Self::Response => "RESPONSE",
+        };
+
+        f.write_str(s)
+    }
+}
+
+/// All the flags of the request/response header
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Flags {
+    authoritative: bool,
+    truncation: bool,
+    recursion_desired: bool,
+    recursion_available: bool,
+    authentic_data: bool,
+    checking_disabled: bool,
+}
+
+/// We are following the `dig` commands display format for the header flags
+///
+/// Example: "RD,AA,RA;" is Recursion-Desired, Authoritative-Answer, Recursion-Available.
+impl fmt::Display for Flags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        const SEPARATOR: &str = ",";
+
+        let flags = [
+            (self.recursion_desired, "RD"),
+            (self.checking_disabled, "CD"),
+            (self.truncation, "TC"),
+            (self.authoritative, "AA"),
+            (self.recursion_available, "RA"),
+            (self.authentic_data, "AD"),
+        ];
+
+        let mut iter = flags
+            .iter()
+            .cloned()
+            .filter_map(|(flag, s)| if flag { Some(s) } else { None });
+
+        // print first without a separator, then print the rest.
+        if let Some(s) = iter.next() {
+            f.write_str(s)?
+        }
+        for s in iter {
+            f.write_str(SEPARATOR)?;
+            f.write_str(s)?;
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let byte_vec = vec![
+            0x01, 0x10, 0xAA, 0x83, // 0b1010 1010 1000 0011
+            0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
+        ];
+
+        let mut decoder = BinDecoder::new(&byte_vec);
+
+        let expect = Header {
+            metadata: Metadata {
+                id: 0x0110,
+                message_type: MessageType::Response,
+                op_code: OpCode::Update,
+                authoritative: false,
+                truncation: true,
+                recursion_desired: false,
+                recursion_available: true,
+                authentic_data: false,
+                checking_disabled: false,
+                response_code: ResponseCode::NXDomain,
+            },
+            counts: HeaderCounts {
+                queries: 0x8877,
+                answers: 0x6655,
+                authorities: 0x4433,
+                additionals: 0x2211,
+            },
+        };
+
+        let got = Header::read(&mut decoder).unwrap();
+
+        assert_eq!(got, expect);
+    }
+
+    #[test]
+    fn test_write() {
+        let header = Header {
+            metadata: Metadata {
+                id: 0x0110,
+                message_type: MessageType::Response,
+                op_code: OpCode::Update,
+                authoritative: false,
+                truncation: true,
+                recursion_desired: false,
+                recursion_available: true,
+                authentic_data: false,
+                checking_disabled: false,
+                response_code: ResponseCode::NXDomain,
+            },
+            counts: HeaderCounts {
+                queries: 0x8877,
+                answers: 0x6655,
+                authorities: 0x4433,
+                additionals: 0x2211,
+            },
+        };
+
+        let expect = vec![
+            0x01, 0x10, 0xAA, 0x83, // 0b1010 1010 1000 0011
+            0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
+        ];
+
+        let mut bytes = Vec::with_capacity(512);
+        {
+            let mut encoder = BinEncoder::new(&mut bytes);
+            header.emit(&mut encoder).unwrap();
+        }
+
+        assert_eq!(bytes, expect);
+    }
+}

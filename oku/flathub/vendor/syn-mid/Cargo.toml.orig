@@ -1,0 +1,33 @@
+[package]
+name = "syn-mid"
+version = "0.5.4"
+edition = "2021"
+rust-version = "1.56"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/taiki-e/syn-mid"
+keywords = ["syn", "macros"]
+categories = ["development-tools::procedural-macro-helpers"]
+exclude = ["/.*", "/tools"]
+description = """
+Providing the features between \"full\" and \"derive\" of syn.
+"""
+
+[package.metadata.docs.rs]
+all-features = true
+targets = ["x86_64-unknown-linux-gnu"]
+
+[workspace]
+resolver = "2"
+members = ["examples/const_fn"]
+
+[lib]
+doc-scrape-examples = false
+
+[features]
+clone-impls = ["syn/clone-impls"]
+
+# Note: proc-macro2, quote, and syn are public dependencies.
+[dependencies]
+proc-macro2 = { version = "1.0.60", default-features = false }
+quote = { version = "1", default-features = false }
+syn = { version = "1.0.44", default-features = false, features = ["parsing", "printing", "derive"] }

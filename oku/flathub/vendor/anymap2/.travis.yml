@@ -1,0 +1,9 @@
+language: rust
+rust:
+  - nightly
+  - beta
+  - stable
+script:
+  - if [[ "$(rustc --version)" =~ -(dev|nightly) ]]; then cargo bench; fi
+  - cargo test
+  - cargo test --release

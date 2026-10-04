@@ -1,0 +1,49 @@
+name: iOS
+
+on:
+  push:
+    branches: [ main, 0.8.x ]
+  pull_request:
+    branches: [ main, next, 0.8.x ]
+  schedule:
+    # At 23:00 on Thursday.
+    - cron:  '0 23 * * 4'
+
+env:
+  RUST_BACKTRACE: full
+
+jobs:
+  build_test:
+    runs-on: macos-13
+    strategy:
+      fail-fast: true
+      matrix:
+        toolchain: [stable]
+        device: ["iPhone 14"]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          targets: x86_64-apple-ios
+      # Install utilities
+      - name: Cache cargo install
+        uses: actions/cache@v4
+        if: always()
+        with:
+          path: |
+            ~/.cargo/bin/
+          key: cargo-global-${{ matrix.toolchain }}-${{ github.ref }}-${{ hashFiles('**/Cargo.lock') }}
+      - run: if ! command -v cargo-dinghy &> /dev/null; then cargo install --version 0.6.8 cargo-dinghy; fi
+      - run: if ! command -v just &> /dev/null; then cargo install --version 1.25.2 just; fi
+      - run: just --version
+      - uses: hustcer/setup-nu@v3.19
+        with:
+          version: '0.105.1'
+        env:
+            GITHUB_TOKEN: ${{ secrets.PAT_GLOBAL }}
+      # End install utilities
+      - run: just test_ios_launch_simulator "${{ matrix.device }}"
+      # - run: just test_ios_list_simulators
+      - run: just test_ios

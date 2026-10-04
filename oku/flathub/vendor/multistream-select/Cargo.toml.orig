@@ -1,0 +1,35 @@
+[package]
+name = "multistream-select"
+edition.workspace = true
+rust-version = { workspace = true }
+description = "Multistream-select negotiation protocol for libp2p"
+version = "0.14.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+license = "MIT"
+repository = "https://github.com/libp2p/rust-libp2p"
+keywords = ["peer-to-peer", "libp2p", "networking"]
+categories = ["network-programming", "asynchronous"]
+
+[dependencies]
+bytes.workspace = true
+futures = { workspace = true }
+tracing = { workspace = true }
+pin-project = "1.1"
+smallvec = "1.15"
+unsigned-varint = { workspace = true }
+
+[dev-dependencies]
+futures_ringbuf = "0.4"
+quickcheck = { workspace = true }
+rw-stream-sink = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tokio = { workspace = true, features = ["full"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+
+# Passing arguments to the docsrs builder in order to properly document cfg's.
+# More information: https://docs.rs/about/builds#cross-compiling
+[package.metadata.docs.rs]
+all-features = true
+
+[lints]
+workspace = true

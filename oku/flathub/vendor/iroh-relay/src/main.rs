@@ -1,0 +1,959 @@
+//! The relay server for iroh.
+//!
+//! This handles only the CLI and config file loading, the server implementation lives in
+//! [`iroh::relay::server`].
+
+use std::{
+    net::{Ipv6Addr, SocketAddr},
+    num::NonZeroU32,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+
+use clap::Parser;
+use http::StatusCode;
+use iroh_base::EndpointId;
+use iroh_relay::{
+    defaults::{
+        DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT, DEFAULT_METRICS_PORT, DEFAULT_RELAY_QUIC_PORT,
+    },
+    server::{
+        self as relay, Access, AccessControl, AcmeConfig, ClientRateLimit, ClientRequest,
+        DEFAULT_CERT_RELOAD_INTERVAL, QuicConfig, reloading_resolver,
+    },
+    tls::CaTlsConfig,
+};
+use n0_error::{AnyError, Result, StdResultExt, bail_any};
+use serde::{Deserialize, Serialize};
+use tracing::{debug, warn};
+use tracing_subscriber::{EnvFilter, prelude::*};
+use url::Url;
+use webpki_types::{CertificateDer, PrivateKeyDer, pem::PemObject};
+
+/// The default `http_bind_port` when using `--dev`.
+const DEV_MODE_HTTP_PORT: u16 = 3340;
+/// The header name for setting the endpoint id in HTTP auth requests.
+const X_IROH_ENDPOINT_ID: &str = "X-Iroh-NodeId";
+/// Environment variable to read a bearer token for HTTP auth requests from.
+const ENV_HTTP_BEARER_TOKEN: &str = "IROH_RELAY_HTTP_BEARER_TOKEN";
+/// Environment variable to verify relay access (without an external auth service)
+const ENV_RELAY_ACCESS_TOKEN: &str = "IROH_RELAY_ACCESS_TOKEN";
+/// Environment variable to override the ACME directory URL.
+const ENV_ACME_URL: &str = "IROH_RELAY_ACME_URL";
+/// Environment variable to trust an additional CA for the ACME server's TLS certificate.
+const ENV_ACME_CA: &str = "IROH_RELAY_ACME_CA";
+
+/// A relay server for iroh.
+#[derive(Parser, Debug, Clone)]
+#[clap(version, about, long_about = None)]
+struct Cli {
+    /// Run in localhost development mode over plain HTTP.
+    ///
+    /// Defaults to running the relay server on port 3340.
+    ///
+    /// Running in dev mode will ignore any config file fields pertaining to TLS.
+    #[clap(long, default_value_t = false)]
+    dev: bool,
+    /// Path to the configuration file.
+    #[clap(long, short)]
+    config_path: Option<PathBuf>,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+enum CertMode {
+    Manual,
+    LetsEncrypt,
+    #[cfg(feature = "server")]
+    Reloading,
+}
+
+fn load_certs(
+    filename: impl AsRef<Path>,
+) -> Result<Vec<rustls::pki_types::CertificateDer<'static>>> {
+    let filename = filename.as_ref();
+    CertificateDer::pem_file_iter(filename)
+        .with_std_context(|_| format!("failed to open certificate file at {}", filename.display()))?
+        .collect::<Result<Vec<_>, _>>()
+        .with_std_context(|_| format!("failed to read certificates from {}", filename.display()))
+}
+
+fn load_secret_key(
+    filename: impl AsRef<Path>,
+) -> Result<rustls::pki_types::PrivateKeyDer<'static>> {
+    let filename = filename.as_ref();
+    PrivateKeyDer::from_pem_file(filename)
+        .with_std_context(|_| format!("failed to read secret key from {}", filename.display()))
+}
+
+/// Configuration for the relay-server.
+///
+/// This is (de)serialised to/from a TOML config file.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Config {
+    /// Whether to enable the Relay server.
+    ///
+    /// Defaults to `true`.
+    ///
+    /// When disabled, the relay will not proxy traffic between endpoints. This leaves only
+    /// the QUIC server running (if `enable_quic_addr_discovery` is `true`), which helps
+    /// with NAT traversal by reporting observed addresses but does not relay any data.
+    /// This is useful for holepunching-only relay servers.
+    ///
+    /// When disabled, the `http_bind_addr` and `tls` configuration options are only used
+    /// if `enable_quic_addr_discovery` is enabled (TLS is required for QUIC).
+    #[serde(default = "cfg_defaults::enable_relay")]
+    enable_relay: bool,
+    /// The socket address to bind the Relay HTTP server on.
+    ///
+    /// Defaults to `[::]:80`.
+    ///
+    /// When running with `--dev` defaults to `[::]:3340`.  If specified overrides these
+    /// defaults.
+    ///
+    /// The Relay server always starts an HTTP server, this specifies the socket this will
+    /// be bound on.  If there is no `tls` configuration set all the HTTP relay services
+    /// will be bound on this socket.  Otherwise most Relay HTTP services will run on the
+    /// `https_bind_addr` of the `tls` configuration section and only the captive portal
+    /// will be served from the HTTP socket.
+    http_bind_addr: Option<SocketAddr>,
+    /// TLS specific configuration.
+    ///
+    /// TLS is disabled if not present and the Relay server will serve all services over
+    /// plain HTTP.
+    ///
+    /// If disabled all services will run on plain HTTP.
+    ///
+    /// Must exist if `enable_quic_addr_discovery` is `true`.
+    tls: Option<TlsConfig>,
+    /// Whether to allow QUIC connections for QUIC address discovery
+    ///
+    /// If no `tls` is set, this will error.
+    ///
+    /// Defaults to `false`
+    #[serde(default = "cfg_defaults::enable_quic_addr_discovery")]
+    enable_quic_addr_discovery: bool,
+    /// Rate limiting configuration.
+    ///
+    /// Disabled if not present.
+    limits: Option<Limits>,
+    /// Whether to run the metrics server.
+    ///
+    /// Defaults to `true`, when the metrics feature is enabled.
+    #[serde(default = "cfg_defaults::enable_metrics")]
+    enable_metrics: bool,
+    /// Metrics serve address.
+    ///
+    /// Defaults to `http_bind_addr` with the port set to [`DEFAULT_METRICS_PORT`]
+    /// (`[::]:9090` when `http_bind_addr` is set to the default).
+    metrics_bind_addr: Option<SocketAddr>,
+    /// The capacity of the key cache.
+    key_cache_capacity: Option<usize>,
+    /// Access control for relaying connections.
+    ///
+    /// This controls which endpoints are allowed to relay connections, other endpoints are not controlled by this.
+    #[serde(default)]
+    access: AccessConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum AccessConfig {
+    /// Allows everyone
+    #[default]
+    Everyone,
+    /// Allows only these endpoints.
+    Allowlist(Vec<EndpointId>),
+    /// Allows everyone, except these endpoints.
+    Denylist(Vec<EndpointId>),
+    /// Performs a HTTP POST request to determine access for each endpoint that connects to the relay.
+    ///
+    /// The request will have a header `X-Iroh-Endpoint-Id` set to the hex-encoded endpoint id attempting
+    /// to connect to the relay.
+    ///
+    /// To grant access, the HTTP endpoint must return a `200` response with `true` as the response text.
+    /// In all other cases, the endpoint will be denied access.
+    Http(HttpAccessConfig),
+    #[serde(rename = "shared_token")]
+    /// Allows only clients that present one of the configured bearer tokens.
+    ///
+    /// The token is read from the `Authorization: Bearer <token>` request header,
+    /// or from the `?token=` URL query parameter as a fallback.
+    /// All other connections are denied.
+    ///
+    /// The token list can also be overridden by the `IROH_RELAY_ACCESS_TOKEN` environment
+    /// variable, which sets a single allowed token and takes precedence over the config
+    /// file value. A single value is used (rather than a comma-separated list) to avoid
+    /// restricting the character set of tokens.
+    ///
+    /// The token list must not be empty, and no token may be an empty string;
+    /// the server will fail to start if either condition is violated.
+    ///
+    /// # Example
+    ///
+    /// ```toml
+    /// access.shared_token = ["token-a", "token-b"]
+    /// ```
+    SharedToken(Vec<String>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+struct HttpAccessConfig {
+    /// The URL to send the `POST` request to.
+    url: Url,
+    /// Optional bearer token for authorizing to the HTTP endpoint.
+    ///
+    /// If set, an `Authorization: Bearer {token}` header will be set on the HTTP request.
+    /// The bearer token can also be set via the `IROH_RELAY_HTTP_BEARER_TOKEN` environment variable.
+    /// If both the config and the environment variable are set, the value from the environment variable
+    /// is used.
+    bearer_token: Option<String>,
+}
+
+impl TryFrom<AccessConfig> for Arc<dyn iroh_relay::server::DynAccessControl> {
+    type Error = AnyError;
+
+    fn try_from(cfg: AccessConfig) -> Result<Self> {
+        match cfg {
+            AccessConfig::Everyone => Ok(Arc::new(iroh_relay::server::AllowAll)),
+            AccessConfig::Allowlist(allow_list) => Ok(Arc::new(AllowlistAccess(allow_list))),
+            AccessConfig::Denylist(deny_list) => Ok(Arc::new(DenylistAccess(deny_list))),
+            AccessConfig::Http(mut config) => {
+                let client = reqwest::Client::builder()
+                    .use_rustls_tls()
+                    .build()
+                    .expect("request client builder");
+                // Allow to set bearer token via environment variable as well.
+                if let Ok(token) = std::env::var(ENV_HTTP_BEARER_TOKEN) {
+                    config.bearer_token = Some(token);
+                }
+                Ok(Arc::new(HttpAccess { client, config }))
+            }
+            AccessConfig::SharedToken(mut tokens) => {
+                // A single env var token replaces the entire list. A comma-separated list
+                // is intentionally not supported to avoid restricting the token character set.
+                if let Ok(env_token) = std::env::var(ENV_RELAY_ACCESS_TOKEN) {
+                    tokens = vec![env_token];
+                }
+                if tokens.is_empty() || tokens.iter().any(|t| t.is_empty()) {
+                    bail_any!("access.shared_token must not be empty or contain empty strings");
+                }
+                Ok(Arc::new(SharedTokenAccess(tokens)))
+            }
+        }
+    }
+}
+
+/// An [`AccessControl`] admitting only an allowlist of endpoints.
+#[derive(Debug)]
+struct AllowlistAccess(Vec<EndpointId>);
+
+impl AccessControl for AllowlistAccess {
+    async fn on_connect(&self, request: &ClientRequest) -> Access {
+        if self.0.contains(&request.endpoint_id()) {
+            Access::Allow
+        } else {
+            Access::Deny { reason: None }
+        }
+    }
+}
+
+/// An [`AccessControl`] admitting everyone except a denylist of endpoints.
+#[derive(Debug)]
+struct DenylistAccess(Vec<EndpointId>);
+
+impl AccessControl for DenylistAccess {
+    async fn on_connect(&self, request: &ClientRequest) -> Access {
+        if self.0.contains(&request.endpoint_id()) {
+            Access::Deny { reason: None }
+        } else {
+            Access::Allow
+        }
+    }
+}
+
+/// An [`AccessControl`] admitting only clients that present one of the configured bearer tokens.
+#[derive(Debug)]
+struct SharedTokenAccess(Vec<String>);
+
+impl AccessControl for SharedTokenAccess {
+    async fn on_connect(&self, request: &ClientRequest) -> Access {
+        match request.auth_token() {
+            Some(token) if self.0.contains(&token) => Access::Allow,
+            _ => Access::Deny { reason: None },
+        }
+    }
+}
+
+/// An [`AccessControl`] that delegates the decision to an HTTP endpoint.
+#[derive(Debug)]
+struct HttpAccess {
+    client: reqwest::Client,
+    config: HttpAccessConfig,
+}
+
+impl AccessControl for HttpAccess {
+    #[tracing::instrument("http-access-check", skip_all, fields(endpoint_id=%request.endpoint_id().fmt_short()))]
+    async fn on_connect(&self, request: &ClientRequest) -> Access {
+        debug!(url=%self.config.url, "Check relay access via HTTP POST");
+
+        match http_access_check_inner(&self.client, &self.config, request.endpoint_id()).await {
+            Ok(()) => {
+                debug!("HTTP access check OK: Allow access");
+                Access::Allow
+            }
+            Err(err) => {
+                debug!("HTTP access check failed: Deny access (reason: {err:#})");
+                Access::Deny { reason: None }
+            }
+        }
+    }
+}
+
+async fn http_access_check_inner(
+    client: &reqwest::Client,
+    config: &HttpAccessConfig,
+    endpoint_id: EndpointId,
+) -> Result<()> {
+    let mut request = client
+        .post(config.url.clone())
+        .header(X_IROH_ENDPOINT_ID, endpoint_id.to_string());
+    if let Some(token) = config.bearer_token.as_ref() {
+        request = request.header(http::header::AUTHORIZATION, format!("Bearer {token}"));
+    }
+
+    match request.send().await {
+        Err(err) => {
+            warn!("Failed to retrieve response for HTTP access check: {err:#}");
+            Err(err).std_context("Failed to fetch response")
+        }
+        Ok(res) if res.status() == StatusCode::OK => match res.text().await {
+            Ok(text) if text == "true" => Ok(()),
+            Ok(_) => bail_any!("Invalid response text (must be 'true')"),
+            Err(err) => Err(err).std_context("Failed to read response"),
+        },
+        Ok(res) => bail_any!("Received invalid status code ({})", res.status()),
+    }
+}
+
+impl Config {
+    fn http_bind_addr(&self) -> SocketAddr {
+        self.http_bind_addr
+            .unwrap_or((Ipv6Addr::UNSPECIFIED, DEFAULT_HTTP_PORT).into())
+    }
+
+    fn metrics_bind_addr(&self) -> SocketAddr {
+        self.metrics_bind_addr
+            .unwrap_or_else(|| SocketAddr::new(self.http_bind_addr().ip(), DEFAULT_METRICS_PORT))
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            enable_relay: cfg_defaults::enable_relay(),
+            http_bind_addr: None,
+            tls: None,
+            enable_quic_addr_discovery: cfg_defaults::enable_quic_addr_discovery(),
+            limits: None,
+            enable_metrics: cfg_defaults::enable_metrics(),
+            metrics_bind_addr: None,
+            key_cache_capacity: Default::default(),
+            access: AccessConfig::Everyone,
+        }
+    }
+}
+
+/// Defaults for fields from [`Config`] [`TlsConfig`].
+///
+/// These are the defaults that serde will fill in.  Other defaults depends on each other
+/// and can not immediately be substituted by serde.
+mod cfg_defaults {
+    pub(crate) fn enable_relay() -> bool {
+        true
+    }
+
+    pub(crate) fn enable_quic_addr_discovery() -> bool {
+        false
+    }
+
+    pub(crate) fn enable_metrics() -> bool {
+        true
+    }
+
+    pub(crate) mod tls_config {
+        pub(crate) fn prod_tls() -> bool {
+            true
+        }
+
+        pub(crate) fn dangerous_http_only() -> bool {
+            false
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct TlsConfig {
+    /// The socket address to bind the Relay HTTPS server on.
+    ///
+    /// Defaults to the `http_bind_addr` with the port set to `443`.
+    https_bind_addr: Option<SocketAddr>,
+    /// The socket address to bind the QUIC server one.
+    ///
+    /// Defaults to the `https_bind_addr` with the port set to [`iroh_relay::defaults::DEFAULT_RELAY_QUIC_PORT`].
+    ///
+    /// If `https_bind_addr` is not set, defaults to `http_bind_addr` with the
+    /// port set to [`iroh_relay::defaults::DEFAULT_RELAY_QUIC_PORT`]
+    quic_bind_addr: Option<SocketAddr>,
+    /// Certificate hostname when using LetsEncrypt.
+    #[serde(default, deserialize_with = "string_or_seq")]
+    hostname: Vec<String>,
+    /// Mode for getting a cert.
+    ///
+    /// Possible options: 'Manual', 'LetsEncrypt'.
+    cert_mode: CertMode,
+    /// Directory to store LetsEncrypt certs or read manual certificates from.
+    ///
+    /// Defaults to the servers' current working directory.
+    cert_dir: Option<PathBuf>,
+    /// Path of where to read the certificate from for the `Manual` and `Reloading` `cert_mode`.
+    ///
+    /// Defaults to `<cert_dir>/default.crt`.
+    ///
+    /// Only used when `cert_mode` is `Manual`.
+    manual_cert_path: Option<PathBuf>,
+    /// Path of where to read the private key from for the `Manual` `cert_mode`.
+    ///
+    /// Defaults to `<cert_dir>/default.key`.
+    ///
+    /// Only used when `cert_mode` is `Manual`.
+    manual_key_path: Option<PathBuf>,
+    /// Whether to use the LetsEncrypt production or staging server.
+    ///
+    /// Default is `true`.
+    ///
+    /// Only used when `cert_mode` is `LetsEncrypt`.
+    ///
+    /// While in development, LetsEncrypt prefers you to use the staging server. However,
+    /// the staging server seems to only use `ECDSA` keys. In their current set up, you can
+    /// only get intermediate certificates for `ECDSA` keys if you are on their
+    /// "allowlist". The production server uses `RSA` keys, which allow for issuing
+    /// intermediate certificates in all normal circumstances.  So, to have valid
+    /// certificates, we must use the LetsEncrypt production server.  Read more here:
+    /// <https://letsencrypt.org/certificates/#intermediate-certificates>.
+    #[serde(default = "cfg_defaults::tls_config::prod_tls")]
+    prod_tls: bool,
+    /// The contact email for the tls certificate.
+    ///
+    /// Used when `cert_mode` is `LetsEncrypt`.
+    contact: Option<String>,
+    /// **This field should never be manually set**
+    ///
+    /// When `true`, it will force the relay to ignore binding to https. It is only
+    /// ever used internally when the `--dev` flag is used on the CLI.
+    ///
+    /// Default is `false`.
+    #[serde(default = "cfg_defaults::tls_config::dangerous_http_only")]
+    dangerous_http_only: bool,
+}
+
+impl TlsConfig {
+    fn https_bind_addr(&self, cfg: &Config) -> SocketAddr {
+        self.https_bind_addr
+            .unwrap_or_else(|| SocketAddr::new(cfg.http_bind_addr().ip(), DEFAULT_HTTPS_PORT))
+    }
+
+    fn quic_bind_addr(&self, cfg: &Config) -> SocketAddr {
+        self.quic_bind_addr.unwrap_or_else(|| {
+            SocketAddr::new(self.https_bind_addr(cfg).ip(), DEFAULT_RELAY_QUIC_PORT)
+        })
+    }
+
+    fn cert_dir(&self) -> PathBuf {
+        self.cert_dir.clone().unwrap_or_else(|| PathBuf::from("."))
+    }
+
+    fn cert_path(&self) -> PathBuf {
+        self.manual_cert_path
+            .clone()
+            .unwrap_or_else(|| self.cert_dir().join("default.crt"))
+    }
+
+    fn key_path(&self) -> PathBuf {
+        self.manual_key_path
+            .clone()
+            .unwrap_or_else(|| self.cert_dir().join("default.key"))
+    }
+}
+
+fn string_or_seq<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringOrVec {
+        One(String),
+        Many(Vec<String>),
+    }
+
+    Ok(match StringOrVec::deserialize(deserializer)? {
+        StringOrVec::One(s) => vec![s],
+        StringOrVec::Many(v) => v,
+    })
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct Limits {
+    /// Rate limit for accepting new connection. Unlimited if not set.
+    accept_conn_limit: Option<f64>,
+    /// Burst limit for accepting new connection. Unlimited if not set.
+    accept_conn_burst: Option<usize>,
+    /// Rate limiting configuration per client.
+    client: Option<PerClientRateLimitConfig>,
+}
+
+/// Rate limit configuration for each connected client.
+///
+/// The rate limiting uses a token-bucket style algorithm:
+///
+/// - The base rate limit uses a steady-stream rate of bytes allowed.
+/// - Additionally a burst quota allows sending bytes over this steady-stream rate
+///   limit, as long as the maximum burst quota is not exceeded.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct PerClientRateLimitConfig {
+    /// Rate limit configuration for the incoming data from the client.
+    rx: Option<RateLimitConfig>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct RateLimitConfig {
+    /// Maximum number of bytes per second.
+    bytes_per_second: Option<u32>,
+    /// Maximum number of bytes to read in a single burst.
+    max_burst_bytes: Option<u32>,
+}
+
+impl Config {
+    async fn load(opts: &Cli) -> Result<Self> {
+        let config_path = if let Some(config_path) = &opts.config_path {
+            config_path
+        } else {
+            return Ok(Config::default());
+        };
+
+        if config_path.exists() {
+            Self::read_from_file(&config_path).await
+        } else {
+            Ok(Config::default())
+        }
+    }
+
+    fn from_str(config: &str) -> Result<Self> {
+        toml::from_str(config).std_context("config must be valid toml")
+    }
+
+    async fn read_from_file(path: impl AsRef<Path>) -> Result<Self> {
+        if !path.as_ref().is_file() {
+            bail_any!("config-path must be a file");
+        }
+        let config_ser = tokio::fs::read_to_string(&path)
+            .await
+            .std_context("unable to read config")?;
+        Self::from_str(&config_ser)
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
+        .with(EnvFilter::from_default_env())
+        .init();
+
+    // Install `ring` as default crypto provider for rustls.
+    // This helps when both the tls-ring and tls-aws-lc-rs features are enabled,
+    // otherwise some crypto operations would panic because rustls can't determine
+    // a default provider.
+    // `ring` is enabled by the `tls-ring` feature, which is included in the `server` feature,
+    // which is required for the main.rs binary. Therefore, this does not need any feature flags.
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("failed to set default crypto provider");
+
+    let cli = Cli::parse();
+    let mut cfg = Config::load(&cli).await?;
+    if cfg.enable_quic_addr_discovery && cfg.tls.is_none() {
+        bail_any!("TLS must be configured in order to spawn a QUIC endpoint");
+    }
+    if cli.dev {
+        // When in `--dev` mode, do not use https, even when tls is configured.
+        if let Some(ref mut tls) = cfg.tls {
+            tls.dangerous_http_only = true;
+        }
+        if cfg.http_bind_addr.is_none() {
+            cfg.http_bind_addr = Some((Ipv6Addr::UNSPECIFIED, DEV_MODE_HTTP_PORT).into());
+        }
+    }
+    if cfg.tls.is_none() && cfg.enable_quic_addr_discovery {
+        bail_any!("If QUIC address discovery is enabled, TLS must also be configured");
+    };
+    let relay_config = build_relay_config(cfg).await?;
+    debug!("{relay_config:#?}");
+
+    let mut relay = relay::Server::spawn(relay_config).await?;
+
+    tokio::select! {
+        biased;
+        _ = tokio::signal::ctrl_c() => (),
+        _ = relay.join() => (),
+    }
+
+    relay.shutdown().await?;
+    Ok(())
+}
+
+async fn load_cert_config(tls: &TlsConfig) -> Result<relay::CertConfig> {
+    let server_config = rustls::ServerConfig::builder_with_provider(std::sync::Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_safe_default_protocol_versions()
+    .expect("protocols supported by ring")
+    .with_no_client_auth();
+    let cert_config = match tls.cert_mode {
+        CertMode::Manual => {
+            let cert_path = tls.cert_path();
+            let key_path = tls.key_path();
+            // Could probably just do this blocking, we're only starting up.
+            let (private_key, certs) = tokio::task::spawn_blocking(move || {
+                let key = load_secret_key(key_path)?;
+                let certs = load_certs(cert_path)?;
+                n0_error::Ok((key, certs))
+            })
+            .await
+            .std_context("join")??;
+            let server_config = server_config
+                .with_single_cert(certs, private_key)
+                .std_context("tls config")?;
+            relay::CertConfig::Manual { server_config }
+        }
+        CertMode::LetsEncrypt => {
+            let domains = tls.hostname.clone();
+            if domains.is_empty() {
+                bail_any!("LetsEncrypt needs at least one hostname");
+            }
+            let contact = tls
+                .contact
+                .clone()
+                .std_context("LetsEncrypt needs a contact email")?;
+            let acme_config = if let Ok(url) = std::env::var(ENV_ACME_URL) {
+                AcmeConfig::new(url)
+            } else {
+                AcmeConfig::letsencrypt(tls.prod_tls)
+            };
+            let mut acme_config = acme_config
+                .domains(domains)
+                .contact(vec![format!("mailto:{contact}")])
+                .cache_path(tls.cert_dir());
+            // Trust an additional CA for the ACME server's TLS certificate. Useful for testing
+            // against a local ACME server such as pebble, whose certificate is not signed by a
+            // publicly trusted CA.
+            if let Ok(ca_path) = std::env::var(ENV_ACME_CA) {
+                let extra_roots = CertificateDer::pem_file_iter(&ca_path)
+                    .std_context("failed to read IROH_RELAY_ACME_CA")?
+                    .collect::<Result<Vec<_>, _>>()
+                    .std_context("failed to parse IROH_RELAY_ACME_CA")?;
+                acme_config =
+                    acme_config.tls_config(CaTlsConfig::default().with_extra_roots(extra_roots));
+            }
+            relay::CertConfig::LetsEncrypt {
+                acme_config,
+                server_config_builder: server_config,
+            }
+        }
+        CertMode::Reloading => {
+            let resolver = reloading_resolver(
+                server_config.crypto_provider(),
+                tls.cert_path(),
+                tls.key_path(),
+                DEFAULT_CERT_RELOAD_INTERVAL,
+            )
+            .await?;
+            let server_config = server_config.with_cert_resolver(resolver);
+            relay::CertConfig::Manual { server_config }
+        }
+    };
+    Ok(cert_config)
+}
+
+/// Convert the TOML-loaded config to the [`relay::RelayConfig`] format.
+async fn build_relay_config(cfg: Config) -> Result<relay::ServerConfig> {
+    let (tls_config, quic_config) = if let Some(cfg_tls) = &cfg.tls {
+        let cert = load_cert_config(cfg_tls).await?;
+
+        // Use the server config from the relay::TlsConfig
+        let quic_config = cfg
+            .enable_quic_addr_discovery
+            .then(|| QuicConfig::new(cfg_tls.quic_bind_addr(&cfg)));
+
+        if cfg_tls.dangerous_http_only {
+            // When `dangerous_http_only` is set through the --dev argument,
+            // we disable HTTPS by setting `RelayConfig::tls` to `None`.
+            // We still enable the QUIC server, and thus pass the TLS config
+            // from the loaded TLS config only to the QUIC server.
+            let quic_config = match quic_config {
+                None => None,
+                Some(mut quic_config) => {
+                    quic_config.server_config = match cert {
+                        relay::CertConfig::Manual { server_config } => Some(server_config),
+                        relay::CertConfig::LetsEncrypt { .. } => {
+                            bail_any!("--dev is incompatible with cert_mode LetsEncrypt")
+                        }
+                        _ => bail_any!("--dev is incompatible with this cert_mode"),
+                    };
+                    Some(quic_config)
+                }
+            };
+            (None, quic_config)
+        } else {
+            let tls_config = relay::TlsConfig::new(cfg_tls.https_bind_addr(&cfg), cert);
+            (Some(tls_config), quic_config)
+        }
+    } else if cfg.enable_quic_addr_discovery {
+        bail_any!("Must have TLS configuration to enable a QUIC server for QUIC address discovery");
+    } else {
+        (None, None)
+    };
+
+    let limits = match cfg.limits {
+        Some(ref limits) => {
+            let client_rx = match &limits.client {
+                Some(PerClientRateLimitConfig { rx: Some(rx) }) => {
+                    if rx.bytes_per_second.is_none() && rx.max_burst_bytes.is_some() {
+                        bail_any!("bytes_per_seconds must be specified to enable the rate-limiter");
+                    }
+                    match rx.bytes_per_second {
+                        Some(bps) => {
+                            let bps = TryInto::<NonZeroU32>::try_into(bps)
+                                .std_context("bytes_per_second must be non-zero u32")?;
+                            let mut limit = ClientRateLimit::new(bps);
+                            limit.max_burst_bytes = rx
+                                .max_burst_bytes
+                                .map(|v| {
+                                    TryInto::<NonZeroU32>::try_into(v)
+                                        .std_context("max_burst_bytes must be non-zero u32")
+                                })
+                                .transpose()?;
+                            Some(limit)
+                        }
+                        None => None,
+                    }
+                }
+                Some(PerClientRateLimitConfig { rx: None }) | None => None,
+            };
+            let mut out = relay::Limits::default();
+            out.accept_conn_limit = limits.accept_conn_limit;
+            out.accept_conn_burst = limits.accept_conn_burst;
+            out.client_rx = client_rx;
+            out
+        }
+        None => Default::default(),
+    };
+
+    let relay_config = if cfg.enable_relay {
+        let mut relay_config = relay::RelayConfig::new(cfg.http_bind_addr());
+        relay_config.tls = tls_config;
+        relay_config.limits = limits;
+        relay_config.key_cache_capacity = cfg.key_cache_capacity;
+        relay_config.access = cfg.access.clone().try_into()?;
+        Some(relay_config)
+    } else {
+        None
+    };
+
+    let mut server_config = relay::ServerConfig::default();
+    server_config.relay = relay_config;
+    server_config.quic = quic_config;
+    #[cfg(feature = "metrics")]
+    {
+        server_config.metrics_addr = cfg.enable_metrics.then_some(cfg.metrics_bind_addr());
+    }
+    Ok(server_config)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::num::NonZeroU32;
+
+    use iroh_base::SecretKey;
+    use n0_error::Result;
+    use rand::{RngExt, SeedableRng};
+    use rand_chacha::ChaCha8Rng;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_rate_limit_config() -> Result {
+        let config = "
+            [limits.client.rx]
+            bytes_per_second = 400
+            max_burst_bytes = 800
+        ";
+        let config = Config::from_str(config)?;
+        let relay_config = build_relay_config(config).await?;
+
+        let relay = relay_config.relay.expect("no relay config");
+        assert_eq!(
+            relay.limits.client_rx.expect("ratelimit").bytes_per_second,
+            NonZeroU32::try_from(400).unwrap()
+        );
+        assert_eq!(
+            relay.limits.client_rx.expect("ratelimit").max_burst_bytes,
+            Some(NonZeroU32::try_from(800).unwrap())
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_rate_limit_default() -> Result {
+        let config = Config::from_str("")?;
+        let relay_config = build_relay_config(config).await?;
+
+        let relay = relay_config.relay.expect("no relay config");
+        assert!(relay.limits.client_rx.is_none());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_access_config() -> Result {
+        let config = "
+            access = \"everyone\"
+        ";
+        let config = Config::from_str(config)?;
+        assert_eq!(config.access, AccessConfig::Everyone);
+
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
+        let endpoint_id = SecretKey::from_bytes(&rng.random()).public();
+
+        let config = format!(
+            "
+            access.allowlist = [
+              \"{endpoint_id}\",
+            ]
+        "
+        );
+        let config = Config::from_str(dbg!(&config))?;
+        assert_eq!(config.access, AccessConfig::Allowlist(vec![endpoint_id]));
+
+        let config = r#"
+            access.http.url = "https://example.com/foo/bar?boo=baz"
+        "#
+        .to_string();
+        let config = Config::from_str(dbg!(&config))?;
+        assert_eq!(
+            config.access,
+            AccessConfig::Http(HttpAccessConfig {
+                url: "https://example.com/foo/bar?boo=baz".parse().unwrap(),
+                bearer_token: None
+            })
+        );
+        let config = r#"
+            access.http.url = "https://example.com/foo/bar?boo=baz"
+            access.http.bearer_token = "foo"
+        "#
+        .to_string();
+        let config = Config::from_str(dbg!(&config))?;
+        assert_eq!(
+            config.access,
+            AccessConfig::Http(HttpAccessConfig {
+                url: "https://example.com/foo/bar?boo=baz".parse().unwrap(),
+                bearer_token: Some("foo".to_string())
+            })
+        );
+
+        let config = r#"
+            access.http = { url = "https://example.com/foo" }
+        "#
+        .to_string();
+        let config = Config::from_str(dbg!(&config))?;
+        assert_eq!(
+            config.access,
+            AccessConfig::Http(HttpAccessConfig {
+                url: "https://example.com/foo".parse().unwrap(),
+                bearer_token: None
+            })
+        );
+
+        let config = r#"
+            access.http = { url = "https://example.com/foo", bearer_token = "foo" }
+        "#
+        .to_string();
+        let config = Config::from_str(dbg!(&config))?;
+        assert_eq!(
+            config.access,
+            AccessConfig::Http(HttpAccessConfig {
+                url: "https://example.com/foo".parse().unwrap(),
+                bearer_token: Some("foo".to_string())
+            })
+        );
+
+        let config = r#"
+            access.shared_token = ["token-a", "token-b"]
+        "#
+        .to_string();
+        let config = Config::from_str(dbg!(&config))?;
+        assert_eq!(
+            config.access,
+            AccessConfig::SharedToken(vec!["token-a".to_string(), "token-b".to_string()])
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_access_token_empty_is_rejected() -> Result {
+        let config = r#"
+            access.shared_token = []
+        "#;
+        let config = Config::from_str(config)?;
+        assert!(
+            build_relay_config(config).await.is_err(),
+            "empty token list should be rejected at startup"
+        );
+
+        let config = r#"
+            access.shared_token = [""]
+        "#;
+        let config = Config::from_str(config)?;
+        assert!(
+            build_relay_config(config).await.is_err(),
+            "empty string token should be rejected at startup"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_enable_relay_config() -> Result {
+        let config = "
+            enable_relay = false
+        ";
+        let config = Config::from_str(config)?;
+        let relay_config = build_relay_config(config).await?;
+        assert!(relay_config.relay.is_none());
+
+        let config = "
+            enable_relay = true
+        ";
+        let config = Config::from_str(config)?;
+        let relay_config = build_relay_config(config).await?;
+        assert!(relay_config.relay.is_some());
+
+        let config = "";
+        let config = Config::from_str(config)?;
+        let relay_config = build_relay_config(config).await?;
+        assert!(relay_config.relay.is_some());
+
+        Ok(())
+    }
+}

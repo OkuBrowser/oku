@@ -1,0 +1,84 @@
+name: ci
+on  : [push, pull_request]
+
+jobs:
+
+  linux-stable:
+
+    name: Linux Rust Stable
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Install latest stable Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain  : stable
+          override   : true
+          components : clippy
+          target     : wasm32-unknown-unknown
+
+
+      - name: install wasm-pack
+        uses: jetli/wasm-pack-action@v0.3.0
+        with:
+          # Optional version of wasm-pack to install(eg. 'v0.9.1', 'latest')
+          version: 'latest'
+
+      - name: Checkout crate
+        uses: actions/checkout@v3
+
+      - name: Checkout server
+        run: bash ci/server.bash
+
+      - name: Run tests
+        run: bash ci/test.bash
+
+
+  linux-nightly:
+
+    name: Linux Rust Nightly
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Install latest nightly Rust
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain  : nightly
+            override   : true
+            components : clippy
+            target     : wasm32-unknown-unknown
+
+
+      - name: install wasm-pack
+        uses: jetli/wasm-pack-action@v0.3.0
+        with:
+          # Optional version of wasm-pack to install(eg. 'v0.9.1', 'latest')
+          version: 'latest'
+
+
+      - name: Checkout crate
+        uses: actions/checkout@v3
+
+
+      - name: Run clippy
+        run : bash ci/clippy.bash
+
+
+      - name: Build documentation
+        run : bash ci/doc.bash
+
+
+      - name: Checkout server
+        run: bash ci/server.bash
+
+
+      - name: Run tests
+        run : bash ci/test.bash
+
+      - name: Run cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+
+
+

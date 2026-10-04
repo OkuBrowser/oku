@@ -1,0 +1,33 @@
+name: Formatting
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  format:
+    name: Formatting
+    runs-on: ubuntu-latest
+
+    steps:
+      - id: checkout
+        name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - id: setup
+        name: Setup Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+          components: rustfmt
+
+      - id: cache
+        name: Enable Workflow Cache
+        uses: Swatinem/rust-cache@v2
+
+      - id: format
+        name: Run Formatting-Checks
+        run: cargo fmt --check

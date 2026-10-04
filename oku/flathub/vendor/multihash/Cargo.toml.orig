@@ -1,0 +1,48 @@
+[workspace]
+members = ["derive", "derive-impl", ".", "codetable"]
+resolver = "2"
+
+[workspace.package]
+repository = "https://github.com/multiformats/rust-multihash"
+license = "MIT"
+edition = "2021"
+
+[package]
+name = "multihash"
+description = "Implementation of the multihash format"
+keywords = ["multihash", "ipfs"]
+version = "0.19.5"
+authors = ["dignifiedquire <dignifiedquire@gmail.com>", "David Craven <david@craven.ch>", "Volker Mische <volker.mische@gmail.com>"]
+readme = "README.md"
+repository = { workspace = true }
+license = { workspace = true }
+edition = { workspace = true }
+rust-version = "1.81" # `core::error::Error` has been stabilized since `1.81`
+
+[package.metadata.docs.rs]
+all-features = true
+
+[features]
+default = ["std"]
+std = ["unsigned-varint/std", "alloc"]
+alloc = []
+arb = ["dep:quickcheck", "dep:rand", "dep:arbitrary"]
+scale-codec = ["dep:parity-scale-codec"]
+serde-codec = ["serde"] # Deprecated, don't use.
+serde = ["dep:serde"]
+
+[workspace.dependencies]
+no_std_io2 = { version = "0.9", default-features = false }
+
+[dependencies]
+parity-scale-codec = { version = "3.0.0", default-features = false, features = ["derive"], optional = true }
+quickcheck = { version = "1.0.3", optional = true }
+rand = { version = "0.10", default-features = false, features = ["alloc"], optional = true }
+serde = { version = "1.0.116", optional = true, default-features = false }
+unsigned-varint = { version = "0.8.0", default-features = false }
+arbitrary = { version = "1.1.0", optional = true }
+
+[dev-dependencies]
+hex = "0.4.2"
+serde_json = "1.0.58"
+serde_test = "1.0.160"

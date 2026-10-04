@@ -1,0 +1,27 @@
+---
+name: Rust linting
+on:
+  pull_request:
+    paths:
+      - .github/workflows/*.yml
+      - '**/*.rs'
+
+  workflow_dispatch:
+jobs:
+  clippy-linting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions-rs/toolchain@v1.0.6
+        with:
+          toolchain: stable
+          components: clippy
+          override: true
+
+      - name: Clippy check
+        env:
+          RUSTFLAGS: --deny warnings
+        run: |
+          time cargo clippy --locked --all-targets --no-default-features
+          time cargo clippy --locked --all-targets --all-features

@@ -1,0 +1,89 @@
+[package]
+name = "prometheus-client"
+version = "0.25.1"
+authors = ["Max Inden <mail@max-inden.de>"]
+edition = "2021"
+description = "Open Metrics client library allowing users to natively instrument applications."
+license = "Apache-2.0 OR MIT"
+keywords = ["openmetrics", "prometheus", "metrics", "instrumentation", "monitoring"]
+repository = "https://github.com/prometheus/client_rust"
+homepage = "https://github.com/prometheus/client_rust"
+documentation = "https://docs.rs/prometheus-client"
+
+[features]
+default = []
+prometheus_protobuf = ["dep:prost", "dep:prost-types", "dep:prost-build"]
+openmetrics_protobuf = ["dep:prost", "dep:prost-types", "dep:prost-build"]
+protobuf = ["openmetrics_protobuf"]
+protobuf-protox = ["dep:protox"]
+
+# This feature provides additional APIs for testing downstream code using
+# `prometheus-client`.
+#
+# Note: Interfaces gated by this feature flag are not subject to stability
+# guarantees and may be changed or removed in patch releases.
+test-util = []
+
+[workspace]
+members = ["derive-encode"]
+
+[dependencies]
+dtoa = "1.0"
+itoa = "1.0"
+parking_lot = "0.12"
+prometheus-client-derive-encode = { version = "0.5.1", path = "derive-encode" }
+prost = { version = "0.14", optional = true }
+prost-types = { version = "0.14", optional = true }
+
+[dev-dependencies]
+async-std = { version = "1", features = ["attributes"] }
+axum = "0.8"
+criterion = "0.8"
+futures = "0.3"
+http-types = "2"
+pyo3 = "0.29"
+quickcheck = "1"
+rand = "0.10.1"
+tide = "0.16"
+actix-web = "4"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "macros", "signal"] }
+hyper = { version = "1.3.1", features = ["server", "http1"] }
+hyper-util = { version = "0.1.3", features = ["tokio"] }
+http-body-util = "0.1.1"
+
+[build-dependencies]
+prost-build = { version = "0.14", optional = true }
+protox = { version = "0.9.1", optional = true }
+
+[[bench]]
+name = "baseline"
+harness = false
+
+[[bench]]
+name = "exemplars"
+harness = false
+
+[[bench]]
+name = "family"
+harness = false
+
+[[bench]]
+name = "histogram"
+harness = false
+
+[[bench]]
+name = "text"
+path = "benches/encoding/text.rs"
+harness = false
+required-features = []
+
+[[bench]]
+name = "proto"
+path = "benches/encoding/proto.rs"
+harness = false
+required-features = ["prometheus_protobuf"]
+
+# Passing arguments to the docsrs builder in order to properly document cfg's.
+# More information: https://docs.rs/about/builds#cross-compiling
+[package.metadata.docs.rs]
+all-features = true

@@ -1,0 +1,19 @@
+[package]
+name = "serde_ipld_dagjson"
+version = "0.2.2"
+authors = [
+    "Volker Mische <volker.mische@gmail.com>"
+]
+repository = "https://github.com/ipld/serde_ipld_dagjson"
+edition = "2021"
+description = "IPLD DAG-JSON support for Serde."
+license = "MIT OR Apache-2.0"
+categories = ["data-structures", "encoding"]
+
+[dependencies]
+ipld-core = { version = "0.4.0", features = ["serde"] }
+serde = { version = "1.0.195", features = ["derive"] }
+serde_json = { version = "1.0.111", features = ["float_roundtrip", "raw_value"] }
+
+[dev-dependencies]
+serde_bytes = "0.11.14"

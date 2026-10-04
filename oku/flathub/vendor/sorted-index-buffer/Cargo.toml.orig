@@ -1,0 +1,18 @@
+[package]
+name = "sorted-index-buffer"
+version = "0.2.1"
+edition = "2021"
+readme = "README.md"
+description = "array based sorted map with u64 keys"
+license = "MIT OR Apache-2.0"
+authors = ["rklaehn <rklaehn@protonmail.com>", "n0 team"]
+repository = "https://github.com/n0-computer/iroh"
+keywords = ["map", "buffer"]
+categories = ["data-structures"]
+
+[dependencies]
+
+[dev-dependencies]
+proptest = "1.9.0"
+rand = "0.9.2"
+test-strategy = "0.4.3"

@@ -1,0 +1,39 @@
+[package]
+name = "seize"
+version = "0.5.1"
+edition = "2021"
+license = "MIT"
+authors = ["Ibraheem Ahmed <ibraheem@ibraheem.ca>"]
+description = "Fast, efficient, and predictable memory reclamation for concurrent data structures."
+repository = "https://github.com/ibraheemdev/seize"
+keywords = ["lock-free", "rcu", "atomic", "garbage", "concurrency"]
+categories = ["concurrency", "memory-management"]
+rust-version = "1.72.0"
+
+[dependencies]
+libc = { version = "0.2", optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = ">=0.52, <=0.61", features = ["Win32_System_Threading"], optional = true }
+
+[features]
+default = ["fast-barrier"]
+
+# Enables runtime detection of fast memory barriers on Linux and Windows.
+fast-barrier = ["windows-sys", "libc"]
+
+[dev-dependencies]
+criterion = "0.7.0"
+crossbeam-epoch = "0.9.8"
+haphazard = "0.1.8"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(seize_asan)'] }
+
+[[bench]]
+name = "stack"
+harness = false
+
+[[bench]]
+name = "single_thread"
+harness = false

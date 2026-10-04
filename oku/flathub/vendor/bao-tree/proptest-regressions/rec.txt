@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 75f46a82c8f8435fade48450ebabd5bbd329c32b26c5004d12ef7b1dae1014cb # shrinks to input = _OutboardBaoComparisonArgs { size: 0 }
+cc 211d7cee651c01b102bc7ecb9651e5a138cfc31a908202896b45622cd3dbc606 # shrinks to input = _BaoEncodeSliceComparisonArgs { size_and_slice: (1, 0..0) }
+cc a02ccf617472ec9247772e645611c3fafb61a62e36cb0df863621bbb18bbbf5e # shrinks to input = _BaoEncodeSliceComparisonArgs { size_and_slice: (1038, 0..1) }

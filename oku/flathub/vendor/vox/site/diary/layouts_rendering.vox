@@ -1,0 +1,38 @@
+---
+title = "Layouts & Rendering"
+date = 2024-05-31T00:00:00+00:00
+layout = "post"
+permalink = "date"
+---
+
+{% markdown %}
+
+## Goals
+
+Today's agenda:
+- Re-rendering when layouts are modified during watching.
+- Rendering pages once.
+- Including the contexts of all parent layouts when rendering.
+- Finishing the user guide.
+
+### Layout Watching
+
+When layouts are added, modified, or removed, we consider the effects on other pages:
+- The ancestors of modified or added layouts are themselves modified or added.
+- The ancestors of removed layouts are modified.
+
+### Rendering Once
+
+Topological sorting can be used to find the order to render pages in without recursion, therefore preventing redundant renders.
+
+---
+
+## Future Goals
+- Pointing site pages to indices, setting appropriate HTML titles.
+- Implementing partial date-times.
+- Parallelising both rendering and writing to disk.
+- Documenting the CLI code.
+- Creating a logo for Vox.
+- Updating all dependent crates.
+
+{% endmarkdown %}

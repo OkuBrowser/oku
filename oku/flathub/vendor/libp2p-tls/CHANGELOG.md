@@ -1,0 +1,78 @@
+## 0.7.0
+
+- Use the AWS-LC crypto provider and prefer the X25519MLKEM768 key exchange group for TLS configurations.
+  See [PR 6568](https://github.com/libp2p/rust-libp2p/pull/6568).
+
+- Replace deprecated `webpki::Error` variants with their new context-based equivalents.
+  See [PR 6355](https://github.com/libp2p/rust-libp2p/pull/6355).
+
+- Raise MSRV to 1.88.0.
+  See [PR 6273](https://github.com/libp2p/rust-libp2p/pull/6273).
+
+## 0.6.3
+
+- Enable rustls TLS key logging via `SSLKEYLOGFILE`.
+  See [6357](https://github.com/libp2p/rust-libp2p/pull/6357).
+
+## 0.6.2
+
+- Upgrade `rustls-webpki` to `v0.103`
+  See [PR 5961](https://github.com/libp2p/rust-libp2p/pull/5961).
+
+- Upgrade `x509-parser` to `v0.17`
+  See [PR 5961](https://github.com/libp2p/rust-libp2p/pull/5961).
+
+## 0.6.1
+
+- Upgrade `rcgen` to `v0.13`
+  See [PR 5917](https://github.com/libp2p/rust-libp2p/pull/5917).
+
+## 0.6.0
+
+<!-- Update to libp2p-core v0.43.0 -->
+
+## 0.5.0
+
+<!-- Update to libp2p-swarm v0.45.0 -->
+
+## 0.4.1
+
+- Fix a panic caused by `rustls` parsing the libp2p TLS extension.
+  See [PR 5498](https://github.com/libp2p/rust-libp2p/pull/5498).
+
+## 0.4.0
+
+- Upgrade `rustls` to `0.23`. See [PR 5385](https://github.com/libp2p/rust-libp2p/pull/5385)
+
+## 0.3.0
+
+- Migrate to `{In,Out}boundConnectionUpgrade` traits.
+  See [PR 4695](https://github.com/libp2p/rust-libp2p/pull/4695).
+
+## 0.2.1
+
+- Switch from webpki to rustls-webpki.
+  This is a part of the resolution of the [RUSTSEC-2023-0052].
+  See [PR 4381].
+
+[PR 4381]: https://github.com/libp2p/rust-libp2p/pull/4381
+[RUSTSEC-2023-0052]: https://rustsec.org/advisories/RUSTSEC-2023-0052.html
+
+## 0.2.0
+
+- Raise MSRV to 1.65.
+  See [PR 3715].
+
+[PR 3715]: https://github.com/libp2p/rust-libp2p/pull/3715
+
+## 0.1.0
+
+- Promote to `v0.1.0`.
+
+## 0.1.0-alpha.2
+
+- Update to `libp2p-core` `v0.39.0`.
+
+## 0.1.0-alpha
+
+Initial release.

@@ -77,6 +77,10 @@
                     "path": "./cargo-config.toml"
                 },
                 {
+                    "type" : "dir",
+                    "path" : "./vendor"
+                },
+                {
                     "type" : "git",
                     "url" : "https://github.com/OkuBrowser/oku.git",
                     "commit": "0e4ea562f237cb0561ca85f9d078b01a8bc97ef5"

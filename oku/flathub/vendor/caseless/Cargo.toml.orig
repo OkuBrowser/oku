@@ -1,0 +1,16 @@
+[package]
+name = "caseless"
+version = "0.2.2"
+authors = ["Simon Sapin <simon.sapin@exyr.org>"]
+description = "Unicode caseless matching"
+repository = "https://github.com/unicode-rs/rust-caseless"
+license = "MIT"
+
+[dependencies]
+unicode-normalization = "0.1"
+
+[workspace]
+members = [
+    ".",
+    "print-table",
+]

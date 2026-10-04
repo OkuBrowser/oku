@@ -1,0 +1,20 @@
+[package]
+name = "ipld-dagpb"
+version = "0.2.2"
+authors = [
+    "Volker Mische <volker.mische@gmail.com>"
+]
+repository = "https://github.com/ipld/rust-ipld-dagpb"
+edition = "2021"
+description = "IPLD DAG-PB codec."
+license = "MIT OR Apache-2.0"
+categories = ["data-structures", "encoding"]
+
+[dependencies]
+bytes = "1.3.0"
+ipld-core = "0.4.0"
+quick-protobuf = "0.8.1"
+thiserror = "1.0.25"
+
+[dev-dependencies]
+hex = "0.4.3"

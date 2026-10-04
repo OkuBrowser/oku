@@ -1,0 +1,76 @@
+---
+title = "Frontmatter"
+layout = "page"
+permalink = "none"
+---
+
+{% markdown %}
+
+## Overview
+
+Frontmatter is the bit of TOML at the top of each page that specifies its metadata.
+It can be empty:
+{% raw %}
+```toml
+---
+---
+```
+{% endraw %}
+
+More often, it will likely not be:
+{% raw %}
+```toml
+---
+title = "DAG Visualisation & Watching"
+date = 2024-05-29T00:00:00+00:00
+layout = "post"
+permalink = "date"
+---
+```
+{% endraw %}
+
+## Date
+The `date` field is an [RFC 3339](https://tools.ietf.org/html/rfc3339) formatted date-time. This field is optional, and provides [many properties](https://emmyoh.github.io/vox/vox/date/struct.Date.html) to a page's `date` context, such as a page's `date.year`.
+
+## Layout
+The `layout` field specifies the layout of a page. Layouts, like other pages, require frontmatters and can have a layout too.
+
+## Permalink
+The `permalink` field is a string specifying the relative output location of a page. It can contain Liquid templating as well.
+There are a variety of shorthand options for the `permalink` field:
+{% raw %}
+
+| Shorthand  | Expanded                                                                                                                 |
+|------------|--------------------------------------------------------------------------------------------------------------------------|
+| `date`     | `{{ page.collections.last }}/{{ page.date.year }}/{{ page.date.month }}/{{ page.date.day }}/{{ page.data.title }}.html`       |
+| `pretty`   | `{{ page.collections.last }}/{{ page.date.year }}/{{ page.date.month }}/{{ page.date.day }}/{{ page.data.title }}/index.html` |
+| `ordinal`  | `{{ page.collections.last }}/{{ page.date.year }}/{{ page.date.y_day }}/{{ page.data.title }}.html`                           |
+| `weekdate` | `{{ page.collections.last }}/{{ page.date.year }}/W{{ page.date.week }}/{{ page.date.short_day }}/{{ page.data.title }}.html` |
+| `none`     | `{{ page.collections.last }}/{{ page.data.title }}.html`                                                                      |
+
+{% endraw %}
+
+Upon rendering, this field is used to provide a page's `url` property.
+
+## Collections
+Suppose you're trying to build an index page for your blog. Its frontmatter will resemble something like:
+{% raw %}
+```toml
+---
+layout = "default"
+depends = ["posts"]
+permalink = "index.html"
+---
+```
+{% endraw %}
+
+The `depends` property indicates the page collections that this page depends on. A templating context is provided for each requested collection; in this example, there will be a `posts` context containing all pages in the `posts` collection.
+
+The collections a page is in is defined by a page's path, with one collection per path component, and collections including each successive path component as well. For example:
+* `books/fantasy/page.vox` is in `books`, `fantasy`, and `books_fantasy`.
+* `movies/fantasy/page.vox` is in `movies`, `fantasy`, and `movies_fantasy`.
+
+## Data
+All other fields fall under a page's `data` property.
+
+{% endmarkdown %}

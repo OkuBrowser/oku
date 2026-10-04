@@ -1,0 +1,4 @@
+[env]
+# Connection pool tests bind real iroh endpoints and share network state;
+# running them in parallel causes flaky failures.
+RUST_TEST_THREADS = "1"

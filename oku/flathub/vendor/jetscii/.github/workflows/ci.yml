@@ -1,0 +1,82 @@
+name: Continuous Integration
+on: [push, pull_request]
+
+env:
+  RUSTFLAGS: -D warnings
+  RUSTDOCFLAGS: -D warnings
+
+jobs:
+  toolchains:
+    strategy:
+      matrix:
+        toolchain: ["stable", "beta", "nightly"]
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Run tests
+        uses: ./.github/actions/test
+        with:
+          toolchain: "${{ matrix.toolchain }}"
+
+  platforms:
+    strategy:
+      matrix:
+        platform: ["windows-latest", "macos-latest"]
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Run tests
+        uses: ./.github/actions/test
+
+  crate_features:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Run tests
+        uses: ./.github/actions/test
+        with:
+          toolchain: "nightly"
+          features: "pattern"
+
+  target_features:
+    strategy:
+      matrix:
+        target_feature: ["-sse4.2", "+sse4.2"]
+        target: ["", "i686-unknown-linux-gnu"]
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Run tests
+        uses: ./.github/actions/test
+        with:
+          rustflags: "-C target-feature=${{ matrix.target_feature }}"
+          target: "${{ matrix.target }}"
+
+  sanitizers:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Run tests
+        uses: ./.github/actions/test
+        with:
+          toolchain: nightly
+          rustflags: "-Z sanitizer=address"
+          rustdocflags: "-Z sanitizer=address"

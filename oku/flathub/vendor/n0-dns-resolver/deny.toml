@@ -1,0 +1,22 @@
+# cargo-deny configuration. See https://embarkstudios.github.io/cargo-deny/
+
+[bans]
+multiple-versions = "allow"
+# aws-lc-rs is a supported crypto provider here (the `tls-aws-lc-rs` feature), so
+# it is not banned. native-tls and openssl are: this crate uses rustls only.
+deny = ["native-tls", "openssl", "openssl-sys"]
+
+[licenses]
+allow = [
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "Unicode-3.0",
+    "Zlib",
+]
+
+[advisories]
+yanked = "deny"

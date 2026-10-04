@@ -1,0 +1,25 @@
+[package]
+name = "mac-addr"
+version = "0.3.0"
+edition = "2024"
+authors = ["shellrow <shellrow@foctal.com>"]
+description = "Lightweight, no_std compatible MAC address library"
+repository = "https://github.com/shellrow/mac-addr"
+readme = "README.md"
+keywords = ["network", "address", "no_std"]
+categories = ["network-programming", "no-std", "data-structures"]
+license = "MIT"
+
+[dependencies]
+serde = { version = "1", default-features = false, features = ["derive"], optional = true }
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+bincode = { version = "1" }
+
+[features]
+default = ["std"]
+std = []
+alloc = []
+serde = ["dep:serde"]

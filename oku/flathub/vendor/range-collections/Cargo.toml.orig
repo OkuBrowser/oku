@@ -1,0 +1,44 @@
+[package]
+name = "range-collections"
+version = "0.4.6"
+authors = ["Rüdiger Klaehn <rklaehn@protonmail.com>"]
+description = "Sets and maps of ranges, backed by smallvec"
+repository = "https://github.com/rklaehn/range-collections"
+license = "MIT OR Apache-2.0"
+keywords = ["succinct", "array", "range", "smallvec"]
+categories = ["data-structures"]
+edition = "2018"
+readme = "README.md"
+homepage = "https://github.com/rklaehn"
+
+[dependencies]
+smallvec = "1.0"
+inplace-vec-builder = { version = "0.1.0", features = ["smallvec"], default-features = false }
+binary-merge = "0.1.1"
+serde = { version = "1", optional = true, default-features = false }
+rkyv = { version = "0.7.18", optional = true }
+bytecheck = { version = "0.6.5", optional = true }
+ref-cast = "1.0.20"
+
+[features]
+default = []
+rkyv_validated = ["rkyv", "bytecheck"]
+new_unchecked = []
+
+[dev-dependencies]
+quickcheck = "0.8"
+quickcheck_macros = "0.8.0"
+testdrop = "0.1.2"
+criterion = "0.3.0"
+rand = "0.7.2"
+serde_cbor = "0.11.1"
+rkyv = { version = "0.7.18", features = ["validation"] }
+hex = "0.4.3"
+num-traits = "0.2.8"
+obey = "0.1.1"
+proptest = "1.1.0"
+
+[[bench]]
+name = "range_set"
+harness = false
+

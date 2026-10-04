@@ -1,0 +1,24 @@
+[package]
+name = "javascriptcore6"
+description = "Rust bindings for JavaScriptCore 6"
+documentation = "https://world.pages.gitlab.gnome.org/Rust/webkit6-rs/stable/latest/docs/javascriptcore6"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+categories.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+exclude.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--generate-link-to-definition"]
+
+[dependencies]
+libc = "^0.2"
+ffi = { package = "javascriptcore6-sys", path = "sys", version = "0.6" }
+glib.workspace = true
+
+[features]
+v2_48 = ["ffi/v2_48"]

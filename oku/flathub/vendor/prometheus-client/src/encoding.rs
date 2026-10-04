@@ -1,0 +1,982 @@
+//! Exposition format implementations.
+
+#![allow(deprecated)]
+
+pub use prometheus_client_derive_encode::*;
+
+use crate::metrics::exemplar::Exemplar;
+use crate::metrics::MetricType;
+use crate::registry::{Prefix, Unit};
+use std::borrow::Cow;
+use std::collections::HashMap;
+use std::fmt::Write;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+#[cfg(feature = "openmetrics_protobuf")]
+#[cfg_attr(docsrs, doc(cfg(feature = "openmetrics_protobuf")))]
+#[cfg_attr(
+    not(test),
+    deprecated(
+        note = "OpenMetrics protobuf support is deprecated. Use prometheus_protobuf instead."
+    )
+)]
+pub mod openmetrics_protobuf;
+#[cfg(feature = "prometheus_protobuf")]
+#[cfg_attr(docsrs, doc(cfg(feature = "prometheus_protobuf")))]
+pub mod prometheus_protobuf;
+pub mod text;
+
+#[cfg(feature = "openmetrics_protobuf")]
+#[deprecated(note = "Use openmetrics_protobuf instead.")]
+pub use openmetrics_protobuf as protobuf;
+
+/// Native histogram fields shared by encoders.
+#[derive(Clone, Copy, Debug)]
+pub struct NativeHistogram<'a> {
+    /// Native histogram schema.
+    pub schema: i32,
+    /// Breadth of the zero bucket.
+    pub zero_threshold: f64,
+    /// Count in the zero bucket.
+    pub zero_count: u64,
+    /// Negative sparse buckets.
+    pub negative: NativeHistogramBuckets<'a>,
+    /// Positive sparse buckets.
+    pub positive: NativeHistogramBuckets<'a>,
+    /// Native histogram creation timestamp.
+    pub created: Option<SystemTime>,
+}
+
+/// Sparse bucket span and delta encoding for one side of a native histogram.
+#[derive(Clone, Copy, Debug)]
+pub struct NativeHistogramBuckets<'a> {
+    /// Bucket spans.
+    pub spans: &'a [(i32, u32)],
+    /// Bucket count deltas.
+    pub deltas: &'a [i64],
+}
+
+macro_rules! for_both_mut {
+    ($self:expr, $inner:ident, $pattern:pat, $fn:expr) => {
+        match &mut $self.0 {
+            $inner::Text($pattern) => $fn,
+            #[cfg(feature = "openmetrics_protobuf")]
+            $inner::Protobuf($pattern) => $fn,
+            #[cfg(feature = "prometheus_protobuf")]
+            $inner::PrometheusProtobuf($pattern) => $fn,
+        }
+    };
+}
+
+macro_rules! for_both {
+    ($self:expr, $inner:ident, $pattern:pat, $fn:expr) => {
+        match $self.0 {
+            $inner::Text($pattern) => $fn,
+            #[cfg(feature = "openmetrics_protobuf")]
+            $inner::Protobuf($pattern) => $fn,
+            #[cfg(feature = "prometheus_protobuf")]
+            $inner::PrometheusProtobuf($pattern) => $fn,
+        }
+    };
+}
+
+/// Trait implemented by each metric type, e.g.
+/// [`Counter`](crate::metrics::counter::Counter), to implement its encoding in
+/// the OpenMetric text format.
+pub trait EncodeMetric {
+    /// Encode the given instance in the OpenMetrics text encoding.
+    // TODO: Lifetimes on MetricEncoder needed?
+    fn encode(&self, encoder: MetricEncoder) -> Result<(), std::fmt::Error>;
+
+    /// The OpenMetrics metric type of the instance.
+    // One can not use [`TypedMetric`] directly, as associated constants are not
+    // object safe and thus can not be used with dynamic dispatching.
+    fn metric_type(&self) -> MetricType;
+
+    /// Check if the metric is empty.
+    ///
+    /// An empty metric is a metric that has no data to encode, and thus should not have any
+    /// descriptor in the final output.
+    ///
+    /// By default, this returns `false`, ensuring the metric and its description is always
+    /// encoded.
+    fn is_empty(&self) -> bool {
+        false
+    }
+}
+
+impl EncodeMetric for Box<dyn EncodeMetric> {
+    fn encode(&self, encoder: MetricEncoder) -> Result<(), std::fmt::Error> {
+        self.deref().encode(encoder)
+    }
+
+    fn metric_type(&self) -> MetricType {
+        self.deref().metric_type()
+    }
+}
+
+/// Encoder for a Metric Descriptor.
+#[derive(Debug)]
+pub struct DescriptorEncoder<'a>(DescriptorEncoderInner<'a>);
+
+#[derive(Debug)]
+enum DescriptorEncoderInner<'a> {
+    Text(text::DescriptorEncoder<'a>),
+
+    #[cfg(feature = "openmetrics_protobuf")]
+    Protobuf(openmetrics_protobuf::DescriptorEncoder<'a>),
+
+    #[cfg(feature = "prometheus_protobuf")]
+    PrometheusProtobuf(prometheus_protobuf::DescriptorEncoder<'a>),
+}
+
+impl<'a> From<text::DescriptorEncoder<'a>> for DescriptorEncoder<'a> {
+    fn from(e: text::DescriptorEncoder<'a>) -> Self {
+        Self(DescriptorEncoderInner::Text(e))
+    }
+}
+
+#[cfg(feature = "openmetrics_protobuf")]
+impl<'a> From<openmetrics_protobuf::DescriptorEncoder<'a>> for DescriptorEncoder<'a> {
+    fn from(e: openmetrics_protobuf::DescriptorEncoder<'a>) -> Self {
+        Self(DescriptorEncoderInner::Protobuf(e))
+    }
+}
+
+#[cfg(feature = "prometheus_protobuf")]
+impl<'a> From<prometheus_protobuf::DescriptorEncoder<'a>> for DescriptorEncoder<'a> {
+    fn from(e: prometheus_protobuf::DescriptorEncoder<'a>) -> Self {
+        Self(DescriptorEncoderInner::PrometheusProtobuf(e))
+    }
+}
+
+impl DescriptorEncoder<'_> {
+    pub(crate) fn with_prefix_and_labels<'s>(
+        &'s mut self,
+        prefix: Option<&'s Prefix>,
+        labels: &'s [(Cow<'static, str>, Cow<'static, str>)],
+        // TODO: result needed?
+    ) -> DescriptorEncoder<'s> {
+        for_both_mut!(
+            self,
+            DescriptorEncoderInner,
+            e,
+            e.with_prefix_and_labels(prefix, labels).into()
+        )
+    }
+
+    /// Encode a descriptor.
+    pub fn encode_descriptor<'s>(
+        &'s mut self,
+        name: &'s str,
+        help: &str,
+        unit: Option<&'s Unit>,
+        metric_type: MetricType,
+    ) -> Result<MetricEncoder<'s>, std::fmt::Error> {
+        for_both_mut!(
+            self,
+            DescriptorEncoderInner,
+            e,
+            Ok(e.encode_descriptor(name, help, unit, metric_type)?.into())
+        )
+    }
+}
+
+/// Encoder for a metric.
+#[derive(Debug)]
+pub struct MetricEncoder<'a>(MetricEncoderInner<'a>);
+
+#[derive(Debug)]
+enum MetricEncoderInner<'a> {
+    Text(text::MetricEncoder<'a>),
+
+    #[cfg(feature = "openmetrics_protobuf")]
+    Protobuf(openmetrics_protobuf::MetricEncoder<'a>),
+
+    #[cfg(feature = "prometheus_protobuf")]
+    PrometheusProtobuf(prometheus_protobuf::MetricEncoder<'a>),
+}
+
+impl<'a> From<text::MetricEncoder<'a>> for MetricEncoder<'a> {
+    fn from(e: text::MetricEncoder<'a>) -> Self {
+        Self(MetricEncoderInner::Text(e))
+    }
+}
+
+#[cfg(feature = "openmetrics_protobuf")]
+impl<'a> From<openmetrics_protobuf::MetricEncoder<'a>> for MetricEncoder<'a> {
+    fn from(e: openmetrics_protobuf::MetricEncoder<'a>) -> Self {
+        Self(MetricEncoderInner::Protobuf(e))
+    }
+}
+
+#[cfg(feature = "prometheus_protobuf")]
+impl<'a> From<prometheus_protobuf::MetricEncoder<'a>> for MetricEncoder<'a> {
+    fn from(e: prometheus_protobuf::MetricEncoder<'a>) -> Self {
+        Self(MetricEncoderInner::PrometheusProtobuf(e))
+    }
+}
+
+impl MetricEncoder<'_> {
+    /// Encode a counter.
+    pub fn encode_counter<
+        S: EncodeLabelSet,
+        CounterValue: EncodeCounterValue,
+        ExemplarValue: EncodeExemplarValue,
+    >(
+        &mut self,
+        v: &CounterValue,
+        exemplar: Option<&Exemplar<S, ExemplarValue>>,
+    ) -> Result<(), std::fmt::Error> {
+        for_both_mut!(self, MetricEncoderInner, e, e.encode_counter(v, exemplar))
+    }
+
+    /// Encode a gauge.
+    pub fn encode_gauge<GaugeValue: EncodeGaugeValue>(
+        &mut self,
+        v: &GaugeValue,
+    ) -> Result<(), std::fmt::Error> {
+        for_both_mut!(self, MetricEncoderInner, e, e.encode_gauge(v))
+    }
+
+    /// Encode an info.
+    pub fn encode_info(&mut self, label_set: &impl EncodeLabelSet) -> Result<(), std::fmt::Error> {
+        for_both_mut!(self, MetricEncoderInner, e, e.encode_info(label_set))
+    }
+
+    /// Encode a histogram.
+    pub fn encode_histogram<S: EncodeLabelSet>(
+        &mut self,
+        sum: f64,
+        count: u64,
+        buckets: &[(f64, u64)],
+        exemplars: Option<&HashMap<usize, Exemplar<S, f64>>>,
+    ) -> Result<(), std::fmt::Error> {
+        for_both_mut!(
+            self,
+            MetricEncoderInner,
+            e,
+            e.encode_histogram(sum, count, buckets, exemplars)
+        )
+    }
+
+    /// Encode a histogram that may have native buckets.
+    ///
+    /// Encoders without native histogram support encode the classic buckets when
+    /// present and reject native-only histograms.
+    pub fn encode_histogram_with_native<S: EncodeLabelSet>(
+        &mut self,
+        sum: f64,
+        count: u64,
+        buckets: &[(f64, u64)],
+        exemplars: Option<&HashMap<usize, Exemplar<S, f64>>>,
+        native: NativeHistogram<'_>,
+    ) -> Result<(), std::fmt::Error> {
+        for_both_mut!(
+            self,
+            MetricEncoderInner,
+            e,
+            e.encode_histogram_with_native(sum, count, buckets, exemplars, native)
+        )
+    }
+
+    /// Encode a metric family.
+    pub fn encode_family<'s, S: EncodeLabelSet>(
+        &'s mut self,
+        label_set: &'s S,
+    ) -> Result<MetricEncoder<'s>, std::fmt::Error> {
+        for_both_mut!(
+            self,
+            MetricEncoderInner,
+            e,
+            e.encode_family(label_set).map(Into::into)
+        )
+    }
+}
+
+/// An encodable label set.
+pub trait EncodeLabelSet {
+    /// Encode oneself into the given encoder.
+    fn encode(&self, encoder: &mut LabelSetEncoder) -> Result<(), std::fmt::Error>;
+}
+
+/// Encoder for a label set.
+#[derive(Debug)]
+pub struct LabelSetEncoder<'a>(LabelSetEncoderInner<'a>);
+
+#[derive(Debug)]
+enum LabelSetEncoderInner<'a> {
+    Text(text::LabelSetEncoder<'a>),
+    #[cfg(feature = "openmetrics_protobuf")]
+    Protobuf(openmetrics_protobuf::LabelSetEncoder<'a>),
+    #[cfg(feature = "prometheus_protobuf")]
+    PrometheusProtobuf(prometheus_protobuf::LabelSetEncoder<'a>),
+}
+
+impl<'a> From<text::LabelSetEncoder<'a>> for LabelSetEncoder<'a> {
+    fn from(e: text::LabelSetEncoder<'a>) -> Self {
+        Self(LabelSetEncoderInner::Text(e))
+    }
+}
+
+#[cfg(feature = "openmetrics_protobuf")]
+impl<'a> From<openmetrics_protobuf::LabelSetEncoder<'a>> for LabelSetEncoder<'a> {
+    fn from(e: openmetrics_protobuf::LabelSetEncoder<'a>) -> Self {
+        Self(LabelSetEncoderInner::Protobuf(e))
+    }
+}
+
+#[cfg(feature = "prometheus_protobuf")]
+impl<'a> From<prometheus_protobuf::LabelSetEncoder<'a>> for LabelSetEncoder<'a> {
+    fn from(e: prometheus_protobuf::LabelSetEncoder<'a>) -> Self {
+        Self(LabelSetEncoderInner::PrometheusProtobuf(e))
+    }
+}
+
+impl LabelSetEncoder<'_> {
+    /// Encode the given label.
+    pub fn encode_label(&mut self) -> LabelEncoder<'_> {
+        for_both_mut!(self, LabelSetEncoderInner, e, e.encode_label().into())
+    }
+}
+
+impl<T: EncodeLabel, const N: usize> EncodeLabelSet for [T; N] {
+    fn encode(&self, encoder: &mut LabelSetEncoder) -> Result<(), std::fmt::Error> {
+        self.as_ref().encode(encoder)
+    }
+}
+
+impl<T: EncodeLabel> EncodeLabelSet for &[T] {
+    fn encode(&self, encoder: &mut LabelSetEncoder) -> Result<(), std::fmt::Error> {
+        if self.is_empty() {
+            return Ok(());
+        }
+
+        for label in self.iter() {
+            let encoder = encoder.encode_label();
+            label.encode(encoder)?
+        }
+
+        Ok(())
+    }
+}
+
+impl<T: EncodeLabel> EncodeLabelSet for Vec<T> {
+    fn encode(&self, encoder: &mut LabelSetEncoder) -> Result<(), std::fmt::Error> {
+        self.as_slice().encode(encoder)
+    }
+}
+
+impl<A, B> EncodeLabelSet for (A, B)
+where
+    A: EncodeLabelSet,
+    B: EncodeLabelSet,
+{
+    fn encode(&self, encoder: &mut LabelSetEncoder) -> Result<(), std::fmt::Error> {
+        let (a, b) = self;
+
+        a.encode(encoder)?;
+        b.encode(encoder)?;
+
+        Ok(())
+    }
+}
+
+/// Uninhabited type to represent the lack of a label set for a metric
+#[derive(Debug)]
+pub enum NoLabelSet {}
+
+impl EncodeLabelSet for NoLabelSet {
+    fn encode(&self, _encoder: &mut LabelSetEncoder) -> Result<(), std::fmt::Error> {
+        Ok(())
+    }
+}
+
+/// An encodable label.
+pub trait EncodeLabel {
+    /// Encode oneself into the given encoder.
+    fn encode(&self, encoder: LabelEncoder) -> Result<(), std::fmt::Error>;
+}
+
+/// Encoder for a label.
+#[derive(Debug)]
+pub struct LabelEncoder<'a>(LabelEncoderInner<'a>);
+
+#[derive(Debug)]
+enum LabelEncoderInner<'a> {
+    Text(text::LabelEncoder<'a>),
+    #[cfg(feature = "openmetrics_protobuf")]
+    Protobuf(openmetrics_protobuf::LabelEncoder<'a>),
+    #[cfg(feature = "prometheus_protobuf")]
+    PrometheusProtobuf(prometheus_protobuf::LabelEncoder<'a>),
+}
+
+impl<'a> From<text::LabelEncoder<'a>> for LabelEncoder<'a> {
+    fn from(e: text::LabelEncoder<'a>) -> Self {
+        Self(LabelEncoderInner::Text(e))
+    }
+}
+
+#[cfg(feature = "openmetrics_protobuf")]
+impl<'a> From<openmetrics_protobuf::LabelEncoder<'a>> for LabelEncoder<'a> {
+    fn from(e: openmetrics_protobuf::LabelEncoder<'a>) -> Self {
+        Self(LabelEncoderInner::Protobuf(e))
+    }
+}
+
+#[cfg(feature = "prometheus_protobuf")]
+impl<'a> From<prometheus_protobuf::LabelEncoder<'a>> for LabelEncoder<'a> {
+    fn from(e: prometheus_protobuf::LabelEncoder<'a>) -> Self {
+        Self(LabelEncoderInner::PrometheusProtobuf(e))
+    }
+}
+
+impl LabelEncoder<'_> {
+    /// Encode a label.
+    pub fn encode_label_key(&mut self) -> Result<LabelKeyEncoder<'_>, std::fmt::Error> {
+        for_both_mut!(
+            self,
+            LabelEncoderInner,
+            e,
+            e.encode_label_key().map(Into::into)
+        )
+    }
+}
+
+impl<K: EncodeLabelKey, V: EncodeLabelValue> EncodeLabel for (K, V) {
+    fn encode(&self, mut encoder: LabelEncoder) -> Result<(), std::fmt::Error> {
+        let (key, value) = self;
+
+        let mut label_key_encoder = encoder.encode_label_key()?;
+        key.encode(&mut label_key_encoder)?;
+
+        let mut label_value_encoder = label_key_encoder.encode_label_value()?;
+        value.encode(&mut label_value_encoder)?;
+        label_value_encoder.finish()?;
+
+        Ok(())
+    }
+}
+
+/// An encodable label key.
+pub trait EncodeLabelKey {
+    /// Encode oneself into the given encoder.
+    fn encode(&self, encoder: &mut LabelKeyEncoder) -> Result<(), std::fmt::Error>;
+}
+
+/// Encoder for a label key.
+#[derive(Debug)]
+pub struct LabelKeyEncoder<'a>(LabelKeyEncoderInner<'a>);
+
+#[derive(Debug)]
+enum LabelKeyEncoderInner<'a> {
+    Text(text::LabelKeyEncoder<'a>),
+    #[cfg(feature = "openmetrics_protobuf")]
+    Protobuf(openmetrics_protobuf::LabelKeyEncoder<'a>),
+    #[cfg(feature = "prometheus_protobuf")]
+    PrometheusProtobuf(prometheus_protobuf::LabelKeyEncoder<'a>),
+}
+
+impl<'a> From<text::LabelKeyEncoder<'a>> for LabelKeyEncoder<'a> {
+    fn from(e: text::LabelKeyEncoder<'a>) -> Self {
+        Self(LabelKeyEncoderInner::Text(e))
+    }
+}
+
+#[cfg(feature = "openmetrics_protobuf")]
+impl<'a> From<openmetrics_protobuf::LabelKeyEncoder<'a>> for LabelKeyEncoder<'a> {
+    fn from(e: openmetrics_protobuf::LabelKeyEncoder<'a>) -> Self {
+        Self(LabelKeyEncoderInner::Protobuf(e))
+    }
+}
+
+#[cfg(feature = "prometheus_protobuf")]
+impl<'a> From<prometheus_protobuf::LabelKeyEncoder<'a>> for LabelKeyEncoder<'a> {
+    fn from(e: prometheus_protobuf::LabelKeyEncoder<'a>) -> Self {
+        Self(LabelKeyEncoderInner::PrometheusProtobuf(e))
+    }
+}
+
+impl std::fmt::Write for LabelKeyEncoder<'_> {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        for_both_mut!(self, LabelKeyEncoderInner, e, e.write_str(s))
+    }
+}
+
+impl<'a> LabelKeyEncoder<'a> {
+    /// Encode a label value.
+    pub fn encode_label_value(self) -> Result<LabelValueEncoder<'a>, std::fmt::Error> {
+        for_both!(
+            self,
+            LabelKeyEncoderInner,
+            e,
+            e.encode_label_value().map(LabelValueEncoder::from)
+        )
+    }
+}
+
+impl EncodeLabelKey for &str {
+    fn encode(&self, encoder: &mut LabelKeyEncoder) -> Result<(), std::fmt::Error> {
+        encoder.write_str(self)?;
+        Ok(())
+    }
+}
+
+impl EncodeLabelKey for String {
+    fn encode(&self, encoder: &mut LabelKeyEncoder) -> Result<(), std::fmt::Error> {
+        EncodeLabelKey::encode(&self.as_str(), encoder)
+    }
+}
+
+impl EncodeLabelKey for Cow<'_, str> {
+    fn encode(&self, encoder: &mut LabelKeyEncoder) -> Result<(), std::fmt::Error> {
+        EncodeLabelKey::encode(&self.as_ref(), encoder)
+    }
+}
+
+impl<T> EncodeLabelKey for Box<T>
+where
+    T: ?Sized,
+    for<'a> &'a T: EncodeLabelKey,
+{
+    fn encode(&self, encoder: &mut LabelKeyEncoder) -> Result<(), std::fmt::Error> {
+        EncodeLabelKey::encode(&self.as_ref(), encoder)
+    }
+}
+
+impl<T> EncodeLabelKey for Arc<T>
+where
+    T: ?Sized,
+    for<'a> &'a T: EncodeLabelKey,
+{
+    fn encode(&self, encoder: &mut LabelKeyEncoder) -> Result<(), std::fmt::Error> {
+        EncodeLabelKey::encode(&self.as_ref(), encoder)
+    }
+}
+
+impl<T> EncodeLabelKey for Rc<T>
+where
+    T: ?Sized,
+    for<'a> &'a T: EncodeLabelKey,
+{
+    fn encode(&self, encoder: &mut LabelKeyEncoder) -> Result<(), std::fmt::Error> {
+        EncodeLabelKey::encode(&self.as_ref(), encoder)
+    }
+}
+
+/// An encodable label value.
+pub trait EncodeLabelValue {
+    /// Encode oneself into the given encoder.
+    fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error>;
+}
+
+/// Encoder for a label value.
+#[derive(Debug)]
+pub struct LabelValueEncoder<'a>(LabelValueEncoderInner<'a>);
+
+#[derive(Debug)]
+enum LabelValueEncoderInner<'a> {
+    Text(text::LabelValueEncoder<'a>),
+    #[cfg(feature = "openmetrics_protobuf")]
+    Protobuf(openmetrics_protobuf::LabelValueEncoder<'a>),
+    #[cfg(feature = "prometheus_protobuf")]
+    PrometheusProtobuf(prometheus_protobuf::LabelValueEncoder<'a>),
+}
+
+impl<'a> From<text::LabelValueEncoder<'a>> for LabelValueEncoder<'a> {
+    fn from(e: text::LabelValueEncoder<'a>) -> Self {
+        LabelValueEncoder(LabelValueEncoderInner::Text(e))
+    }
+}
+
+#[cfg(feature = "openmetrics_protobuf")]
+impl<'a> From<openmetrics_protobuf::LabelValueEncoder<'a>> for LabelValueEncoder<'a> {
+    fn from(e: openmetrics_protobuf::LabelValueEncoder<'a>) -> Self {
+        LabelValueEncoder(LabelValueEncoderInner::Protobuf(e))
+    }
+}
+
+#[cfg(feature = "prometheus_protobuf")]
+impl<'a> From<prometheus_protobuf::LabelValueEncoder<'a>> for LabelValueEncoder<'a> {
+    fn from(e: prometheus_protobuf::LabelValueEncoder<'a>) -> Self {
+        LabelValueEncoder(LabelValueEncoderInner::PrometheusProtobuf(e))
+    }
+}
+
+impl std::fmt::Write for LabelValueEncoder<'_> {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        for_both_mut!(self, LabelValueEncoderInner, e, e.write_str(s))
+    }
+}
+
+impl LabelValueEncoder<'_> {
+    /// Finish encoding the label value.
+    pub fn finish(self) -> Result<(), std::fmt::Error> {
+        for_both!(self, LabelValueEncoderInner, e, e.finish())
+    }
+}
+
+impl EncodeLabelValue for &str {
+    fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.write_str(self)?;
+        Ok(())
+    }
+}
+
+impl EncodeLabelValue for String {
+    fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error> {
+        EncodeLabelValue::encode(&self.as_str(), encoder)
+    }
+}
+
+impl EncodeLabelValue for &String {
+    fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error> {
+        EncodeLabelValue::encode(&self.as_str(), encoder)
+    }
+}
+
+impl EncodeLabelValue for Cow<'_, str> {
+    fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error> {
+        EncodeLabelValue::encode(&self.as_ref(), encoder)
+    }
+}
+
+impl<T> EncodeLabelValue for Box<T>
+where
+    T: ?Sized,
+    for<'a> &'a T: EncodeLabelValue,
+{
+    fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error> {
+        EncodeLabelValue::encode(&self.as_ref(), encoder)
+    }
+}
+
+impl<T> EncodeLabelValue for Arc<T>
+where
+    T: ?Sized,
+    for<'a> &'a T: EncodeLabelValue,
+{
+    fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error> {
+        EncodeLabelValue::encode(&self.as_ref(), encoder)
+    }
+}
+
+impl<T> EncodeLabelValue for Rc<T>
+where
+    T: ?Sized,
+    for<'a> &'a T: EncodeLabelValue,
+{
+    fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error> {
+        EncodeLabelValue::encode(&self.as_ref(), encoder)
+    }
+}
+
+impl EncodeLabelValue for f64 {
+    fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.write_str(dtoa::Buffer::new().format(*self))
+    }
+}
+
+impl<T> EncodeLabelValue for Option<T>
+where
+    T: EncodeLabelValue,
+{
+    fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error> {
+        match self {
+            Some(v) => EncodeLabelValue::encode(v, encoder),
+            None => EncodeLabelValue::encode(&"", encoder),
+        }
+    }
+}
+
+impl EncodeLabelValue for bool {
+    fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.write_str(if *self { "true" } else { "false" })
+    }
+}
+
+macro_rules! impl_encode_label_value_for_integer {
+    ($($t:ident),*) => {$(
+        impl EncodeLabelValue for $t {
+            fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error> {
+                encoder.write_str(itoa::Buffer::new().format(*self))
+            }
+        }
+    )*};
+}
+
+impl_encode_label_value_for_integer!(
+    u128, i128, u64, i64, u32, i32, u16, i16, u8, i8, usize, isize
+);
+
+/// An encodable gauge value.
+pub trait EncodeGaugeValue {
+    /// Encode the given instance in the OpenMetrics text encoding.
+    fn encode(&self, encoder: &mut GaugeValueEncoder) -> Result<(), std::fmt::Error>;
+}
+
+impl EncodeGaugeValue for u32 {
+    fn encode(&self, encoder: &mut GaugeValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.encode_u32(*self)
+    }
+}
+
+impl EncodeGaugeValue for i64 {
+    fn encode(&self, encoder: &mut GaugeValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.encode_i64(*self)
+    }
+}
+
+impl EncodeGaugeValue for u64 {
+    fn encode(&self, encoder: &mut GaugeValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.encode_u64(*self)
+    }
+}
+
+impl EncodeGaugeValue for isize {
+    fn encode(&self, encoder: &mut GaugeValueEncoder) -> Result<(), std::fmt::Error> {
+        // Is infallible for 32-bit or 64-bit platforms
+        encoder.encode_i64(i64::try_from(*self).map_err(|_err| std::fmt::Error)?)
+    }
+}
+
+impl EncodeGaugeValue for usize {
+    fn encode(&self, encoder: &mut GaugeValueEncoder) -> Result<(), std::fmt::Error> {
+        // For 32-bit platforms this is infallible, for 64-bit platforms the argument is the same
+        // as the one for u64 values
+        encoder.encode_i64(i64::try_from(*self).map_err(|_err| std::fmt::Error)?)
+    }
+}
+
+impl EncodeGaugeValue for f64 {
+    fn encode(&self, encoder: &mut GaugeValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.encode_f64(*self)
+    }
+}
+
+impl EncodeGaugeValue for i32 {
+    fn encode(&self, encoder: &mut GaugeValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.encode_i64(i64::from(*self))
+    }
+}
+
+impl EncodeGaugeValue for f32 {
+    fn encode(&self, encoder: &mut GaugeValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.encode_f64(f64::from(*self))
+    }
+}
+
+/// Encoder for a gauge value.
+#[derive(Debug)]
+pub struct GaugeValueEncoder<'a>(GaugeValueEncoderInner<'a>);
+
+#[derive(Debug)]
+enum GaugeValueEncoderInner<'a> {
+    Text(text::GaugeValueEncoder<'a>),
+    #[cfg(feature = "openmetrics_protobuf")]
+    Protobuf(openmetrics_protobuf::GaugeValueEncoder<'a>),
+    #[cfg(feature = "prometheus_protobuf")]
+    PrometheusProtobuf(prometheus_protobuf::GaugeValueEncoder<'a>),
+}
+
+impl GaugeValueEncoder<'_> {
+    fn encode_u32(&mut self, v: u32) -> Result<(), std::fmt::Error> {
+        for_both_mut!(self, GaugeValueEncoderInner, e, e.encode_u32(v))
+    }
+
+    fn encode_u64(&mut self, v: u64) -> Result<(), std::fmt::Error> {
+        for_both_mut!(self, GaugeValueEncoderInner, e, e.encode_u64(v))
+    }
+
+    fn encode_i64(&mut self, v: i64) -> Result<(), std::fmt::Error> {
+        for_both_mut!(self, GaugeValueEncoderInner, e, e.encode_i64(v))
+    }
+
+    fn encode_f64(&mut self, v: f64) -> Result<(), std::fmt::Error> {
+        for_both_mut!(self, GaugeValueEncoderInner, e, e.encode_f64(v))
+    }
+}
+
+impl<'a> From<text::GaugeValueEncoder<'a>> for GaugeValueEncoder<'a> {
+    fn from(e: text::GaugeValueEncoder<'a>) -> Self {
+        GaugeValueEncoder(GaugeValueEncoderInner::Text(e))
+    }
+}
+
+#[cfg(feature = "openmetrics_protobuf")]
+impl<'a> From<openmetrics_protobuf::GaugeValueEncoder<'a>> for GaugeValueEncoder<'a> {
+    fn from(e: openmetrics_protobuf::GaugeValueEncoder<'a>) -> Self {
+        GaugeValueEncoder(GaugeValueEncoderInner::Protobuf(e))
+    }
+}
+
+#[cfg(feature = "prometheus_protobuf")]
+impl<'a> From<prometheus_protobuf::GaugeValueEncoder<'a>> for GaugeValueEncoder<'a> {
+    fn from(e: prometheus_protobuf::GaugeValueEncoder<'a>) -> Self {
+        GaugeValueEncoder(GaugeValueEncoderInner::PrometheusProtobuf(e))
+    }
+}
+
+/// An encodable counter value.
+pub trait EncodeCounterValue {
+    /// Encode the given instance in the OpenMetrics text encoding.
+    fn encode(&self, encoder: &mut CounterValueEncoder) -> Result<(), std::fmt::Error>;
+}
+
+impl EncodeCounterValue for u64 {
+    fn encode(&self, encoder: &mut CounterValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.encode_u64(*self)
+    }
+}
+
+impl EncodeCounterValue for usize {
+    fn encode(&self, encoder: &mut CounterValueEncoder) -> Result<(), std::fmt::Error> {
+        // Is infallible for 32-bit and 64-bit platforms
+        encoder.encode_u64(u64::try_from(*self).map_err(|_err| std::fmt::Error)?)
+    }
+}
+
+impl EncodeCounterValue for f64 {
+    fn encode(&self, encoder: &mut CounterValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.encode_f64(*self)
+    }
+}
+
+impl EncodeCounterValue for u32 {
+    fn encode(&self, encoder: &mut CounterValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.encode_u64(u64::from(*self))
+    }
+}
+
+impl EncodeCounterValue for f32 {
+    fn encode(&self, encoder: &mut CounterValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.encode_f64(f64::from(*self))
+    }
+}
+
+/// Encoder for a counter value.
+#[derive(Debug)]
+pub struct CounterValueEncoder<'a>(CounterValueEncoderInner<'a>);
+
+#[derive(Debug)]
+enum CounterValueEncoderInner<'a> {
+    Text(text::CounterValueEncoder<'a>),
+    #[cfg(feature = "openmetrics_protobuf")]
+    Protobuf(openmetrics_protobuf::CounterValueEncoder<'a>),
+    #[cfg(feature = "prometheus_protobuf")]
+    PrometheusProtobuf(prometheus_protobuf::CounterValueEncoder<'a>),
+}
+
+impl<'a> From<text::CounterValueEncoder<'a>> for CounterValueEncoder<'a> {
+    fn from(e: text::CounterValueEncoder<'a>) -> Self {
+        CounterValueEncoder(CounterValueEncoderInner::Text(e))
+    }
+}
+
+#[cfg(feature = "openmetrics_protobuf")]
+impl<'a> From<openmetrics_protobuf::CounterValueEncoder<'a>> for CounterValueEncoder<'a> {
+    fn from(e: openmetrics_protobuf::CounterValueEncoder<'a>) -> Self {
+        CounterValueEncoder(CounterValueEncoderInner::Protobuf(e))
+    }
+}
+
+#[cfg(feature = "prometheus_protobuf")]
+impl<'a> From<prometheus_protobuf::CounterValueEncoder<'a>> for CounterValueEncoder<'a> {
+    fn from(e: prometheus_protobuf::CounterValueEncoder<'a>) -> Self {
+        CounterValueEncoder(CounterValueEncoderInner::PrometheusProtobuf(e))
+    }
+}
+
+impl CounterValueEncoder<'_> {
+    fn encode_f64(&mut self, v: f64) -> Result<(), std::fmt::Error> {
+        for_both_mut!(self, CounterValueEncoderInner, e, e.encode_f64(v))
+    }
+
+    fn encode_u64(&mut self, v: u64) -> Result<(), std::fmt::Error> {
+        for_both_mut!(self, CounterValueEncoderInner, e, e.encode_u64(v))
+    }
+}
+
+/// An encodable exemplar value.
+pub trait EncodeExemplarValue {
+    /// Encode the given instance in the OpenMetrics text encoding.
+    fn encode(&self, encoder: ExemplarValueEncoder) -> Result<(), std::fmt::Error>;
+}
+
+impl EncodeExemplarValue for f64 {
+    fn encode(&self, mut encoder: ExemplarValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.encode(*self)
+    }
+}
+
+impl EncodeExemplarValue for u64 {
+    fn encode(&self, mut encoder: ExemplarValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.encode(*self as f64)
+    }
+}
+
+impl EncodeExemplarValue for f32 {
+    fn encode(&self, mut encoder: ExemplarValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.encode(f64::from(*self))
+    }
+}
+
+impl EncodeExemplarValue for u32 {
+    fn encode(&self, mut encoder: ExemplarValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.encode(f64::from(*self))
+    }
+}
+
+/// An encodable exemplar time.
+pub trait EncodeExemplarTime {
+    /// Encode the time in the OpenMetrics text encoding.
+    fn encode(&self, encoder: ExemplarValueEncoder) -> Result<(), std::fmt::Error>;
+}
+
+impl EncodeExemplarTime for SystemTime {
+    fn encode(&self, mut encoder: ExemplarValueEncoder) -> Result<(), std::fmt::Error> {
+        encoder.encode(self.duration_since(UNIX_EPOCH).unwrap().as_secs_f64())
+    }
+}
+
+/// Encoder for an exemplar value.
+#[derive(Debug)]
+pub struct ExemplarValueEncoder<'a>(ExemplarValueEncoderInner<'a>);
+
+#[derive(Debug)]
+enum ExemplarValueEncoderInner<'a> {
+    Text(text::ExemplarValueEncoder<'a>),
+    #[cfg(feature = "openmetrics_protobuf")]
+    Protobuf(openmetrics_protobuf::ExemplarValueEncoder<'a>),
+    #[cfg(feature = "prometheus_protobuf")]
+    PrometheusProtobuf(prometheus_protobuf::ExemplarValueEncoder<'a>),
+}
+
+impl<'a> From<text::ExemplarValueEncoder<'a>> for ExemplarValueEncoder<'a> {
+    fn from(e: text::ExemplarValueEncoder<'a>) -> Self {
+        ExemplarValueEncoder(ExemplarValueEncoderInner::Text(e))
+    }
+}
+
+#[cfg(feature = "openmetrics_protobuf")]
+impl<'a> From<openmetrics_protobuf::ExemplarValueEncoder<'a>> for ExemplarValueEncoder<'a> {
+    fn from(e: openmetrics_protobuf::ExemplarValueEncoder<'a>) -> Self {
+        ExemplarValueEncoder(ExemplarValueEncoderInner::Protobuf(e))
+    }
+}
+
+#[cfg(feature = "prometheus_protobuf")]
+impl<'a> From<prometheus_protobuf::ExemplarValueEncoder<'a>> for ExemplarValueEncoder<'a> {
+    fn from(e: prometheus_protobuf::ExemplarValueEncoder<'a>) -> Self {
+        ExemplarValueEncoder(ExemplarValueEncoderInner::PrometheusProtobuf(e))
+    }
+}
+
+impl ExemplarValueEncoder<'_> {
+    fn encode(&mut self, v: f64) -> Result<(), std::fmt::Error> {
+        for_both_mut!(self, ExemplarValueEncoderInner, e, e.encode(v))
+    }
+}

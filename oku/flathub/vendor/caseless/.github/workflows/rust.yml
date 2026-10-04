@@ -1,0 +1,33 @@
+name: Rust
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  RUSTFLAGS: -D warnings
+  RUSTDOCFLAGS: -D warnings
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
+
+  regen:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Verify CaseFolding.txt
+      run: curl https://www.unicode.org/Public/16.0.0/ucd/CaseFolding.txt -o CaseFolding_online.txt && diff CaseFolding.txt CaseFolding_online.txt
+    - name: Verify regenerated files
+      run: cargo run --package print-table >case_folding_data.rs && diff case_folding_data.rs src/case_folding_data.rs

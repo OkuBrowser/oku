@@ -1,0 +1,35 @@
+seeds = [0, 1, 212312388123, 123]
+config.latency.dynamic = { min = "10ms", max = "50ms" }
+
+[[scenario]]
+sim = "GossipSingle"
+nodes = 20
+
+[[scenario]]
+sim = "GossipSingle"
+nodes = 100
+
+[[scenario]]
+sim = "GossipSingle"
+nodes = 1000
+
+[[scenario]]
+sim = "GossipMulti"
+nodes = 20
+
+[[scenario]]
+sim = "GossipMulti"
+nodes = 100
+
+[[scenario]]
+sim = "GossipMulti"
+nodes = 1000
+
+[[scenario]]
+sim = "GossipAll"
+nodes = 20
+
+[[scenario]]
+sim = "GossipAll"
+nodes = 100
+rounds = 5

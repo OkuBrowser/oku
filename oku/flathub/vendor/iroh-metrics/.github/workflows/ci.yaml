@@ -1,0 +1,322 @@
+name: CI
+
+on:
+  pull_request:
+    types: [ 'labeled', 'unlabeled', 'opened', 'synchronize', 'reopened' ]
+  merge_group:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_BACKTRACE: 1
+  RUSTFLAGS: -Dwarnings
+  RUSTDOCFLAGS: -Dwarnings
+  MSRV: "1.85"
+  SCCACHE_CACHE_SIZE: "10G"
+  IROH_FORCE_STAGING_RELAYS: "1"
+
+# Default to read-only; jobs that need more grant it explicitly.
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: CI Test Suite
+    if: "github.event_name != 'pull_request' || ! contains(github.event.pull_request.labels.*.name, 'flaky-test')"
+    uses: '$/.github/workflows/tests.yaml'
+
+  cross_build:
+    name: Cross Build Only
+    if: "github.event_name != 'pull_request' || ! contains(github.event.pull_request.labels.*.name, 'flaky-test')"
+    timeout-minutes: 30
+    runs-on: [self-hosted, linux, X64]
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+           # cross tests are currently broken vor armv7 and aarch64
+           # see https://github.com/cross-rs/cross/issues/1311
+          # - armv7-linux-androideabi
+          # - aarch64-linux-android
+          # Freebsd execution fails in cross
+          # - i686-unknown-freebsd # Linking fails :/
+          - x86_64-unknown-freebsd
+          # Netbsd execution fails to link in cross
+          # - x86_64-unknown-netbsd
+    steps:
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+        submodules: recursive
+
+    - name: Install rust stable
+      uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+      with:
+        toolchain: stable
+
+    - name: Cleanup Docker
+      continue-on-error: true
+      run: |
+        docker kill $(docker ps -q)
+
+      # See https://github.com/cross-rs/cross/issues/1222
+    - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+      with:
+        tool: cross
+
+    - name: build
+      # cross tests are currently broken vor armv7 and aarch64
+      # see https://github.com/cross-rs/cross/issues/1311.  So on
+      # those platforms we only build but do not run tests.
+      run: cross build --locked --all --target $RUST_TARGET
+      env:
+        RUST_TARGET: ${{ matrix.target }}
+        RUST_LOG: ${{ runner.debug && 'TRACE' || 'DEBUG'}}
+
+  android_build:
+    name: Android Build Only
+    if: "github.event_name != 'pull_request' || ! contains(github.event.pull_request.labels.*.name, 'flaky-test')"
+    timeout-minutes: 30
+    # runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64]
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-linux-android
+          - armv7-linux-androideabi
+    steps:
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+      with:
+        toolchain: stable
+        target: ${{ matrix.target }}
+    - name: Install rustup target
+      env:
+        RUST_TARGET: ${{ matrix.target }}
+      run: rustup target add $RUST_TARGET
+
+    - name: Setup Java
+      uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+
+    # Pinned to a release tag (rather than @main) for supply-chain hygiene.
+    - name: Setup Android NDK
+      uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1.6.0
+      id: setup-ndk
+      with:
+        ndk-version: r23
+        add-to-path: true
+
+    - name: Build
+      env:
+        RUST_TARGET: ${{ matrix.target }}
+        ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+      run: |
+        cargo install --locked --version 3.5.4 cargo-ndk
+        cargo ndk --target $RUST_TARGET build --locked
+
+  cross_test:
+    name: Cross Test
+    if: "github.event_name != 'pull_request' || ! contains(github.event.pull_request.labels.*.name, 'flaky-test')"
+    timeout-minutes: 30
+    runs-on: [self-hosted, linux, X64]
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - i686-unknown-linux-gnu
+    steps:
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+        submodules: recursive
+
+    - name: Install rust stable
+      uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+      with:
+        toolchain: stable
+
+    - name: Cleanup Docker
+      continue-on-error: true
+      run: |
+        docker kill $(docker ps -q)
+
+      # See https://github.com/cross-rs/cross/issues/1222
+    - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+      with:
+        tool: cross
+
+    - name: test
+      run: cross test --locked --all --target $RUST_TARGET -- --test-threads=12
+      env:
+        RUST_TARGET: ${{ matrix.target }}
+        RUST_LOG: ${{ runner.debug && 'TRACE' || 'DEBUG' }}
+
+  check_semver:
+    runs-on: ubuntu-latest
+    env:
+      RUSTC_WRAPPER: "sccache"
+      SCCACHE_GHA_ENABLED: "on"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+
+      - name: Setup Environment (PR)
+        if: ${{ github.event_name == 'pull_request' }}
+        shell: bash
+        run: |
+          echo "HEAD_COMMIT_SHA=$(git rev-parse origin/$GITHUB_BASE_REF)" >> ${GITHUB_ENV}
+      - name: Setup Environment (Push)
+        if: ${{ github.event_name == 'push' || github.event_name == 'merge_group' }}
+        shell: bash
+        run: |
+          echo "HEAD_COMMIT_SHA=$(git rev-parse origin/main)" >> ${GITHUB_ENV}
+      - name: Check semver
+        # uses: obi1kenobi/cargo-semver-checks-action@v2
+        uses: n0-computer/cargo-semver-checks-action@b49de9133f8849bb51cae32c6bdeb19a5c37e61f # feat-baseline
+        with:
+          package: iroh-metrics
+          baseline-rev: ${{ env.HEAD_COMMIT_SHA }}
+          use-cache: false
+
+  check_fmt:
+    timeout-minutes: 30
+    name: Checking fmt
+    runs-on: ubuntu-latest
+    env:
+      RUSTC_WRAPPER: "sccache"
+      SCCACHE_GHA_ENABLED: "on"
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+      with:
+        toolchain: stable
+        components: rustfmt
+    - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+    - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+      with:
+        tool: cargo-make
+    - run: cargo make format-check
+    - name: Lockfile must not have moved
+      # cargo make takes no --locked; assert the lockfile instead.
+      run: git diff --exit-code Cargo.lock
+
+  check_docs:
+    timeout-minutes: 30
+    name: Checking docs
+    runs-on: ubuntu-latest
+    env:
+      RUSTC_WRAPPER: "sccache"
+      SCCACHE_GHA_ENABLED: "on"
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+      with:
+        toolchain: nightly-2024-11-30
+    - name: Install sccache
+      uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+
+    - name: Docs
+      run: cargo doc --locked --workspace --all-features --no-deps --document-private-items
+      env:
+        RUSTDOCFLAGS: --cfg docsrs
+
+  clippy_check:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    env:
+      RUSTC_WRAPPER: "sccache"
+      SCCACHE_GHA_ENABLED: "on"
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+      with:
+        toolchain: stable
+        components: clippy
+    - name: Install sccache
+      uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+
+    # TODO: We have a bunch of platform-dependent code so should
+    #    probably run this job on the full platform matrix
+    - name: clippy check (all features)
+      run: cargo clippy --locked --workspace --all-features --all-targets --bins --tests --benches
+
+    - name: clippy check (no features)
+      run: cargo clippy --locked --workspace --no-default-features --lib --bins --tests
+
+    - name: clippy check (default features)
+      run: cargo clippy --locked --workspace --all-targets
+
+  msrv:
+    if: "github.event_name != 'pull_request' || ! contains(github.event.pull_request.labels.*.name, 'flaky-test')"
+    timeout-minutes: 30
+    name: Minimal Supported Rust Version
+    runs-on: ubuntu-latest
+    env:
+      RUSTC_WRAPPER: "sccache"
+      SCCACHE_GHA_ENABLED: "on"
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+      with:
+        toolchain: ${{ env.MSRV }}
+    - name: Install sccache
+      uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+
+    - name: Check MSRV all features
+      run: |
+        cargo +$MSRV check --locked --workspace --all-targets
+
+  cargo_deny:
+    timeout-minutes: 30
+    name: cargo deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          arguments: --workspace --all-features
+          command: check
+          command-arguments: "-Dwarnings"
+
+  codespell:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - run: pip install --user codespell[toml]
+    - run: codespell --ignore-words-list=ans,atmost,crate,inout,ratatui,ser,stayin,swarmin,worl --skip=CHANGELOG.md

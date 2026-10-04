@@ -1,0 +1,44 @@
+[package]
+name = "cbor4ii"
+version = "1.2.3"
+authors = ["quininer <quininer@live.com>"]
+description = "CBOR: Concise Binary Object Representation"
+repository = "https://github.com/quininer/cbor4ii"
+categories = [ "encoding", "no-std" ]
+keywords = [ "serde", "cbor", "serialization" ]
+license = "MIT"
+edition = "2018"
+
+[features]
+use_std = [ "use_alloc" ]
+use_alloc = []
+half-f16 = [ "half" ]
+serde1 = [ "serde/alloc", "use_alloc" ]
+
+[dependencies]
+half = { version = "2", default-features = false, optional = true }
+serde = { version = "1", default-features = false, optional = true }
+
+[dev-dependencies]
+anyhow = "1"
+serde = { version = "1", features = [ "derive" ] }
+serde_bytes = "0.11"
+data-encoding = "2"
+serde_cbor = "0.11"
+ciborium = "0.2"
+criterion = "0.8"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[[bench]]
+name = "ser"
+path = "benches/bench_ser.rs"
+harness = false
+required-features = [ "serde1", "use_std" ]
+
+[[bench]]
+name = "de"
+path = "benches/bench_de.rs"
+harness = false
+required-features = [ "serde1" ]

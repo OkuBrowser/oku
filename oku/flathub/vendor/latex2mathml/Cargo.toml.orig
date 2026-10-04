@@ -1,0 +1,14 @@
+[package]
+name = "latex2mathml"
+version = "0.2.3"
+authors = ["Hiromu Sugiura <h.sugiura0705@outlook.com>"]
+edition = "2018"
+
+description   = "Convert LaTeX equations to MathML"
+repository    = "https://github.com/osanshouo/latex2mathml"
+readme        = "README.md"
+license       = "MIT"
+keywords      = ["latex", "mathml"]
+categories    = ["science"]
+
+[dependencies]

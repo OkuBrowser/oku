@@ -1,0 +1,126 @@
+[package]
+name = "irpc"
+version = "0.17.0"
+edition = "2024"
+authors = ["Rüdiger Klaehn <rklaehn@protonmail.com>", "n0 team"]
+keywords = ["api", "protocol", "network", "rpc"]
+categories = ["network-programming"]
+license = "Apache-2.0/MIT"
+repository = "https://github.com/n0-computer/irpc"
+description = "A streaming rpc system based on quic"
+
+# Sadly this also needs to be updated in .github/workflows/ci.yml
+rust-version = "1.91"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# we require serde even in non-rpc mode
+serde = { workspace = true }
+# just for the oneshot and mpsc queues, and tokio::select!
+tokio = { workspace = true, features = ["sync", "macros"] }
+# for PollSender (which for some reason is not available in the main tokio api)
+tokio-util = { version = "0.7.14", default-features = false }
+# errors
+n0-error = { workspace = true }
+
+# used in the endpoint handler code when using rpc
+tracing = { workspace = true, optional = true }
+# used to ser/de messages when using rpc
+postcard = { workspace = true, features = ["alloc", "use-std"], optional = true }
+# currently only transport when using rpc
+noq = { workspace = true, optional = true }
+# used as a buffer for serialization when using rpc
+smallvec = { version = "1.14.0", features = ["write"], optional = true }
+# used in the test utils to generate noq endpoints
+rustls = { version = "0.23.5", default-features = false, features = ["std"], optional = true }
+# used in the test utils to generate noq endpoints
+rcgen = { version = "0.14.5", optional = true }
+# used in the benches
+futures-buffered ={ version = "0.2.9", optional = true }
+# for AbortOnDropHandle
+n0-future = { workspace = true }
+futures-util = { workspace = true, optional = true }
+# for the derive reexport/feature
+irpc-derive = { version = "0.17.0", path = "./irpc-derive", optional = true }
+# for remote span propagation when tracing-opentelemetry feature is enabled
+opentelemetry = { version = "0.32", optional = true }
+tracing-opentelemetry = { version = "0.33", optional = true }
+
+[target.'cfg(not(all(target_family = "wasm", target_os = "unknown")))'.dependencies]
+noq = { workspace = true, optional = true, features = ["runtime-tokio"] }
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true, features = ["fmt"] }
+# pin lazy_static minimum for -Z minimal-versions compatibility (sharded-slab needs >= 1.4)
+lazy_static = { version = "1.4" }
+# just convenient for the enum definitions, in the manual example
+derive_more = { version = "2", features = ["from"] }
+# we need full for example main etc.
+tokio = { workspace = true, features = ["full"] }
+# formatting
+thousands = "0.2.0"
+# macro tests
+trybuild = "1.0.104"
+testresult = "0.4.1"
+# used in examples
+anyhow = { workspace = true }
+
+[features]
+# enable the remote transport
+rpc = ["dep:noq", "dep:postcard", "dep:smallvec", "dep:tracing", "tokio/io-util"]
+# add test utilities
+noq_endpoint_setup = ["rpc", "dep:rustls", "dep:rcgen", "dep:futures-buffered", "noq/rustls-ring"]
+# pick up parent span when creating channel messages
+spans = ["dep:tracing"]
+stream = ["dep:futures-util"]
+derive = ["dep:irpc-derive"]
+varint-util = ["dep:postcard", "dep:smallvec", "tokio/io-util"]
+# enable OpenTelemetry span context propagation across remote connections
+tracing-opentelemetry = ["dep:opentelemetry", "dep:tracing-opentelemetry", "rpc"]
+default = ["rpc", "noq_endpoint_setup", "spans", "stream", "derive"]
+
+[[example]]
+name = "derive"
+required-features = ["rpc", "derive", "noq_endpoint_setup"]
+
+[[example]]
+name = "compute"
+required-features = ["rpc", "derive", "noq_endpoint_setup"]
+
+[[example]]
+name = "local"
+required-features = ["derive"]
+
+[[example]]
+name = "storage"
+required-features = ["rpc", "noq_endpoint_setup"]
+
+[workspace]
+resolver = "2"
+members = ["irpc-derive", "irpc-iroh"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "quicrpc_docsrs"]
+
+[package.metadata.release]
+pre-release-hook = ["git", "cliff", "--unreleased", "--tag", "{{version}}", "--prepend", "CHANGELOG.md"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(quicrpc_docsrs)"] }
+
+[workspace.dependencies]
+anyhow = { version = "1" }
+tokio = { version = "1.44", default-features = false }
+postcard = { version = "1.1.1", default-features = false }
+serde = { version = "1", default-features = false, features = ["derive"] }
+tracing = { version = "0.1.41", default-features = false }
+n0-future = { version = "0.3", default-features = false }
+n0-error = { version = "1" }
+tracing-subscriber = { version = "0.3.23" }
+iroh = { version = "1" }
+iroh-base = { version = "1" }
+noq = { version = "1", default-features = false }
+futures-util = { version = "0.3", features = ["sink"] }

@@ -1,0 +1,31 @@
+[package]
+name = "proc-macro-error"
+version = "0.4.12"
+authors = ["CreepySkeleton <creepy-skeleton@yandex.ru>"]
+description = "Almost drop-in replacement to panics in proc-macros"
+
+repository = "https://gitlab.com/CreepySkeleton/proc-macro-error"
+readme = "README.md"
+keywords = ["proc-macro", "error", "errors"]
+categories = ["development-tools::procedural-macro-helpers"]
+license = "MIT OR Apache-2.0"
+
+edition = "2018"
+build = "build.rs"
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[dependencies]
+quote = "1"
+proc-macro2 = "1"
+syn = { version = "1", default-features = false, features = ["derive", "parsing", "proc-macro", "printing"] }
+proc-macro-error-attr = { path = "./proc-macro-error-attr", version = "=0.4.12"}
+
+[dev-dependencies]
+test-crate = { path = "./test-crate" }
+trybuild = { version = "1.0.19", features = ["diff"] }
+toml = "=0.5.2" # DO NOT BUMP
+
+[build-dependencies]
+version_check = "0.9"

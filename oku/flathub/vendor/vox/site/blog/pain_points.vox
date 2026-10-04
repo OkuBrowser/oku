@@ -1,0 +1,93 @@
+---
+title = "Fixing Static Site Generators"
+date = 2024-06-11
+layout = "post"
+permalink = "date"
+---
+
+{% markdown %}
+
+Static site generators (SSGs) are a class of software that evaluate template files at runtime to output new files.
+Many of these tools are intended for creating Web sites, used when you want to **publish your own content and syndicate it elsewhere**.
+
+SSGs are described as 'simple', with minimal installation & configuration burden, human-readable content files, and freedom from databases.
+This makes creating & updating sites relatively painless in many circumstances, and makes deployment fairly straightforward.
+
+Despite the advantages over traditional content management systems (CMSes), there are some disadvantages common to many SSGs:
+* Intended for software developers
+* Difficult to iterate with and scale
+* Templates are too limited for many use cases
+
+Vox aims to address these issues to expand the use-cases of SSGs over CMSes:
+* When you want to **own** your content long-term
+* When you want to **distribute** your content to many places
+* When you want to **control** the infrastructure hosting your content
+
+---
+
+## Content Management Pipeline
+
+The process of writing content, rendering it, and then deploying it, sounds straightforward.
+Unfortunately, each of these steps involves domain-specific knowledge that can harm the user experience.
+
+### Prerequisite Knowledge
+
+To write content, you likely need to know:
+* the notation used by frontmatter
+* the templating language
+* the markup language
+
+For many people without technical backgrounds, the writing process alone forces them toward a traditional CMS.
+In fact, I'd argue no SSG---including Vox---can or *should* solve this problem. This is exactly what the role of a static CMS should be.
+The role of Vox here is to be interoperable with a static CMS that simplifies writing and deployment.
+
+### Reducing New Concepts
+
+Many SSGs introduce dozens of concepts relating to their use & operation, while Vox tries to remain relatively simple.
+
+* The **layout-partial paradigm**: site consistency is maintained with <a href="{{ global.url | append: "/guide/Data Model.html#layouts" }}">layouts</a>, elements are reused with <a href="{{ global.url | append: "/guide/Data Model.html#include" }}">includes</a>
+* Simple <a href="{{ global.url | append: "/guide/Data Model.html" }}">data model</a> that draws only upon the aforementioned pre-requisite knowledge
+* Straightforward <a href="{{ global.url | append: "/guide" }}">user guide</a>
+
+### Providing Feedback
+
+When the SSG is unfamiliar or a site has particularly high cognitive complexity, unexpected rendering or build errors can become frustrating rather quickly.
+Vox provides logging messages that aid users in debugging their sites, both during the initial build and incremental rebuilds.
+
+---
+
+## Scale & Iteration
+
+A major source of pain for too many SSGs is build performance; many sites should take fractions of a second to build on a laptop, not minutes.
+Even then, once a site reaches a certain size, rebuilding from scratch when changes are made is not feasible. Incremental rebuilds should be done intelligently.
+Vox enables rapid iteration and unrestricted scaling of sites with its <a href="{{ global.url | append: "/guide/Rendering Pipeline.html" }}">unique rendering pipeline</a>, rebuilding only what it needs to while ensuring the entire site is up-to-date.
+
+---
+
+## Emergent Capabilities
+
+As a consequence of Vox's abstractions, various capabilities emerge without the cost of added software complexity.
+
+### Content Traversal
+
+<a href="{{ global.url | append: "/guide/Data Model.html#layouts" }}">Layout inheritance</a> and <a href="{{ global.url | append: "/guide/Frontmatter.html#collections" }}">collections</a> enable content traversal with a content hierarchy.
+A single page can reference pieces of content elsewhere in the site with ease, making content management simple by introducing relations between pages.
+
+### Generalising Beyond Markup
+
+Vox pages have only three elements: the frontmatter, the body, and the templating within the body.
+As such, content can resemble anything; the body is not restricted to Markdown and the output is not restricted to HTML.
+Pages aren't relegated to being single chunk of markup with some metadata on top.
+
+### Simple Theming
+
+Due to the relational nature of pages, a Vox site is free to have its own schema of sorts, as established by the layouts & includes.
+Consequently, 'themes' can be written which involve configuration of `global.toml` and nothing more, provided pages are written in accordance to the theme's 'schema'.
+
+---
+
+Vox is opinionated, but with its uniqueness comes distinct advantages.
+In the future, I'll write about extending Vox with a bespoke static CMS to replace traditional CMSes in countless more use-cases.
+Thanks for reading!
+
+{% endmarkdown %}

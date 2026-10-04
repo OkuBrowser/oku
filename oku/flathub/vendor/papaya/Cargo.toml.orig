@@ -1,0 +1,51 @@
+[package]
+name = "papaya"
+version = "0.2.5"
+authors = ["Ibraheem Ahmed <ibraheem@ibraheem.ca>"]
+description = "A fast and ergonomic concurrent hash-table for read-heavy workloads."
+edition = "2021"
+rust-version = "1.72.0"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/ibraheemdev/papaya"
+categories = ["algorithms", "concurrency", "data-structures"]
+keywords = ["concurrent", "hashmap", "atomic", "lock-free"]
+exclude = ["assets/*"]
+
+[dependencies]
+equivalent = "1"
+seize = { version = "0.5" , default-features = false }
+serde = { version = "1", optional = true }
+
+[dev-dependencies]
+rand = "0.8"
+base64 = "0.22"
+hdrhistogram = "7"
+dashmap = "5"
+criterion = "0.5"
+tokio = { version = "1", features = ["fs", "rt"] }
+num_cpus = "1"
+serde_json = "1"
+
+[features]
+default = ["fast-barrier"]
+serde = ["dep:serde"]
+fast-barrier = ["seize/fast-barrier"]
+
+[profile.test]
+inherits = "release"
+debug-assertions = true
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(papaya_stress)',
+    'cfg(papaya_asan)',
+] }
+
+[[bench]]
+name = "single_thread"
+harness = false
+
+[[bench]]
+name = "latency"
+harness = false

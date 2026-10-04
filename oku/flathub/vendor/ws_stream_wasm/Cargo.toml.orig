@@ -1,0 +1,97 @@
+# Auto-generated from "Cargo.yml"
+[badges]
+[badges.maintenance]
+status = "actively-developed"
+
+[badges.travis-ci]
+repository = "najamelan/ws_stream_wasm"
+
+[build-dependencies]
+rustc_version = "^0.4"
+
+[dependencies]
+js-sys = "^0.3"
+log = "^0.4"
+send_wrapper = "^0.6"
+thiserror = "^2"
+wasm-bindgen = "^0.2"
+wasm-bindgen-futures = "^0.4"
+
+[dependencies.async_io_stream]
+features = ["map_pharos"]
+version = "^0.3"
+
+[dependencies.futures]
+default-features = false
+version = "^0.3"
+
+[dependencies.pharos]
+version = "^0.5"
+
+[dependencies.web-sys]
+features = ["BinaryType", "Blob", "console", "MessageEvent", "WebSocket", "CloseEvent", "DomException"]
+version = "^0.3"
+
+[dev-dependencies]
+bytes = "^1"
+console_error_panic_hook = "^0.1"
+console_log = "^1"
+rand = "^0.9"
+rand_xoshiro = "^0.7"
+serde_cbor = "^0.11"
+wasm-bindgen-test = "^0.3"
+
+[dev-dependencies.async_io_stream]
+features = ["tokio_io"]
+version = "^0.3"
+
+[dev-dependencies.asynchronous-codec]
+version = "^0.7"
+
+[dev-dependencies.getrandom]
+features = ["wasm_js"]
+version = "^0.3"
+
+[dev-dependencies.serde]
+features = ["derive"]
+version = "^1"
+
+[dev-dependencies.tokio]
+version = "^1"
+
+[dev-dependencies.tokio-serde-cbor]
+version = "^0.7"
+
+[dev-dependencies.tokio-util]
+default-features = false
+features = ["codec"]
+version = "^0.7"
+
+[features]
+default = ["not_ci"]
+not_ci = []
+tokio_io = ["async_io_stream/tokio_io"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[package]
+authors = ["Naja Melan <najamelan@autistici.org>"]
+categories = ["asynchronous", "network-programming", "api-bindings", "wasm", "web-programming::websocket"]
+description = "A convenience library for using websockets in WASM"
+documentation = "https://docs.rs/ws_stream_wasm"
+edition = "2024"
+exclude = ["tests", "examples"]
+homepage = "https://github.com/najamelan/ws_stream_wasm"
+keywords = ["wasm", "websocket", "tokio", "stream", "async"]
+license = "Unlicense"
+name = "ws_stream_wasm"
+readme = "README.md"
+repository = "https://github.com/najamelan/ws_stream_wasm"
+version = "0.7.5"
+
+[package.metadata]
+[package.metadata.docs]
+[package.metadata.docs.rs]
+all-features = true
+targets = []

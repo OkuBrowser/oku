@@ -1,0 +1,5 @@
+error: rpc requires a tx type
+ --> tests/compile_fail/wrong_attr_types.rs:5:5
+  |
+5 |     #[rpc(fnord = Bla)]
+  |     ^^^^^^^^^^^^^^^^^^^

@@ -1,0 +1,43 @@
+name: CI MacOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, devel ]
+  pull_request:
+    types: [ opened, synchronize, reopened, ready_for_review ]
+    branches: [ main, devel ]
+
+jobs:
+  build_and_test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: "Main tests"
+    runs-on: macos-latest
+    env:
+      PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+        feature:
+          - serial
+    
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install dependencies
+      run: brew install macfuse
+    - name: Setup Rust
+      run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+    - name: Build
+      run: cargo build --verbose --no-default-features --features "${{ matrix.feature }} libfuse"
+    # Apple Silicon runners (macos-latest) strictly enforce code signing and block third-party 
+    # kernel extensions (like macFUSE) from loading at runtime for security reasons. 
+    # Because this environment cannot be manually configured to allow these extensions, 
+    # any attempt to mount a filesystem will trigger a timeout or panic. 
+    #
+    # We follow the 'fuser' crate's strategy here: we only run the compilation phase to 
+    # ensure our macOS-specific implementation logic is correct and that feature flags 
+    # are configured properly. We use --no-run to skip actual test execution, 
+    # effectively bypassing the impossible-to-mount FUSE environment.
+    - name: Run tests (Skip Execution)
+      run: cargo test --no-run --verbose --no-default-features --features "${{ matrix.feature }} libfuse"

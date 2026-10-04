@@ -1,0 +1,41 @@
+[package]
+name = "uint"
+version = "0.10.1"
+description = "Large fixed-size integer arithmetic"
+readme = "README.md"
+rust-version = "1.56.1"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+byteorder = { workspace = true }
+crunchy = { workspace = true }
+quickcheck = { workspace = true, optional = true }
+hex = { workspace = true }
+static_assertions = { workspace = true }
+arbitrary = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+num-bigint = { workspace = true }
+
+[target.'cfg(all(unix, target_arch = "x86_64"))'.dev-dependencies]
+rug = { workspace = true, features = ["integer", "std"] }
+
+[features]
+default = ["std"]
+std = ["byteorder/std", "crunchy/std", "hex/std"]
+
+[[example]]
+name = "modular"
+
+[[test]]
+name = "uint_tests"
+required-features = ["std"]
+
+[[bench]]
+name = "bigint"
+harness = false

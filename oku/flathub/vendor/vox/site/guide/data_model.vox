@@ -1,0 +1,204 @@
+---
+title = "Data Model"
+layout = "page"
+permalink = "none"
+---
+
+{% markdown %}
+
+## Overview
+{% raw %}
+Sites have the following structure: 
+- A `global.toml` file. Anything here defines the `{{ global }}` context.
+- `.vox` files:
+    - Inside the `layouts` folder, defining pages which other pages can use as a template.
+    - Inside any other subdirectory, defining pages inside a collection; a collection provides its own context, referred to by the name of the subdirectory.
+    - Inside the root folder, defining pages not inside a collection.
+- `.voxs` files:
+    - Inside the `snippets` folder, defining partial pages which can be embedded in other pages.
+- Anything else is simply ignored.
+All of the items above are optional; even the `global.toml` file is optional if no page requires it.
+{% endraw %}
+
+## Global
+
+The `global` context is defined by the contents of `global.toml`. An example of such a file is:
+```toml
+title = "Vox"
+description = "A performant static site generator built to scale."
+author = "Emil Sayahi"
+locale = "en_US"
+url = "https://emmyoh.github.io/vox"
+```
+
+The only field with meaning in any site is the `locale` field; it is used to render dates and times. If omitted from `global.toml`, the locale used for rendering is the system locale, or `en_US` if a system locale cannot be determined.
+
+## Meta
+
+The `meta` context comprises the following:
+- `meta.date`, being the current date-time of the build.
+- `meta.builder`, being the name of the software building the site ('Vox').
+- `meta.version`, being the current version number of Vox.
+
+## Page
+
+The `page` context is composed of several fields. Refer to [the developer documentation](https://emmyoh.github.io/vox/vox/page/struct.Page.html#fields) for details on pages.
+
+## Layouts
+
+The `layouts` context is a list where each item is a layout page's context, but with the final item being the context of the page above the layouts; items are in ascending order.
+If you need a better intuition of how this list is ordered, visualise the DAG of your site; for each layout page, the first page in this list is the page directly above it.
+
+Additionally, there is the `layout` context, being the specific layout page being rendered.
+The `page` context is the context of the page above any layouts.
+
+As a reminder, the terminal pages of the DAG are the pages which are output by Vox; rendering is done in topological order (from the root pages down to the terminal pages).
+
+---
+
+As an example, suppose the following layouts:
+
+{% raw %}
+### `default`
+```html
+---
+---
+<html lang="en">
+    <head>
+        <title>
+            {% if page.data.title %}
+                {{ page.data.title }}
+            {% else %}
+                {{ global.title }}
+            {% endif %}
+        </title>
+    </head>
+    <body>
+        {{ layouts | map: "rendered" | first }}
+    </body>
+</html>
+```
+
+### `post`
+```html
+---
+layout = "default"
+---
+
+<h1>Post</h1>
+{{ page.rendered }}
+```
+
+### `page`
+```html
+---
+layout = "default"
+---
+
+<h1>Page</h1>
+{{ page.rendered }}
+```
+
+Then suppose the following pages:
+
+### Page A
+```html
+---
+layout = "default"
+permalink = "a.html"
+---
+Page A
+```
+
+### Page B
+```html
+---
+layout = "post"
+permalink = "b.html"
+title = "Page B"
+---
+Page B
+```
+
+### Page C
+```html
+---
+layout = "page"
+permalink = "c.html"
+---
+Page C
+```
+
+Lastly, suppose `{{ global.title }}` is `Global Title`.
+{% endraw %}
+
+Each page would be rendered as follows:
+
+### `a.html`
+```html
+<html lang="en">
+    <head>
+        <title>
+            Global Title
+        </title>
+    </head>
+    <body>
+        Page A
+    </body>
+</html>
+```
+
+### `b.html`
+```html
+<html lang="en">
+    <head>
+        <title>
+            Page B
+        </title>
+    </head>
+    <body>
+        <h1>Post</h1>
+        Page B
+    </body>
+</html>
+```
+
+### `c.html`
+```html
+<html lang="en">
+    <head>
+        <title>
+            Global Title
+        </title>
+    </head>
+    <body>
+        <h1>Page</h1>
+        Page C
+    </body>
+</html>
+```
+
+---
+
+## Include
+
+The `include` context is used to pass parameters to snippets.
+
+For example, suppose a page contained the following line:
+{% raw %}
+```liquid
+{% include image.voxs source = "my_image.png" %}
+```
+
+Then suppose the contents of `snippets/image.voxs` were:
+```html
+<img src="{{ include.source }}">
+```
+{% endraw %}
+
+The rendered page would contain the line:
+```html
+<img src="my_image.png">
+```
+
+{% endmarkdown %}

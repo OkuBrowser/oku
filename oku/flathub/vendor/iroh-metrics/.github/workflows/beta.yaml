@@ -1,0 +1,48 @@
+# Run tests using the beta Rust compiler
+
+name: Beta Rust
+
+on:
+  schedule:
+    # 06:50 UTC every Monday
+    - cron: '50 6 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: beta-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IROH_FORCE_STAGING_RELAYS: "1"
+
+# Default to read-only; jobs that need more grant it explicitly.
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    uses: '$/.github/workflows/tests.yaml'
+    with:
+      rust-version: beta
+  notify:
+    needs: tests
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract test results
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          printf '%s\n' "$NEEDS_JSON"
+          result=$(echo "$NEEDS_JSON" | jq -r .tests.result)
+          echo TESTS_RESULT=$result
+          echo "TESTS_RESULT=$result" >>"$GITHUB_ENV"
+      - name: Notify discord on failure
+        uses: n0-computer/discord-webhook-notify@1399c1b2d57cc05894d506d2cfdc33c5f012b993 # v1.1.1
+        if: ${{ env.TESTS_RESULT == 'failure' }}
+        with:
+          severity: error
+          details: |
+            Rustc beta tests failed in **${{ github.repository }}**
+            See https://github.com/${{ github.repository }}/actions/workflows/beta.yaml
+          webhookUrl: ${{ secrets.DISCORD_N0_GITHUB_CHANNEL_WEBHOOK_URL }}

@@ -1,0 +1,174 @@
+# Changelog
+## [0.20.0] - 2026-01-01
+### Breaking changes
+ - Please check breaking changes in netlink-packet-route 0.28.0 and 0.27.0.
+ - Use netlink-packet-route 0.28.0. (0486ff7)
+ - Change `LinkBond` to align with rust-netlink-route 0.27.0. (563f95d)
+
+### New features
+ - link: Support specifying arbitrary LinkMessage for `RTM_DELLINK`. (d4d5a4b)
+ - link: Support changing VLAN filter of bridge itself. (1f8b7da)
+ - link: Support changing bridge VLAN filtering. (e520140)
+ - link: Add `LinkBridgePort` for modifying bridge port properties. (86dd67d)
+ - link: Expand LinkBridge to support all bridge options. (c85d988)
+ - link: Add support for `netkit` devices. (2f18ca4)
+ - link: Add `LinkHandle::change()` to changing existing interface. (2d1a6cc)
+
+### Bug fixes
+ - link bridge: Fix typo of document. (a994f72)
+
+## [0.19.0] - 2025-12-09
+### Breaking changes
+ - Please check breaking changes of netlink-packet-route 0.19.0
+
+### New features
+ - vlan: Add wrapper for setting VLAN protocol and flags. (50fbcb3)
+ - Add function on RouteMessageBuilder for setting route mark. (c0edfbf)
+ - Support creating multicast netlink connection. (84dfe67)
+
+### Bug fixes
+ - Swap 'futures' dependency for 'futures-util' and 'futures-channel'. (26eda64)
+
+## [0.18.1] - 2025-09-09
+### Breaking changes
+ - N/A
+
+### New features
+ - route: Support defining ECMP weight. (7fcba62)
+ - route: Support defining ECMP flags. (18c4331)
+ - route: allow IPv6 gateway in IPv4 route. (e1784a3)
+
+### Bug fixes
+ - N/A
+
+## [0.18.0] - 2025-08-27
+### Breaking changes
+ - Please check `netlink-packet-route` 0.25.0 breaking changes.
+ - Please check `netlink-packet-core` 0.8.0 breaking changes.
+ - Please check `netlink-proto` 0.12.0 breaking changes.
+ - Removed `rtnetlink::packet_utils`. (9373d77)
+
+### New features
+ - ip: Introduced `AddressMessageBuilder`. (1fe2569)
+ - macsec: Introduced `LinkMacSec`. (b9dd9d9)
+ - Allow the user to specify their own socket. (6547f22)
+ - Allow `TrafficGetFilterRequest` to get ingress or egress filters. (45f9206)
+
+### Bug fixes
+ - Replace `impl TryStream` with `impl Stream`. (513e8c3)
+ - Fix android build. (3e270c6)
+ - Should not set `NLM_F_EXCL` when deleting alt-name. (7dd58dd)
+
+## [0.17.0] - 2025-05-29
+### Breaking changes
+ - Please check `netlink-packet-route` 0.24.0 breaking changes.
+
+### New features
+ - route: Implement support for the ONLINK flag. (30aa30f)
+ - route: Support for MPLS routes and nexthop label stacks. (e7e7344)
+ - route: Support for multipath routes. (0236751)
+
+### Bug fixes
+ - N/A
+
+## [0.16.0] - 2025-03-10
+### Breaking changes
+ - N/A
+
+### New features
+ - Add support of tc filter del command. (51cfceb)
+
+### Bug fixes
+ - Fix error on decoding empty `IFLA_VFINFO_LIST`. (581b4ac)
+
+## [0.15.0] - 2025-03-10
+### Breaking changes
+ - Deprecated `LinkAddRequest::xfrmtun()` in the favor of
+   `LinkAddRequest::xfrmtun_link`. (de62338)
+ - Changed `RouteGetRequest::new()` to use `RouteMessageBuilder`. (9be24c6)
+ - Changed `LinkAddRequest()` and `LinkSetRequest` to use
+   `LinkMessageBuilder`. (230a729)
+
+### New features
+ - Support specifying link when crating xfrm interface. (de62338)
+ - Support creating VRF link. (6863102)
+ - Introducing `RouteAddRequest` for building netlink message for adding
+   routes. (b5e0cb6, 24bf04f)
+ - Reexport `netlink-*` packages. (a4d2611)
+ - impl Debug, Clone for all requests and handles. (515471f)
+
+### Bug fixes
+ - N/A
+
+## [0.14.1] - 2024-02-01
+### Breaking changes
+ - N/A
+
+### New features
+ - FreeBSD support. (eb04e60)
+ - Support specifying MAC address in `LinkAddRequest`. (d76171c)
+ - Support creating wireguard link in `LinkAddRequest`. (24982ec)
+ - Support setting priority in `RouteAddRequest`. (c840e78)
+
+### Bug fixes
+ - Fixing docs of AddressGetRequest::set_address_filter. (006a348)
+
+## [0.14.0] - 2023-12-05
+### Breaking changes
+ - Many `VxlanAddRequest` functions changed from u8 to bool. (ba4825a)
+ - Deprecated `LinkSetRequest::master()` in the favor of
+   `LinkSetRequest::controller()`. (ba4825a)
+ - Deprecated `LinkSetRequest::nomaster()` in the favor of
+   `LinkSetRequest::nocontroller()`. (ba4825a)
+ - Many `NeighbourAddRequest` functions changed from u8/u16 to enum. (ba4825a)
+ - Many `TrafficFilterNewRequest` functions changed from u8/u16 to enum.
+   (ba4825a)
+
+### New features
+ - Rule: function to set fw_mark when adding rule. (dabef43)
+
+### Bug fixes
+ - N/A
+
+## [0.13.1] - 2023-07-18
+### Breaking changes
+ - Deprecated `BondAddRequest::active_slave()` in the favor of
+   `BondAddRequest::active_port()`. (9b67c97, bf6dbf0)
+ - Deprecated `BondAddRequest::all_slaves_active()` in the favor of
+   `BondAddRequest::all_ports_active()`. (9b67c97, bf6dbf0)
+
+### New features
+ - Support bond port setting. (7afe563)
+ - Support VLAN QOS setting. (78a58db)
+
+### Bug fixes
+ - N/A
+
+## [0.13.0] - 2023-07-10
+### Breaking changes
+ - `TrafficFilterNewRequest::u32()` changed to return `Result`. (b7f8c73)
+ - `TrafficFilterNewRequest::redirect() changed to return `Result`. (b7f8c73)
+ - Deprecated `RouteAddRequest::table` in the favor of
+   `RouteAddRequest::table_id` in order to support table ID bigger than 255.
+   (0a8eddd)
+
+### New features
+ - Support route table ID bigger than 255. (0a8eddd)
+ - Support creating xfrm tunnel. (5252908)
+
+### Bug fixes
+ - Removed assers. (e6bcf3e)
+
+## [0.12.0] - 2023-01-29
+### Breaking changes
+ - Removed these reexports. (2d58a54)
+     * `rtnetlink::packet`
+     * `rtnetlink::proto`
+     * `rtnetlink::sys`
+
+### New features
+ - Allow adding macvtap on a link. (ad1207f)
+ - Support setting priority when adding rules. (b771ffd)
+
+### Bug fixes
+ - Fix ip_monitor example. (b12f061)

@@ -1,0 +1,5 @@
+error: Each variant must have exactly one unnamed field
+ --> tests/compile_fail/multiple_fields.rs:5:5
+  |
+5 |     A(u8, u8),
+  |     ^^^^^^^^^

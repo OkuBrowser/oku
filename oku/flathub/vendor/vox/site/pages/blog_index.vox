@@ -1,0 +1,7 @@
+---
+layout = "default"
+depends = ["blog"]
+permalink = "blog/index.html"
+---
+{% assign posts = blog | sort: "date.rfc_3339" | reverse %}
+{% include index.voxs posts = posts minimal = true %}

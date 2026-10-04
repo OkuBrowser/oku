@@ -1,0 +1,11 @@
+[package]
+name = "anymap2"
+version = "0.13.0"
+edition = "2018"
+authors = ["Chris Morgan <me@chrismorgan.info>", "Azriel Hoh <azriel91@gmail.com>"]
+description = "A safe and convenient store for one value of each type"
+documentation = "https://docs.rs/anymap2"
+repository = "https://github.com/azriel91/anymap2"
+readme = "README.md"
+keywords = ["container", "data-structure", "map"]
+license = "MIT/Apache-2.0"

@@ -1,0 +1,5 @@
+error: Option::expect_or_abort() test
+ --> $DIR/option_ext.rs:4:1
+  |
+4 | option_ext!(one, two);
+  | ^^^^^^^^^^^^^^^^^^^^^^ in this macro invocation

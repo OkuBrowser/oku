@@ -1,0 +1,14 @@
+[bans]
+multiple-versions = "allow"
+deny = ["aws-lc", "aws-lc-rs", "aws-lc-sys", "native-tls", "openssl"]
+
+[licenses]
+allow = [
+    "Apache-2.0",
+    "MIT",
+    "Unicode-3.0",
+]
+
+
+[advisories]
+ignore = []

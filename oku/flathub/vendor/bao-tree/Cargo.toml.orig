@@ -1,0 +1,67 @@
+[package]
+name = "bao-tree"
+version = "0.16.1"
+authors = ["Rüdiger Klaehn <rklaehn@protonmail.com>"]
+description = "BLAKE3 verfiied streaming with custom chunk groups and range set queries"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/n0-computer/bao-tree"
+edition = "2021"
+keywords = ["hashing"]
+categories = ["data-structures"]
+rust-version = "1.75"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+range-collections = { version = "0.4.5", features = ["new_unchecked"] }
+smallvec = "1"
+
+bytes = { version = "1" }
+futures-lite = { version = "2.3", optional = true }
+self_cell = { version = "1" }
+iroh-io = { version = "0.6.2", default-features = false, optional = true }
+positioned-io = { version = "0.3.5", default-features = false }
+genawaiter = { version = "0.99.1", features = ["futures03"], optional = true }
+tokio = { version = "1", features = ["sync"], default-features = false, optional = true }
+blake3 = { version = "1.8" }
+serde = { version = "1", features = ["derive"], optional = true }
+
+[features]
+serde = ["dep:serde", "bytes/serde"]
+tokio_fsm = ["dep:futures-lite", "dep:iroh-io"]
+validate = ["dep:genawaiter"]
+experimental-mixed = ["dep:tokio", "dep:serde"]
+fs = []
+default = ["tokio_fsm", "validate", "serde", "fs"]
+
+[dev-dependencies]
+hex = "0.4.3"
+bao = "0.12.1"
+tokio = { version = "1", features = ["full"] }
+proptest = "1.0.0"
+rand = "0.8.5"
+criterion = "0.4.0"
+tempfile = "3.6.0"
+iroh-io = { version = "0.6.2" }
+warp = "0.3.5"
+proc-macro2 = "1.0.66"
+test-strategy = "0.3.1"
+serde = "1"
+clap = { version = "4", features = ["derive"] }
+postcard = { version = "1", features = ["use-std"] }
+anyhow = "1.0.75"
+
+[[bench]]
+name = "tree_bench"
+harness = false
+
+[workspace]
+members = ["cli"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[[example]]
+name = "cli"
+required-features = ["tokio_fsm"]

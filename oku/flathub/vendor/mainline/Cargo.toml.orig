@@ -1,0 +1,64 @@
+[package]
+name = "mainline"
+version = "8.0.0"
+authors = [
+    "nuh.dev",
+    "SeverinAlexB <severin@synonym.to>",
+    "SHAcollision <shacollision@synonym.to>",
+    "dzdidi <denys@synonym.to>",
+    "Kevin Karsopawiro <kevin@synonym.to>"
+]
+edition = "2021"
+rust-version = "1.85"
+description = "Simple, robust, BitTorrent's Mainline DHT implementation"
+homepage = "https://github.com/pubky/mainline"
+license = "MIT"
+keywords = ["bittorrent", "torrent", "dht", "kademlia", "mainline"]
+categories = ["network-programming"]
+repository = "https://github.com/pubky/mainline"
+exclude = ["/docs/*", "/examples/*"]
+
+[dependencies]
+getrandom = { version = "0.4", default-features = false }
+serde_bencode = { version = "0.2.4", default-features = false }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_bytes = "0.11.19"
+thiserror = { version = "2.0.18", default-features = false }
+crc = { version = "3.4.0", default-features = false }
+sha1_smol = { version = "1.0.1", default-features = false }
+ed25519-dalek = { version = "3.0.0-pre.1", default-features = false }
+tracing = "0.1.44"
+lru = { version = "0.16.2", default-features = false }
+dyn-clone = { version = "1.0.20", default-features = false }
+
+document-features = "0.2.12"
+
+# `node` dependencies
+flume = { version = "0.12.0", default-features = false, optional = true }
+
+# `async` dependencies
+futures-lite = { version = "2.6.1", default-features = false, optional = true }
+
+[dev-dependencies]
+clap = { version = "4.5.57", features = ["derive"] }
+futures = "0.3.31"
+tracing-subscriber = "0.3"
+ctrlc = "3.5.1"
+histo = "1.0.0"
+rayon = "1.11.0"
+dashmap = "6.1"
+flume = { version = "0.12.0", default-features = false }
+colored = "3.1.1"
+
+[features]
+## Include [Dht] node.
+node = ["dep:flume"]
+## Enable [Dht::as_async()] to use [async_dht::AsyncDht].
+async = ["node", "flume/async", "dep:futures-lite"]
+
+full = ["async"]
+
+default = ["full"]
+
+[package.metadata.docs.rs]
+all-features = true

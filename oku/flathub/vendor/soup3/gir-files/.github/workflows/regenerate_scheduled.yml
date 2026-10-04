@@ -1,0 +1,41 @@
+name: Redownload & regenerate (weekly)
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  regenerate:
+    name: Regenerate GIR files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Redownload, regenerate, reformat
+        id: changes
+        env:
+            GITLAB_KEY: ${{ secrets.GITLAB_KEY }}
+        run: |
+          sudo apt-get -q update
+          sudo apt-get -q upgrade
+          sudo apt-get -q install binutils wget tar xmlstarlet podman python3-requests python3-gitlab
+          podman pull ghcr.io/gtk-rs/gtk4-rs/gtk4:latest
+          podman run --rm -v "$(pwd)":/app -w /app ghcr.io/gtk-rs/gtk4-rs/gtk4:latest python3 dl.py
+          ./dl-win32.sh
+          python3 ./dl-gtk-macos.py
+          ./reformat.sh && ./fix.sh
+          echo ::set-output name=pr_title::"Update GIR files ($(date +%Y-%m-%d))"
+          echo ::set-output name=pr_body::"This PR was auto-generated on $(date +%Y-%m-%d). Please review and manually edit before merging."
+      - name: Create PR
+        id: cpr
+        uses: peter-evans/create-pull-request@v8
+        with:
+          commit-message: Update GIR files
+          title: ${{ steps.changes.outputs.pr_title }}
+          body: ${{ steps.changes.outputs.pr_body }}
+          delete-branch: true
+      - name: Review PR
+        run: |
+          echo "Opened PR #${{ steps.cpr.outputs.pull-request-number }} (${{ steps.cpr.outputs.pull-request-url }}) — ${{ steps.changes.outputs.pr_title }}"

@@ -1,0 +1,167 @@
+# x25519-dalek  [![](https://img.shields.io/crates/v/x25519-dalek.svg)](https://crates.io/crates/x25519-dalek) [![](https://docs.rs/x25519-dalek/badge.svg)](https://docs.rs/x25519-dalek) [![CI](https://github.com/dalek-cryptography/curve25519-dalek/actions/workflows/x25519-dalek.yml/badge.svg?branch=main)](https://github.com/dalek-cryptography/curve25519-dalek/actions/workflows/x25519-dalek.yml)
+
+A pure-Rust implementation of x25519 elliptic curve Diffie-Hellman key exchange,
+with curve operations provided by
+[curve25519-dalek](https://github.com/dalek-cryptography/curve25519-dalek).
+
+This crate provides two levels of API: a bare byte-oriented `x25519`
+function which matches the function specified in [RFC7748][rfc7748], as
+well as a higher-level Rust API for static and ephemeral Diffie-Hellman.
+
+## Examples
+
+<a href="https://shop.bubblesort.io">
+<img
+  style="float: right; width: auto; height: 300px;"
+  src="https://raw.githubusercontent.com/dalek-cryptography/x25519-dalek/master/res/bubblesort-zines-secret-messages-cover.jpeg"/>
+</a>
+
+Alice and Bob are two adorable kittens who have lost their mittens, and they
+wish to be able to send secret messages to each other to coordinate finding
+them, otherwise—if their caretaker cat finds out—they will surely be called
+naughty kittens and be given no pie!
+
+But the two kittens are quite clever.  Even though their paws are still too big
+and the rest of them is 90% fuzziness, these clever kittens have been studying
+up on modern public key cryptography and have learned a nifty trick called
+*elliptic curve Diffie-Hellman key exchange*.  With the right incantations, the
+kittens will be able to secretly organise to find their mittens, and then spend
+the rest of the afternoon nomming some yummy pie!
+
+First, Alice uses `EphemeralSecret::random()` and then
+`PublicKey::from()` to produce her secret and public keys:
+
+```ignore
+use x25519_dalek::{EphemeralSecret, PublicKey};
+
+let alice_secret = EphemeralSecret::random();
+let alice_public = PublicKey::from(&alice_secret);
+```
+
+Bob does the same:
+
+```ignore
+# use x25519_dalek::{EphemeralSecret, PublicKey};
+let bob_secret = EphemeralSecret::random();
+let bob_public = PublicKey::from(&bob_secret);
+```
+
+Alice meows across the room, telling `alice_public` to Bob, and Bob
+loudly meows `bob_public` back to Alice.  Alice now computes her
+shared secret with Bob by doing:
+
+```rust
+# use getrandom::{SysRng, rand_core::UnwrapErr};
+# use x25519_dalek::{EphemeralSecret, PublicKey};
+# let mut rng = UnwrapErr(SysRng);
+# let alice_secret = EphemeralSecret::random_from_rng(&mut rng);
+# let alice_public = PublicKey::from(&alice_secret);
+# let bob_secret = EphemeralSecret::random_from_rng(&mut rng);
+# let bob_public = PublicKey::from(&bob_secret);
+let alice_shared_secret = alice_secret.diffie_hellman(&bob_public);
+```
+
+Similarly, Bob computes a shared secret by doing:
+
+```rust
+# use getrandom::{SysRng, rand_core::UnwrapErr};
+# use x25519_dalek::{EphemeralSecret, PublicKey};
+# let mut rng = UnwrapErr(SysRng);
+# let alice_secret = EphemeralSecret::random_from_rng(&mut rng);
+# let alice_public = PublicKey::from(&alice_secret);
+# let bob_secret = EphemeralSecret::random_from_rng(&mut rng);
+# let bob_public = PublicKey::from(&bob_secret);
+let bob_shared_secret = bob_secret.diffie_hellman(&alice_public);
+```
+
+These secrets are the same:
+
+```rust
+# use getrandom::{SysRng, rand_core::UnwrapErr};
+# use x25519_dalek::{EphemeralSecret, PublicKey};
+# let mut rng = UnwrapErr(SysRng);
+# let alice_secret = EphemeralSecret::random_from_rng(&mut rng);
+# let alice_public = PublicKey::from(&alice_secret);
+# let bob_secret = EphemeralSecret::random_from_rng(&mut rng);
+# let bob_public = PublicKey::from(&bob_secret);
+# let alice_shared_secret = alice_secret.diffie_hellman(&bob_public);
+# let bob_shared_secret = bob_secret.diffie_hellman(&alice_public);
+assert_eq!(alice_shared_secret.as_bytes(), bob_shared_secret.as_bytes());
+```
+
+Voilà!  Alice and Bob can now use their shared secret to encrypt their
+meows, for example, by using it to generate a key and nonce for an
+authenticated-encryption cipher.
+
+This example used the ephemeral DH API, which ensures that secret keys
+cannot be reused; Alice and Bob could instead use the static DH API
+and load a long-term secret key.
+
+# Use
+
+To import `x25519-dalek`, add the following to your project's `Cargo.toml`:
+
+```toml
+[dependencies]
+x25519-dalek = "3.0.0"
+```
+
+# Feature Flags
+
+This crate is `#[no_std]` compatible with `default-features = false`.
+
+| Feature              | Default? | Description |
+| :---                 | :---     | :---        |
+| `zeroize`            | ✓        | Implements `Zeroize` and `ZeroizeOnDrop` for `EphemeralSecret`, `ReusableSecret`, and `StaticSecret` |
+| `precomputed-tables` | ✓        | Includes precomputed basepoint multiplication tables. This speeds up `PublicKey::from` by ~3x, at the cost of ~400KB added to the code size. |
+| `getrandom`          |          | Exposes the `random()` constructor for `EphemeralSecret`, `ReusableSecret`, and `StaticSecret` |
+| `reusable_secrets`   |          | Exposes the `ReusableSecret` struct |
+| `static_secrets`     |          | Exposes the `StaticSecret` struct |
+| `serde`              |          | Enables `serde` serialization/deserialization for `PublicKey` and `StaticSecret` |
+
+# Major Changes
+
+See [CHANGELOG.md](CHANGELOG.md) for a list of changes made in past versions of this crate.
+
+## Important Breaking Changes in 3.0.0
+
+* Update edition to 2024
+* Update the MSRV from 1.60 to 1.85
+* Remove `Zeroize` impl for `x25519::{EphemeralSecret, ReusableSecret, SharedSecret, StaticSecret}` to prevent misuse. These are now only zeroized on drop. ([#782](https://github.com/dalek-cryptography/curve25519-dalek/pull/782))
+* Remove `alloc` feature flag, which was doing nothing ([#857](https://github.com/dalek-cryptography/curve25519-dalek/pull/857))
+* Remove deprecated functions `{Ephemeral,Reusable,Static}Secret::new()` ([#778](https://github.com/dalek-cryptography/curve25519-dalek/pull/778))
+
+# MSRV
+
+Current MSRV is 1.85.
+
+# Documentation
+
+Documentation is available [here](https://docs.rs/x25519-dalek).
+
+# Performance and backend selection
+
+Performance is a secondary goal behind correctness, safety, and clarity, but we aim to be competitive with other implementations. To this end, we allow users to choose their _backend_, i.e., the underlying implementation of elliptic curve and scalar arithmetic. Different backends have different use cases. For example, if you demand formally verified code, you want to use the `fiat` backend (as it was generated from [Fiat Crypto][fiat]).
+
+Further instructions and details regarding backends can be found in the [curve25519-dalek docs](https://github.com/dalek-cryptography/curve25519-dalek#backends).
+
+# Note
+
+This code matches the [RFC7748][rfc7748] test vectors.
+The elliptic curve
+operations are provided by `curve25519-dalek`, which makes a best-effort
+attempt to prevent software side-channels.
+
+"Secret Messages" cover image and [zine](https://shop.bubblesort.io/products/secret-messages-zine)
+copyright © Amy Wibowo ([@sailorhg](https://twitter.com/sailorhg))
+
+[rfc7748]: https://tools.ietf.org/html/rfc7748
+
+# See also
+
+- [crypto_box]: pure Rust public-key authenticated encryption compatible with
+  the NaCl family of encryption libraries (libsodium, TweetNaCl) which uses
+  `x25519-dalek` for key agreement
+
+[fiat]: https://github.com/mit-plv/fiat-crypto
+[crypto_box]: https://github.com/RustCrypto/nacl-compat/tree/master/crypto_box

@@ -1,0 +1,63 @@
+[workspace]
+members = [
+    "sys",
+]
+exclude = ["gir"]
+
+[workspace.package]
+authors = ["The Gtk-rs Project Developers"]
+edition = "2024"
+homepage = "https://world.pages.gitlab.gnome.org/Rust/soup3-rs/"
+keywords = ["soup", "gtk-rs", "gnome"]
+license = "MIT"
+repository = "https://gitlab.gnome.org/World/Rust/soup3-rs"
+rust-version = "1.92"
+version = "0.9.0"
+
+[package]
+name = "soup3"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Soup crate for Rust"
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+authors.workspace = true
+homepage.workspace = true
+documentation = "https://world.pages.gitlab.gnome.org/Rust/soup3-rs/git/docs/"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]
+all-features = true
+
+[lib]
+name = "soup"
+
+[dependencies]
+libc = "0.2"
+futures-channel = "0.3"
+
+[dependencies.ffi]
+package = "soup3-sys"
+path = "sys"
+version = "0.9"
+
+[dependencies.glib]
+git = "https://github.com/gtk-rs/gtk-rs-core"
+branch = "0.22"
+version = "0.22"
+features = [ "v2_66" ]
+
+[dependencies.gio]
+git = "https://github.com/gtk-rs/gtk-rs-core"
+branch = "0.22"
+version = "0.22"
+features = [ "v2_70" ]
+
+[features]
+default = ["ffi/v3_0"]
+v3_2 = ["ffi/v3_2"]
+v3_4 = ["v3_2", "ffi/v3_4"]
+v3_6 = ["v3_4", "ffi/v3_6"]
+v3_8 = ["v3_6", "ffi/v3_8"]

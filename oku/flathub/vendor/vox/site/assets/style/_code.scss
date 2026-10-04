@@ -1,0 +1,58 @@
+// Code
+//
+// Inline and block-level code snippets. Includes tweaks to syntax highlighted
+// snippets from Pygments/Rouge and Gist embeds.
+
+code,
+pre {
+  font-family: var(--code-font);
+}
+
+code {
+  font-size: 85%;
+}
+
+pre {
+  display: block;
+  margin-top: 0;
+  margin-bottom: var(--spacer-3);
+  overflow: auto;
+}
+
+.highlight {
+  padding: var(--spacer);
+  margin-bottom: var(--spacer);
+  background-color: var(--code-bg);
+  border-radius: var(--border-radius);
+
+  pre {
+    margin-bottom: 0;
+  }
+
+  // Triple backticks (code fencing) doubles the .highlight elements
+  .highlight {
+    padding: 0;
+  }
+}
+
+.rouge-table {
+  margin-bottom: 0;
+  font-size: 100%;
+
+  &,
+  td,
+  th {
+    border: 0;
+  }
+
+  .gutter {
+    vertical-align: top;
+    user-select: none;
+    opacity: .25;
+  }
+}
+
+// Gist via GitHub Pages
+.gist .markdown-body {
+  padding: 15px !important;
+}

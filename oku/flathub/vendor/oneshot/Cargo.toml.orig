@@ -1,0 +1,57 @@
+[package]
+name = "oneshot"
+version = "0.1.13"
+authors = ["Linus Färnstrand <faern@faern.net>"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+
+description = """
+Oneshot spsc channel with (potentially) lock-free non-blocking send, and a receiver supporting
+both thread blocking receive operations as well as Future based async polling.
+"""
+
+repository = "https://github.com/faern/oneshot"
+keywords = ["oneshot", "spsc", "async", "sync", "channel"]
+categories = ["asynchronous", "concurrency"]
+edition = "2021"
+rust-version = "1.60.0"
+
+[features]
+# TODO: Remove the default features on next breaking release and make them opt-in.
+# Because default features are evil
+default = ["std", "async"]
+
+# Enables usage of libstd. Adds support for thread blocking receive methods.
+std = []
+# Enables async receiving by implementing Future
+async = []
+
+# Only used for internal correctness testing.
+# Downstream users of oneshot should never enable this feature. Enabling it does nothing.
+# To compile oneshot built against loom one must *also* set RUSTFLAGS="--cfg oneshot_loom"
+[target.'cfg(oneshot_loom)'.dependencies]
+loom = { version = "0.7.2", features = ["futures"], optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "time"] }
+async-std = { version = "1", features = ["attributes"] }
+
+# Benchmarking only dependency. This is hidden behind a `cfg(criterion)` to avoid it being
+# pulled in during `cargo test` runs. Mostly because criterion has a much higher MSRV than
+# this library, so it becomes impossible to run `cargo test` on the MSRV compiler without
+# this hack.
+# To run benchmarks, run with `RUSTFLAGS="--cfg criterion" cargo bench`
+[target.'cfg(criterion)'.dev-dependencies]
+criterion = "0.5.1"
+
+
+[lints.rust]
+unexpected_cfgs = { level = "deny", check-cfg = ['cfg(oneshot_loom)', 'cfg(oneshot_test_delay)', 'cfg(criterion)'] }
+
+[[bench]]
+name = "benches"
+harness = false
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

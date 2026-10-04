@@ -1,0 +1,105 @@
+name: Rust CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        components: rustfmt, clippy
+        override: true
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-registry-
+
+    - name: Cache cargo index
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-index-
+
+    - name: Cache cargo build
+      id: cargo-build-cache
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-build-${{ hashFiles('./Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-build-
+
+    - name: Cache Nextest installation
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/bin/cargo-nextest
+        key: ${{ runner.os }}-cargo-nextest
+
+    - name: Install Nextest if not cached
+      run: |
+        if [ ! -f ~/.cargo/bin/cargo-nextest ]; then
+          cargo install cargo-nextest --locked
+        fi
+
+    - name: Check formatting
+      id: fmt
+      run: cargo fmt -- --check
+      continue-on-error: true
+
+    - name: Lint with Clippy
+      run: cargo clippy --workspace --bins --tests -- -D warnings
+
+    - name: Build
+      if: steps.cargo-build-cache.outputs.cache-hit != 'true'
+      run: cargo build --release --workspace --verbose
+
+    - name: Run tests with Nextest
+      run: cargo nextest run --workspace --verbose
+
+    - name: Run docs
+      run: cargo doc --workspace --no-deps --document-private-items --verbose
+
+    - name: Fail if formatting check failed
+      if: steps.fmt.outcome == 'failure'
+      run: exit 1
+
+  minimal-versions:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@nightly
+    - uses: dtolnay/rust-toolchain@stable
+    - name: Resolve to minimum versions
+      run: cargo +nightly -Z minimal-versions update
+    - name: Check lib at minimum versions
+      run: cargo check --lib --locked
+
+  cargo-deny:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: EmbarkStudios/cargo-deny-action@v2
+      with:
+        command: check
+        arguments: --workspace --all-features
+        command-arguments: "-Dwarnings"

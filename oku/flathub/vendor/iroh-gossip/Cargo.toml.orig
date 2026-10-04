@@ -1,0 +1,170 @@
+[package]
+name = "iroh-gossip"
+version = "0.101.0"
+edition = "2021"
+readme = "README.md"
+description = "gossip messages over broadcast trees"
+license = "MIT/Apache-2.0"
+authors = ["n0 team"]
+repository = "https://github.com/n0-computer/iroh-gossip"
+resolver = "2"
+
+# Sadly this also needs to be updated in .github/workflows/ci.yml
+rust-version = "1.91"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[lints.rust]
+missing_debug_implementations = "warn"
+
+# We use this --cfg for documenting the cargo features on which an API
+# is available.  To preview this locally use: RUSTFLAGS="--cfg
+# iroh_docsrs cargo +nightly doc --all-features".  We use our own
+# iroh_docsrs instead of the common docsrs to avoid also enabling this
+# feature in any dependencies, because some indirect dependencies
+# require a feature enabled when using `--cfg docsrs` which we can not
+# do.  To enable for a crate set `#![cfg_attr(iroh_docsrs,
+# feature(doc_cfg))]` in the crate.
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(iroh_docsrs)"] }
+
+[lints.clippy]
+unused-async = "warn"
+
+[dependencies]
+blake3 = "1.8"
+bytes = { version = "1.7", features = ["serde"] }
+data-encoding = "2.6.0"
+derive_more = { version = "2.0.1", features = [
+    "add",
+    "debug",
+    "deref",
+    "display",
+    "from",
+    "try_into",
+    "into",
+] }
+hex = "0.4.3"
+indexmap = "2.0"
+iroh-metrics = { version = "1.0.1", default-features = false }
+iroh-base = { version = "1", default-features = false, features = ["key"] }
+n0-future = "0.3"
+postcard = { version = "1", default-features = false, features = [
+    "alloc",
+    "use-std",
+    "experimental-derive",
+] }
+rand = { version = "0.10.1", features = ["std_rng"] }
+serde = { version = "1.0.164", features = ["derive"] }
+
+# net dependencies (optional)
+futures-concurrency = { version = "7.6.1", optional = true }
+iroh = { version = "1", default-features = false, optional = true }
+tokio = { version = "1", optional = true, features = ["io-util", "sync"] }
+tokio-util = { version = "0.7.12", optional = true, features = ["codec"] }
+tracing = "0.1"
+irpc = { version = "0.17.0", optional = true, default-features = false, features = [
+    "derive",
+    "stream",
+    "spans",
+] }
+n0-error = { version = "1", features = ["anyhow"] }
+
+# rpc dependencies (optional)
+noq = { version = "1", optional = true, default-features = false }
+
+# test-utils dependencies (optional)
+humantime-serde = { version = "1.1.1", optional = true }
+
+# simulator dependencies (optional)
+clap = { version = "4", features = ["derive"], optional = true }
+toml = { version = "1.1.2", optional = true }
+tracing-subscriber = { version = "0.3", features = [
+    "env-filter",
+], optional = true }
+serde_json = { version = "1", optional = true }
+rayon = { version = "1.10.0", optional = true }
+comfy-table = { version = "7.1.4", optional = true }
+
+
+[dev-dependencies]
+tokio = { version = "1", features = [
+    "io-util",
+    "sync",
+    "rt",
+    "macros",
+    "net",
+    "fs",
+] }
+clap = { version = "4", features = ["derive"] }
+humantime-serde = { version = "1.1.1" }
+iroh = { version = "1", default-features = false, features = [
+    "metrics",
+    "test-utils",
+    "tls-ring"
+] }
+testresult = "0.4.1"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+n0-tracing-test = "0.3"
+url = "2.4.0"
+serde-byte-array = "0.1.2"
+rand = { version = "0.10", features = ["chacha"] }
+
+[features]
+default = ["net", "metrics"]
+net = [
+    "dep:irpc",
+    "dep:iroh",
+    "dep:tokio",
+    "dep:tokio-util",
+    "dep:futures-concurrency",
+]
+rpc = [
+    "dep:irpc",
+    "dep:tokio",
+    "dep:noq",
+    "irpc/rpc",
+    "irpc/noq_endpoint_setup",
+]
+rpc-tls-ring = ["noq/ring"]
+rpc-tls-aws-lc-rs = ["noq/aws-lc-rs"]
+test-utils = ["rand/chacha", "dep:humantime-serde"]
+simulator = [
+    "test-utils",
+    "dep:tracing-subscriber",
+    "dep:toml",
+    "dep:clap",
+    "dep:serde_json",
+    "dep:rayon",
+    "dep:comfy-table",
+]
+metrics = ["iroh-metrics/metrics"]
+examples = ["net"]
+
+[[test]]
+name = "sim"
+path = "tests/sim.rs"
+required-features = ["test-utils"]
+
+[[bin]]
+name = "sim"
+required-features = ["simulator"]
+
+[[example]]
+name = "chat"
+required-features = ["examples"]
+
+[[example]]
+name = "setup"
+required-features = ["examples"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "iroh_docsrs"]
+
+[profile.bench]
+debug = true
+
+[profile.release]
+debug = true
+

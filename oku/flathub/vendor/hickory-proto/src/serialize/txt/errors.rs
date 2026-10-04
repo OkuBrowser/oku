@@ -1,0 +1,182 @@
+use alloc::string::String;
+#[cfg(feature = "std")]
+use std::io;
+
+use thiserror::Error;
+
+use crate::{
+    error::ProtoError,
+    rr::RecordType,
+    serialize::{binary::DecodeError, txt::Token},
+};
+
+/// An alias for parse results returned by functions of this crate
+pub type ParseResult<T> = ::core::result::Result<T, ParseError>;
+
+/// The error kind for parse errors that get returned in the crate
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum ParseError {
+    /// An invalid numerical character was found
+    #[error("invalid numerical character: {0}")]
+    CharToInt(char),
+
+    /// An error with an arbitrary message, referenced as &'static str
+    #[error("{0}")]
+    Message(&'static str),
+
+    /// A token is missing
+    #[error("token is missing: {0}")]
+    MissingToken(String),
+
+    /// An error with an arbitrary message, stored as String
+    #[error("{0}")]
+    Msg(String),
+
+    /// A time string could not be parsed
+    #[error("invalid time string: {0}")]
+    ParseTime(String),
+
+    /// Found an unexpected token in a stream
+    #[error("unrecognized token in stream: {0:?}")]
+    UnexpectedToken(Token),
+
+    // foreign
+    /// An address parse error
+    #[error("network address parse error: {0}")]
+    AddrParse(#[from] core::net::AddrParseError),
+
+    /// A data encoding error
+    #[error("data encoding error: {0}")]
+    DataEncoding(#[cfg_attr(feature = "std", source)] data_encoding::DecodeError),
+
+    /// An error got returned from IO
+    #[cfg(feature = "std")]
+    #[error("io error: {0}")]
+    Io(#[from] io::Error),
+
+    /// An error from the lexer
+    #[error("lexer error: {0}")]
+    Lexer(#[from] LexerError),
+
+    /// A number parsing error
+    #[error("error parsing number: {0}")]
+    ParseInt(#[from] core::num::ParseIntError),
+
+    /// An error got returned by the hickory-proto crate
+    #[error("proto error: {0}")]
+    Proto(#[from] ProtoError),
+
+    /// Unknown RecordType
+    #[error("unknown RecordType: {0}")]
+    UnknownRecordType(u16),
+
+    /// Unknown RecordType
+    #[error("unsupported RecordType: {0}")]
+    UnsupportedRecordType(RecordType),
+}
+
+impl Clone for ParseError {
+    fn clone(&self) -> Self {
+        use ParseError::*;
+        match self {
+            CharToInt(c) => CharToInt(*c),
+            Message(msg) => Message(msg),
+            MissingToken(s) => MissingToken(s.clone()),
+            Msg(msg) => Msg(msg.clone()),
+            ParseTime(s) => ParseTime(s.clone()),
+            UnexpectedToken(token) => UnexpectedToken(token.clone()),
+
+            AddrParse(e) => AddrParse(e.clone()),
+            DataEncoding(e) => DataEncoding(*e),
+            #[cfg(feature = "std")]
+            Io(e) => Io(io::Error::from(e.kind())),
+            Lexer(e) => Lexer(e.clone()),
+            ParseInt(e) => ParseInt(e.clone()),
+            Proto(e) => Proto(e.clone()),
+            UnsupportedRecordType(ty) => UnsupportedRecordType(*ty),
+            UnknownRecordType(ty) => UnknownRecordType(*ty),
+        }
+    }
+}
+
+impl From<data_encoding::DecodeError> for ParseError {
+    fn from(e: data_encoding::DecodeError) -> Self {
+        Self::DataEncoding(e)
+    }
+}
+
+impl From<&'static str> for ParseError {
+    fn from(msg: &'static str) -> Self {
+        Self::Message(msg)
+    }
+}
+
+impl From<String> for ParseError {
+    fn from(msg: String) -> Self {
+        Self::Msg(msg)
+    }
+}
+
+impl From<DecodeError> for ParseError {
+    fn from(e: DecodeError) -> Self {
+        Self::from(ProtoError::from(e))
+    }
+}
+
+impl From<core::convert::Infallible> for ParseError {
+    fn from(_e: core::convert::Infallible) -> Self {
+        panic!("infallible")
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<ParseError> for io::Error {
+    fn from(e: ParseError) -> Self {
+        Self::other(e)
+    }
+}
+
+/// An alias for lexer results returned by functions of this crate
+pub(crate) type LexerResult<T> = Result<T, LexerError>;
+
+/// The error kind for lexer errors that get returned in the crate
+#[derive(Eq, PartialEq, Debug, Error, Clone)]
+#[non_exhaustive]
+pub enum LexerError {
+    /// Unexpected end of input
+    #[error("unexpected end of input")]
+    EOF,
+
+    /// An illegal character was found
+    #[error("illegal character input: {0}")]
+    IllegalCharacter(char),
+
+    /// An illegal state was reached
+    #[error("illegal state: {0}")]
+    IllegalState(&'static str),
+
+    /// An error with an arbitrary message, referenced as &'static str
+    #[error("{0}")]
+    Message(&'static str),
+
+    /// An unclosed list was found
+    #[error("unclosed list, missing ')'")]
+    UnclosedList,
+
+    /// An unclosed quoted string was found
+    #[error("unclosed quoted string")]
+    UnclosedQuotedString,
+
+    /// An unrecognized character was found
+    #[error("unrecognized character input: {0}")]
+    UnrecognizedChar(char),
+
+    /// An unrecognized dollar content was found
+    #[error("unrecognized dollar content: {0}")]
+    UnrecognizedDollar(String),
+
+    /// An unrecognized octet was found
+    #[error("unrecognized octet: {0:x}")]
+    UnrecognizedOctet(u32),
+}

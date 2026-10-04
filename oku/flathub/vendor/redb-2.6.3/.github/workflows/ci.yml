@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  pull_request:
+  push: # required for actions/cache to work
+    branches:
+      - master
+
+jobs:
+  ci:
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest", "ubuntu-24.04-arm"]
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      RUSTFLAGS: --deny warnings
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache
+        id: rust-cache
+        uses: actions/cache@v4
+        with:
+            path: |
+                ~/.cargo/bin/
+                ~/.cargo/registry/index/
+                ~/.cargo/registry/cache/
+                ~/.cargo/git/db/
+                target/
+            key: ${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/Cargo.toml', '.github/workflows/*.yml', 'rust-toolchain') }}
+
+      - name: Check for forbidden words
+        if: runner.os != 'Windows'
+        run: "! grep --include='*.rs' -RE 'to_be_bytes|from_be_bytes|dbg!' ."
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Rust
+        run: |
+            rustup component add rustfmt
+            rustup component add clippy
+
+      - name: OSX x86 rust
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          # For some reason this is required to run the fuzzer on OSX
+          rustup target add x86_64-apple-darwin
+
+      - name: Setup wasmtime
+        uses: bytecodealliance/actions/wasmtime/setup@v1
+        with:
+            version: "24.0.0"
+
+      - name: Install cargo-deny
+        if: steps.rust-cache.outputs.cache-hit != 'true'
+        run: cargo install --force --version 0.16.2 cargo-deny --locked
+
+      - name: Install cargo-fuzz
+        if: steps.rust-cache.outputs.cache-hit != 'true'
+        run: cargo install --force --version 0.12.0 cargo-fuzz --locked
+
+      - name: Install just
+        if: steps.rust-cache.outputs.cache-hit != 'true'
+        run: cargo install --force --version 1.36.0 just --locked
+
+      - name: Compile
+        run: cargo build --all-targets --all-features
+
+      - name: Fuzzer
+        if: startsWith(matrix.os, 'ubuntu') || startsWith(matrix.os, 'macos')
+        run: just fuzz_ci
+
+      - name: Run tests
+        run: just build test
+
+      - name: Clippy
+        run: cargo clippy --all --all-targets -- -Dwarnings
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Run CPython wrapper tests
+        if: runner.os != 'Windows'
+        run: |
+          python3 -m venv venv
+          source venv/bin/activate
+          pip3 install --upgrade pip
+          pip3 install maturin
+          just test_py
+
+      - name: Run CPython wrapper tests
+        if: runner.os == 'Windows'
+        run: |
+          python3 -m venv venv
+          venv\Scripts\activate
+          pip3 install --upgrade pip
+          pip3 install maturin
+          just test_py
+
+      - name: Run WASI tests
+        if: runner.os != 'Windows'
+        run: |
+          RUSTFLAGS="" just test_wasi

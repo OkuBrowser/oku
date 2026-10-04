@@ -1,0 +1,42 @@
+name: macOS
+
+on:
+  push:
+    branches: [ main, 0.8.x ]
+  pull_request:
+    branches: [ main, next, 0.8.x ]
+  schedule:
+    # At 23:00 on Thursday.
+    - cron:  '0 23 * * 4'
+
+env:
+  RUST_BACKTRACE: full
+
+jobs:
+  build_test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [macos-13]
+        toolchain: [stable]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - uses: extractions/setup-just@v3
+      - uses: hustcer/setup-nu@v3.19
+        with:
+          version: '0.105.1'
+        env:
+            GITHUB_TOKEN: ${{ secrets.PAT_GLOBAL }}
+      - name: Just version
+        run: just --version
+      - name: Build
+        run: just build_all
+      - name: cat cargo.toml
+        run: cat Cargo.toml
+      - name: Test
+        run: just test_all

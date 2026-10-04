@@ -1,0 +1,35 @@
+[package]
+name = "webkit6"
+description = "Rust bindings for WebKit 6.0"
+documentation = "https://world.pages.gitlab.gnome.org/Rust/webkit6-rs/stable/latest/docs/webkit6"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+categories.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+exclude.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--generate-link-to-definition"]
+
+[dependencies]
+libc = "^0.2"
+ffi = { package = "webkit6-sys", path = "sys", version = "0.6" }
+javascriptcore.workspace = true
+gtk.workspace = true
+gdk.workspace = true
+glib.workspace = true
+gio.workspace = true
+soup.workspace = true
+
+[features]
+v2_42 = ["ffi/v2_42"]
+v2_44 = ["ffi/v2_44", "v2_42"]
+v2_46 = ["ffi/v2_46", "v2_44"]
+v2_48 = ["ffi/v2_48", "v2_46"]
+v2_50 = ["ffi/v2_50", "v2_48"]
+v2_52 = ["ffi/v2_52", "v2_50"]
+gtk_v4_18 = ["gtk/v4_18"]

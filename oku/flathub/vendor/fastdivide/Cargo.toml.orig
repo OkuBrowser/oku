@@ -1,0 +1,25 @@
+[package]
+name = "fastdivide"
+version = "0.4.2"
+authors = ["Paul Masurel <paul.masurel@gmail.com>"]
+license = "zlib-acknowledgement OR MIT"
+description = """Fastdivide is a partial port of libdivide. It makes it possible to reduce the cost of divisions."""
+categories = ["database-implementations", "data-structures"]
+repository = "https://github.com/fulmicoton/fastdivide"
+readme = "README.md"
+edition = "2018"
+
+[features]
+std = []
+
+[dev-dependencies]
+proptest = "1"
+
+[[bench]]
+name = "bench-divide"
+path = "./src/bench.rs"
+test = false
+bench = true
+
+[profile.bench]
+lto = true

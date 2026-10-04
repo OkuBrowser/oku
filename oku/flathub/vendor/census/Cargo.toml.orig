@@ -1,0 +1,11 @@
+[package]
+name = "census"
+version = "0.4.2"
+authors = ["Paul Masurel <paul.masurel@gmail.com>"]
+license = "MIT"
+categories = []
+description = """Keeps an inventory of living objects"""
+homepage = "https://github.com/quickwit-inc/census"
+repository = "https://github.com/quickwit-inc/census"
+readme = "README.md"
+keywords = ["inventory"]

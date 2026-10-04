@@ -1,0 +1,193 @@
+// Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// https://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
+//! This module contains all the types for demuxing DNS oriented streams.
+
+use core::future::Future;
+use core::marker::PhantomData;
+use core::pin::Pin;
+use core::task::{Context, Poll};
+
+use futures_channel::mpsc;
+use futures_util::stream::{Peekable, Stream, StreamExt};
+use tracing::debug;
+
+use crate::error::NetError;
+use crate::proto::op::{DnsRequest, DnsResponse};
+use crate::runtime::RuntimeProvider;
+use crate::runtime::Time;
+use crate::xfer::dns_handle::DnsHandle;
+use crate::xfer::{
+    BufDnsRequestStreamHandle, DEFAULT_STREAM_BUFFER_SIZE, DnsRequestSender, DnsResponseReceiver,
+    OneshotDnsRequest,
+};
+
+/// This is a generic Exchange implemented over multiplexed DNS connection providers.
+///
+/// The underlying `DnsRequestSender` is expected to multiplex any I/O connections.
+/// DnsExchange assumes that the underlying stream is responsible for this.
+#[must_use = "futures do nothing unless polled"]
+pub struct DnsExchange<P> {
+    sender: BufDnsRequestStreamHandle<P>,
+}
+
+impl<P: RuntimeProvider> DnsExchange<P> {
+    /// Wraps a [`DnsRequestSender`] in a buffered, cloneable [`DnsHandle`].
+    ///
+    /// Returns a `DnsExchange` handle and a background future that must be spawned
+    /// to drive I/O. The handle can be cloned and shared across tasks; requests are
+    /// buffered in an internal channel and forwarded to the underlying stream by the
+    /// background task.
+    ///
+    /// # Arguments
+    ///
+    /// * `stream` - Any [`DnsRequestSender`] (e.g.,
+    ///   [`UdpClientStream`][crate::udp::UdpClientStream],
+    ///   [`TcpClientStream`][crate::tcp::TcpClientStream])
+    pub fn from_stream<S: DnsRequestSender>(
+        stream: S,
+    ) -> (Self, DnsExchangeBackground<S, P::Timer>) {
+        let (sender, outbound_messages) = mpsc::channel(DEFAULT_STREAM_BUFFER_SIZE);
+        (
+            Self {
+                sender: BufDnsRequestStreamHandle {
+                    sender,
+                    _phantom: PhantomData,
+                },
+            },
+            DnsExchangeBackground {
+                io_stream: stream,
+                outbound_messages: outbound_messages.peekable(),
+                marker: PhantomData,
+            },
+        )
+    }
+}
+
+impl<P: Clone> Clone for DnsExchange<P> {
+    fn clone(&self) -> Self {
+        Self {
+            sender: self.sender.clone(),
+        }
+    }
+}
+
+impl<P: RuntimeProvider> DnsHandle for DnsExchange<P> {
+    type Response = DnsExchangeSend<P>;
+    type Runtime = P;
+
+    fn send(&self, request: DnsRequest) -> Self::Response {
+        DnsExchangeSend {
+            result: self.sender.send(request),
+            _sender: self.sender.clone(), // TODO: this shouldn't be necessary, currently the presence of Senders is what allows the background to track current users, it generally is dropped right after send, this makes sure that there is at least one active after send
+        }
+    }
+}
+
+/// A Stream that will resolve to Responses after sending the request
+#[must_use = "futures do nothing unless polled"]
+pub struct DnsExchangeSend<P> {
+    result: DnsResponseReceiver,
+    _sender: BufDnsRequestStreamHandle<P>,
+}
+
+impl<P: Unpin> Stream for DnsExchangeSend<P> {
+    type Item = Result<DnsResponse, NetError>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        // as long as there is no result, poll the exchange
+        self.result.poll_next_unpin(cx)
+    }
+}
+
+/// This background future is responsible for driving all network operations for the DNS protocol.
+///
+/// It must be spawned before any DNS messages are sent.
+#[must_use = "futures do nothing unless polled"]
+pub struct DnsExchangeBackground<S, TE> {
+    io_stream: S,
+    outbound_messages: Peekable<mpsc::Receiver<OneshotDnsRequest>>,
+    marker: PhantomData<TE>,
+}
+
+impl<S, TE> DnsExchangeBackground<S, TE> {
+    fn pollable_split(&mut self) -> (&mut S, &mut Peekable<mpsc::Receiver<OneshotDnsRequest>>) {
+        (&mut self.io_stream, &mut self.outbound_messages)
+    }
+}
+
+impl<S: DnsRequestSender, TE: Time> Future for DnsExchangeBackground<S, TE> {
+    type Output = ();
+
+    #[allow(clippy::unused_unit)]
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let (io_stream, outbound_messages) = self.pollable_split();
+        let mut io_stream = Pin::new(io_stream);
+        let mut outbound_messages = Pin::new(outbound_messages);
+
+        // this will not accept incoming data while there is data to send
+        //  makes this self throttling.
+        loop {
+            // poll the underlying stream, to drive it...
+            match io_stream.as_mut().poll_next(cx) {
+                // The stream is ready
+                Poll::Ready(Some(Ok(()))) => (),
+                Poll::Pending => {
+                    if io_stream.is_shutdown() {
+                        // the io_stream is in a shutdown state, we are only waiting for final results...
+                        return Poll::Pending;
+                    }
+
+                    // NotReady and not shutdown, see if there are more messages to send
+                    ()
+                } // underlying stream is complete.
+                Poll::Ready(None) => {
+                    debug!("io_stream is done, shutting down");
+                    return Poll::Ready(());
+                }
+                Poll::Ready(Some(Err(error))) => {
+                    debug!(
+                        %error,
+                        "io_stream hit an error, shutting down"
+                    );
+
+                    return Poll::Ready(());
+                }
+            }
+
+            // then see if there is more to send
+            match outbound_messages.as_mut().poll_next(cx) {
+                // already handled above, here to make sure the poll() pops the next message
+                Poll::Ready(Some(dns_request)) => {
+                    // if there is no peer, this connection should die...
+                    let (dns_request, serial_response): (DnsRequest, _) = dns_request.into_parts();
+
+                    // Try to forward the `DnsResponseStream` to the requesting task. If we fail,
+                    // it must be because the requesting task has gone away / is no longer
+                    // interested. In that case, we can just log a warning, but there's no need
+                    // to take any more serious measures (such as shutting down this task).
+                    match serial_response.send_response(io_stream.send_message(dns_request)) {
+                        Ok(()) => (),
+                        Err(_) => {
+                            debug!("failed to associate send_message response to the sender");
+                        }
+                    }
+                }
+                // On not ready, this is our time to return...
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(None) => {
+                    // if there is nothing that can use this connection to send messages, then this is done...
+                    io_stream.shutdown();
+
+                    // now we'll await the stream to shutdown... see io_stream poll above
+                }
+            }
+
+            // else we loop to poll on the outbound_messages
+        }
+    }
+}

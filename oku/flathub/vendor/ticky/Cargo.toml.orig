@@ -1,0 +1,72 @@
+#    This file is part of Ticky.
+#
+#    Ticky is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Affero General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Ticky is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Affero General Public License for more details.
+#
+#    You should have received a copy of the GNU Affero General Public License
+#    along with Ticky.  If not, see <https://www.gnu.org/licenses/>.
+[package]
+name = "ticky"
+version = "1.0.2"
+authors = ["Emil Sayahi <limesayahi@gmail.com>"]
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "A stopwatch library, written in Rust."
+repository = "https://github.com/Dirout/ticky"
+homepage = "https://github.com/Dirout/ticky"
+readme = "README"
+resolver = "2"
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+    "COPYING",
+    "LICENSE.md",
+    "NOTICE",
+    "rust-toolchain",
+    "rustfmt.toml",
+    ".cargo/*",
+]
+
+[lib]
+name = "ticky"
+path = "src/lib.rs"
+crate-type=["rlib", "cdylib", "staticlib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cfg-if = "1.0.0"
+derive_more = { version = "0.99.17", optional = true }
+hifitime = { version = "3.8.0", default-features = false, optional = true }
+
+[features]
+default = ["std", "stdtime"]
+derive_more = ["dep:derive_more"]
+hifitime = ["dep:hifitime"]
+std = ["hifitime?/std"]
+stdtime = ["std"]
+
+[package.metadata.deb]
+section = "libs"
+priority = "optional"
+assets = [
+    ["target/x86_64-unknown-linux-gnu/release/libticky.so", "usr/lib/", "755"],
+    ["target/x86_64-unknown-linux-gnu/release/libticky.a", "usr/lib/", "755"],
+    ["README", "usr/share/doc/ticky/README", "644"],
+    ["COPYING", "usr/share/doc/ticky/COPYING", "644"],
+]
+
+[package.metadata.generate-rpm]
+assets = [
+  { source = "target/release/libticky.so", dest = "/usr/lib/libticky.so", mode = "755" },
+  { source = "target/release/libticky.a", dest = "/usr/lib/libticky.a", mode = "755" },
+  { source = "README", dest = "/usr/share/doc/ticky/README", mode = "644" },
+  { source = "COPYING", dest = "/usr/share/doc/ticky/COPYING", mode = "644" },
+]

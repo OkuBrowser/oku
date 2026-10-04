@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/suzuki-shunsuke/pinact/refs/heads/main/json-schema/pinact.json
+version: 3
+
+min_age:
+  value: 7 # days, matches the dependabot cooldown
+
+# No semver tag upstream to verify the version comment against. Forks; revisit
+# rather than leave indefinitely.
+rules:
+  - ignore: true
+    conditions:
+      # fork of obi1kenobi/cargo-semver-checks-action; check whether the
+      # baseline feature landed upstream.
+      - expr: |
+          ActionName == "n0-computer/cargo-semver-checks-action"
+  - min_age: 0
+    conditions:
+      # v4.0.2+ stops installing the `tools` SDK package, which Google no
+      # longer serves; every older release fails. Remove after 2026-09-24.
+      - expr: |
+          ActionName == "android-actions/setup-android" && VersionComment == "v4.0.4"

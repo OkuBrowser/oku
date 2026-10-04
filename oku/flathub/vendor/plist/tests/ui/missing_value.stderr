@@ -1,0 +1,12 @@
+error: unexpected end of macro invocation
+ --> tests/ui/missing_value.rs:4:5
+  |
+4 |     plist!({ "a" : });
+  |     ^^^^^^^^^^^^^^^^^ missing tokens in macro arguments
+  |
+note: while trying to match `@`
+ --> src/macros.rs
+  |
+  |     (@array [$($elems:expr,)*]) => {
+  |      ^
+  = note: this error originates in the macro `plist_internal` which comes from the expansion of the macro `plist` (in Nightly builds, run with -Z macro-backtrace for more info)

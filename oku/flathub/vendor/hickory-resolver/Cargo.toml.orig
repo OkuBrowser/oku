@@ -1,0 +1,143 @@
+[package]
+name = "hickory-resolver"
+
+description = """
+hickory-resolver is a safe and secure DNS stub resolver library intended to be a high-level library
+for DNS record resolution.
+"""
+
+documentation = "https://docs.rs/hickory-resolver"
+readme = "README.md"
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+license.workspace = true
+
+[features]
+default = ["system-config", "tokio"]
+
+tls-aws-lc-rs = ["hickory-net/tls-aws-lc-rs", "__tls"]
+https-aws-lc-rs = ["hickory-net/https-aws-lc-rs", "__https"]
+quic-aws-lc-rs = ["hickory-net/quic-aws-lc-rs", "__quic", "quinn/rustls-aws-lc-rs"]
+h3-aws-lc-rs = ["hickory-net/h3-aws-lc-rs", "__h3"]
+
+tls-ring = ["hickory-net/tls-ring", "__tls"]
+https-ring = ["hickory-net/https-ring", "__https"]
+quic-ring = ["hickory-net/quic-ring", "__quic", "quinn/rustls-ring"]
+h3-ring = ["hickory-net/h3-ring", "__h3"]
+
+__tls = ["dep:rustls", "dep:tokio-rustls", "tokio"]
+__https = ["__tls"]
+__quic = ["dep:quinn", "__tls"]
+__h3 = ["__quic"]
+
+webpki-roots = ["dep:webpki-roots", "hickory-net/webpki-roots"]
+rustls-platform-verifier = ["hickory-net/rustls-platform-verifier"]
+
+dnssec-aws-lc-rs = ["hickory-proto/dnssec-aws-lc-rs", "hickory-net/dnssec-aws-lc-rs", "__dnssec"]
+dnssec-ring = ["hickory-proto/dnssec-ring", "hickory-net/dnssec-ring", "__dnssec"]
+__dnssec = []
+
+recursor = ["dep:async-recursion", "dep:lru-cache"]
+
+serde = ["dep:serde", "hickory-proto/serde"]
+system-config = ["dep:ipconfig", "dep:resolv-conf", "dep:jni", "dep:ndk-context", "dep:system-configuration"]
+
+toml = ["dep:toml"]
+
+tokio = ["dep:tokio", "tokio/rt", "hickory-net/tokio"]
+
+metrics = ["dep:metrics"]
+
+[dependencies]
+async-recursion = { workspace = true, optional = true }
+cfg-if.workspace = true
+futures-util = { workspace = true, default-features = false, features = [
+    "std",
+] }
+metrics = { workspace = true, optional = true }
+ipnet = { workspace = true, features = ["serde"] }
+lru-cache = { workspace = true, optional = true }
+moka = { workspace = true, features = ["sync"] }
+once_cell.workspace = true
+parking_lot.workspace = true
+quinn = { workspace = true, optional = true, features = [
+    "log",
+    "runtime-tokio",
+] }
+rand.workspace = true
+resolv-conf = { workspace = true, optional = true, features = ["system"] }
+rustls = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive", "rc"], optional = true }
+smallvec.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tokio = { workspace = true, optional = true }
+tokio-rustls = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
+hickory-net = { workspace = true }
+hickory-proto = { workspace = true, features = ["access-control"] }
+webpki-roots = { workspace = true, optional = true }
+
+[target.'cfg(windows)'.dependencies]
+ipconfig = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = { workspace = true, optional = true }
+ndk-context = { workspace = true, optional = true }
+
+[target.'cfg(target_vendor = "apple")'.dependencies]
+system-configuration = { workspace = true, optional = true }
+
+[dev-dependencies]
+async-trait.workspace = true
+criterion = { workspace = true }
+futures-executor = { workspace = true, default-features = false, features = ["std"] }
+hickory-proto = { workspace = true }
+metrics-util = { workspace = true, features = ["debugging"] }
+serde_json = { workspace = true }
+test-support.workspace = true
+tokio = { workspace = true, features = ["macros", "test-util"] }
+toml.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
+
+[package.metadata.docs.rs]
+all-features = true
+default-target = "x86_64-unknown-linux-gnu"
+targets = ["x86_64-apple-darwin", "x86_64-pc-windows-msvc"]
+rustdoc-args = ["--cfg", "docsrs"]
+
+[[bench]]
+name = "recursor"
+harness = false
+required-features = ["recursor", "tokio"]
+
+[[example]]
+name = "custom_provider"
+required-features = ["tokio"]
+
+[[example]]
+name = "flush_cache"
+required-features = ["tokio", "system-config"]
+
+[[example]]
+name = "global_resolver"
+required-features = ["tokio", "system-config"]
+
+[[example]]
+name = "multithreaded_runtime"
+required-features = ["tokio", "system-config"]
+
+[lints]
+workspace = true
+
+[package.metadata.cargo-all-features]
+skip_optional_dependencies = true
+max_combination_size = 2
+denylist = ["__tls", "__https", "__quic", "__h3", "__dnssec"]

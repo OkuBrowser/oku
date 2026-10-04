@@ -1,0 +1,60 @@
+[package]
+name = "wmi"
+version = "0.18.4"
+authors = ["Ohad Ravid <ohad.rv@gmail.com>"]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+documentation = "https://docs.rs/crate/wmi"
+homepage = "https://github.com/ohadravid/wmi-rs"
+repository = "https://github.com/ohadravid/wmi-rs"
+description = """
+WMI crate for rust.
+"""
+categories = ["api-bindings", "os::windows-apis"]
+keywords = ["wmi", "com", "win32"]
+resolver = "2"
+
+[package.metadata.docs.rs]
+default-target = "x86_64-pc-windows-msvc"
+
+[features]
+default = ["chrono"]
+# Use { default-features = false, features = ["time"] } to use `time` instead of `chrono`.
+
+# For use in documentation tests
+test = []
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-core = { version = ">=0.59, <0.63" }
+windows = { version = ">=0.59, <0.63", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Com",
+    "Win32_System_Ole",
+    "Win32_System_Rpc",
+    "Win32_System_Wmi",
+    "Win32_System_Variant",
+] }
+time = { version = "0.3", features = ["formatting", "parsing", "macros", "serde"], optional = true }
+chrono = { version = "0.4", features = ["clock", "std", "serde"], optional = true, default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+futures = { version = "0.3" }
+thiserror = "^2"
+log = "0.4"
+
+[dev-dependencies]
+async-std = { version = "1",  features = ["attributes"] }
+tokio = { version = "1", features = ["rt", "macros"] }
+serde_json = { version = "1.0" }
+criterion = "0.8"
+tempdir = "0.3"
+rusty-fork = "0.3.0"
+
+[[bin]]
+name = "wmiq"
+
+[[bench]]
+name = "benchmark"
+path = "./src/benches/benchmark.rs"
+harness = false

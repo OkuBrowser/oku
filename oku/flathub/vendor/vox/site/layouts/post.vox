@@ -1,0 +1,9 @@
+---
+layout = "default"
+---
+
+<article class="post">
+  <h1 class="post-title">{{ page.data.title }}</h1>
+  <time datetime="{{ page.date.rfc_2822 }}" class="post-date">{{ page.date.short_day }}, {{ page.date.day }} {{ page.date.short_month }} {{ page.date.year }}</time>
+  {{ page.rendered }}
+</article>

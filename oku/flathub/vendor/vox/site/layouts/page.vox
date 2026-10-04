@@ -1,0 +1,8 @@
+---
+layout = "default"
+---
+
+<article class="page">
+  <h1 class="page-title">{{ page.data.title }}</h1>
+  {{ page.rendered }}
+</article>

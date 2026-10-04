@@ -1,0 +1,38 @@
+[package]
+name = "swarm-discovery"
+version = "0.6.3"
+edition = "2021"
+authors = ["Roland Kuhn"]
+description = "Discovery service for IP-based swarms"
+license = "Apache-2.0"
+repository = "https://github.com/rkuhn/swarm-discovery"
+readme = "README.md"
+keywords = ["swarm", "discovery", "udp"]
+categories = ["network-programming", "asynchronous"]
+documentation = "https://docs.rs/swarm-discovery"
+
+[features]
+serde = ["dep:serde"]
+
+[dependencies]
+acto = { version = "0.8.2", features = ["tokio"] }
+hickory-proto = { version = "0.26", default-features = false }
+rand = "0.10"
+serde = { version = "1.0.228", features = ["derive"], optional = true }
+socket2 = { version = "0.6", features = ["all"] }
+tokio = { version = "1.49.0", features = ["macros", "net", "rt", "time"] }
+thiserror = "2"
+tracing = "0.1.44"
+
+[dev-dependencies]
+if-addrs = "0.14.0"
+ipc-channel = "0.20.2"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+netsim-embed = { version = "0.9.1", features = ["ipc"] }
+
+[[test]]
+name = "discovery"
+harness = false
+required-features = ["serde"]

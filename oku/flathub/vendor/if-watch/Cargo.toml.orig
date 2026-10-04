@@ -1,0 +1,53 @@
+[package]
+name = "if-watch"
+version = "3.2.2"
+authors = ["David Craven <david@craven.ch>", "Parity Technologies Limited <admin@parity.io>"]
+edition = "2021"
+keywords = ["asynchronous", "routing"]
+license = "MIT OR Apache-2.0"
+description = "crossplatform asynchronous network watcher"
+repository = "https://github.com/libp2p/if-watch"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[features]
+tokio = ["dep:tokio", "rtnetlink/tokio_socket"]
+smol = ["dep:smol", "rtnetlink/smol_socket"]
+
+[dependencies]
+fnv = "1.0.7"
+futures = "0.3.19"
+ipnet = "2.3.1"
+log = "0.4.14"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+netlink-sys = { version = "0.8.8", default-features = false }
+netlink-packet-core = { version = "0.8.1", default-features = false }
+netlink-packet-route = { version = "0.28.0", default-features = false }
+netlink-proto = { version = "0.12.0", default-features = false }
+rtnetlink = { version = "0.20.0", default-features = false }
+
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
+core-foundation = "0.9.4"
+if-addrs = "0.15.0"
+system-configuration = "0.7.0"
+tokio = { version = "1.21.2", features = ["rt"], optional = true }
+smol = { version = "2", optional = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+if-addrs = "0.15.0"
+windows = { version = "0.62.0", features = ["Win32_NetworkManagement_IpHelper", "Win32_Foundation", "Win32_NetworkManagement_Ndis", "Win32_Networking_WinSock"] }
+
+[target.'cfg(not(any(target_os = "ios", target_os = "linux", target_os = "macos", target_os = "windows")))'.dependencies]
+async-io = "2.0.0"
+if-addrs = "0.15.0"
+
+[dev-dependencies]
+env_logger = "0.10.0"
+smol = "2"
+tokio = { version = "1.21.2", features = ["rt", "macros"] }
+
+[[example]]
+name = "if_watch"
+required-features = ["smol"]

@@ -1,0 +1,7 @@
+---
+layout = "default"
+depends = ["guide"]
+permalink = "guide/index.html"
+---
+{% assign posts = guide | sort: "data.title" %}
+{% include index.voxs posts = posts minimal = true %}

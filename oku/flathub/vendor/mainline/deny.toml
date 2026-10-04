@@ -1,0 +1,29 @@
+# Detects dependency and licenses issues
+#
+# https://github.com/EmbarkStudios/cargo-deny
+# https://embarkstudios.github.io/cargo-deny/checks/cfg.html
+# https://github.com/EmbarkStudios/cargo-deny/blob/main/deny.template.toml
+#
+# Install locally: cargo install --locked cargo-deny
+# Run locally: cargo deny check advisories licenses sources
+
+[graph]
+all-features = true
+
+[advisories]
+ignore = []
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "Zlib",
+    "Unicode-3.0",
+    "ISC",
+    "CDLA-Permissive-2.0",
+    "Unlicense"
+]
+unused-allowed-license = "allow"

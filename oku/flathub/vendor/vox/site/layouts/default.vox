@@ -1,0 +1,35 @@
+---
+---
+<!doctype html>
+<html lang="en">
+  {% include head.voxs %}
+  <body>
+    <a id="skip" href="#skip-target">Skip to main content</a>
+    <div class="container content">
+      <header class="masthead">
+        <img src="{{ '/logo.png' | prepend: global.url }}" class="logo"></img>
+        <h3 class="masthead-title">
+          <a href="{{ global.url }}" title="Home">{{ global.title }}</a>
+          <small>{{ global.description }}</small>
+        </h3>
+        {% assign output_name = page.url | split: "/" | last %}
+        {% if output_name != 'index.html' %}
+          {% if page.collections.first %}
+            <h4>
+              <a href="{{ global.url | append: "/" | append: page.collections.first | append: "/index.html" }}" title="Back to index">⟵ {{ page.collections.first | capitalize }}</a>
+            </h4>
+          {% endif %}
+        {% endif %}
+      </header>
+      <main id="skip-target">
+        {{ layouts | map: "rendered" | first }}
+      </main>
+      <footer class="footer">
+        <small>
+          &copy; {{ global.author }} <time datetime="{{ meta.date.rfc_2822 }}">{{ meta.date.year }}</time>
+        </small>
+      </footer>
+    </div>
+    <script src="//instant.page/5.2.0" type="module" integrity="sha384-jnZyxPjiipYXnSU0ygqeac2q7CVYMbh84q0uHVRRxEtvFPiQYbXWUorga2aqZJ0z"></script>
+  </body>
+</html>

@@ -1,0 +1,34 @@
+on:
+  push:
+    branches:
+      - main
+      - create-pull-request/patch
+  pull_request:
+    branches:
+      - main
+      - create-pull-request/patch
+
+name: CI
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: actions/checkout@v6
+        with:
+          repository: gtk-rs/gir
+          ref: main
+          path: gir
+      - uses: actions/checkout@v6
+        with:
+          repository: gtk-rs/gtk4-rs
+          ref: main
+          path: gtk4-rs
+      - working-directory: gir
+        run: cargo build --release
+      - run: './gir/target/release/gir -c gtk4-rs/gtk4/sys/Gir.toml -m sys -o gtk4-rs/gtk4/sys/ -d .'

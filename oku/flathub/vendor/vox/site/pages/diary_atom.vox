@@ -1,0 +1,5 @@
+---
+depends = ["diary"]
+permalink = "diary/atom.xml"
+---
+{% include atom.voxs posts = diary %}

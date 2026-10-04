@@ -1,0 +1,53 @@
+# Auto-generated from "Cargo.yml"
+[badges]
+[badges.maintenance]
+status = "actively-developed"
+
+[badges.travis-ci]
+repository = "najamelan/pharos"
+
+[build-dependencies]
+rustc_version = "^0.4"
+
+[dependencies]
+[dependencies.futures]
+default-features = false
+features = ["std"]
+version = "^0.3"
+
+[dev-dependencies]
+assert_matches = "^1"
+futures = "^0.3"
+wasm-bindgen-test = "^0.3"
+
+[dev-dependencies.async-std]
+features = ["attributes"]
+version = "^1"
+
+[dev-dependencies.async_executors]
+features = ["async_std"]
+version = "^0.4"
+
+[package]
+authors = ["Naja Melan <najamelan@autistici.org>"]
+categories = ["asynchronous"]
+description = "Observer pattern which generates a futures 0.3 stream of events"
+documentation = "https://docs.rs/pharos"
+edition = "2021"
+exclude = ["tests", "examples", "ci", ".travis.yml", "TODO.md", "CONTRIBUTING.md"]
+keywords = ["observer", "futures", "stream", "broadcast", "publish_subscribe"]
+license = "Unlicense"
+name = "pharos"
+readme = "README.md"
+repository = "https://github.com/najamelan/pharos"
+version = "0.5.3"
+
+[package.metadata]
+[package.metadata.docs]
+[package.metadata.docs.rs]
+all-features = true
+targets = []
+
+[profile]
+[profile.release]
+codegen-units = 1

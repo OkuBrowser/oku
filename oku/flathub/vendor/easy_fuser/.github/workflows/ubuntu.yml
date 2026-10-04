@@ -1,0 +1,94 @@
+name: CI Ubuntu
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, devel ]
+  pull_request:
+    types: [ opened, synchronize, reopened, ready_for_review ]
+    branches: [ main, devel ]
+
+jobs:
+  build_and_test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: "Main tests"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+          - nightly
+        feature:
+          - serial
+          - parallel
+          - async
+    
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install libfuse-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libfuse-dev
+    - name: Set PKG_CONFIG_PATH
+      run: echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig" >> $GITHUB_ENV
+    - name: Setup Rust
+      run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+    - name: Build
+      run: cargo build --verbose --no-default-features --features ${{ matrix.feature }}
+    - name: Run tests
+      run: cargo test --verbose --no-default-features --features ${{ matrix.feature }}
+
+  test_examples:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: "Examples crates"
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install libfuse-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libfuse-dev
+    - name: Set PKG_CONFIG_PATH
+      run: echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig" >> $GITHUB_ENV
+    - name: Run tests of crates inside examples folder
+      run: ./tests/test_all_examples.sh
+
+  check_i686:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: "Check i686 compilation"
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install libfuse-dev and gcc-multilib
+      run: |
+        sudo dpkg --add-architecture i386
+        sudo apt-get update
+        sudo apt-get install -y libfuse-dev:i386 gcc-multilib
+    - name: Setup Rust
+      run: |
+        rustup update stable
+        rustup default stable
+        rustup target add i686-unknown-linux-gnu
+    - name: Check
+      env:
+        PKG_CONFIG_ALLOW_CROSS: 1
+        PKG_CONFIG_PATH: /usr/lib/i386-linux-gnu/pkgconfig
+      run: cargo check --target=i686-unknown-linux-gnu --features serial
+
+  check_musl:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: "Check musl compilation"
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install musl-tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y musl-tools
+    - name: Setup Rust
+      run: |
+        rustup update stable
+        rustup default stable
+        rustup target add x86_64-unknown-linux-musl
+    - name: Check
+      run: cargo check --target=x86_64-unknown-linux-musl --features serial

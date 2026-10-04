@@ -1,0 +1,23 @@
+[package]
+name = "jetscii"
+version = "0.5.3"
+authors = ["Jake Goulding <jake.goulding@gmail.com>"]
+
+description = "A tiny library to efficiently search strings and byte slices for sets of ASCII characters or bytes."
+readme = "README.md"
+keywords = ["string", "bytes", "ascii", "search", "simd"]
+
+repository = "https://github.com/shepmaster/jetscii"
+documentation = "https://docs.rs/jetscii/"
+
+license = "MIT OR Apache-2.0"
+
+[features]
+benchmarks = []
+pattern = []
+
+[dev-dependencies]
+proptest = "1.0.0"
+lazy_static = "1.0.0"
+region = "3.0.0"
+memmap = "0.7.0"

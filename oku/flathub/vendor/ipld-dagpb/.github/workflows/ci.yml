@@ -1,0 +1,51 @@
+name: Continuous integration
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Build
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
+        toolchain: [stable]
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Cache dependencies & build outputs
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: rustfmt, clippy
+
+      - name: Check code format
+        run: cargo fmt --all -- --check
+
+      - name: Code lint with default features
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test with default features
+        run: cargo test --all-features
+
+  check-lockfile:
+    name: Make sure the lockfile is up-to-date
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Error if checked-in lockfile is not up-to-date
+        run: cargo build --locked

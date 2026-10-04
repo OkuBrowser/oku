@@ -1,0 +1,51 @@
+[options]
+girs_directories = ["../gir-files", "../webkit-gir-files"]
+library = "JavaScriptCore"
+version = "6.0"
+min_cfg_version = "2.40.0"
+work_mode = "normal"
+target_path = "."
+generate_safety_asserts = true
+single_version_file = true
+use_gi_docgen = true
+
+generate = [
+    "JavaScriptCore.Context",
+    "JavaScriptCore.CheckSyntaxMode",
+    "JavaScriptCore.CheckSyntaxResult",
+    "JavaScriptCore.Class",
+    # "JavaScriptCore.ClassVTable",
+    "JavaScriptCore.VirtualMachine",
+    "JavaScriptCore.Exception",
+    "JavaScriptCore.WeakValue",
+    "JavaScriptCore.ValuePropertyFlags",
+    "JavaScriptCore.TypedArrayType",
+    "JavaScriptCore.OptionType",
+    "JavaScriptCore.ExceptionHandler",
+]
+
+manual = [
+    "GLib.Bytes"
+]
+
+ignore = [
+    "JavaScriptCore.ClassSetPropertyFunction",
+    "JavaScriptCore.ClassHasPropertyFunction",
+    "JavaScriptCore.ClassGetPropertyFunction",
+    "JavaScriptCore.ClassEnumeratePropertiesFunction",
+    "JavaScriptCore.ClassDeletePropertyFunction"
+]
+
+[[object]]
+name = "JavaScriptCore.*"
+status = "generate"
+    [[object.function]]
+    name = "options_foreach"
+    ignore = true  # the trait `FromGlibPtrBorrow<i32>` is not implemented for `enums::OptionType`
+
+[[object]]
+name = "JavaScriptCore.Value"
+status = "generate"
+    [[object.function]]
+    name = "array_buffer_get_data"
+    ignore = true # FromGlibContainerAsVec<_, *mut c_void>` is not implemented for `u8`

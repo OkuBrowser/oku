@@ -1,0 +1,55 @@
+//! A pure-Rust implementation of group operations on secp256k1.
+
+pub(crate) mod affine;
+mod field;
+mod mul;
+pub(crate) mod projective;
+pub(crate) mod scalar;
+
+#[cfg(test)]
+mod dev;
+#[cfg(feature = "hash2curve")]
+mod hash2curve;
+#[cfg(feature = "precomputed-tables")]
+mod tables;
+
+pub use field::FieldElement;
+
+use self::{affine::AffinePoint, projective::ProjectivePoint, scalar::Scalar};
+use crate::Secp256k1;
+use elliptic_curve::{CurveArithmetic, hazmat::FieldArithmetic};
+
+impl CurveArithmetic for Secp256k1 {
+    type AffinePoint = AffinePoint;
+    type ProjectivePoint = ProjectivePoint;
+    type Scalar = Scalar;
+}
+
+impl FieldArithmetic for Secp256k1 {
+    type FieldElement = FieldElement;
+}
+
+const CURVE_EQUATION_B_SINGLE: u32 = 7u32;
+
+#[rustfmt::skip]
+#[allow(clippy::cast_possible_truncation)]
+pub(crate) const CURVE_EQUATION_B: FieldElement = FieldElement::from_bytes_unchecked(&[
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, CURVE_EQUATION_B_SINGLE as u8,
+]);
+
+#[cfg(test)]
+mod tests {
+    use super::CURVE_EQUATION_B;
+    use hex_literal::hex;
+
+    const CURVE_EQUATION_B_BYTES: [u8; 32] =
+        hex!("0000000000000000000000000000000000000000000000000000000000000007");
+
+    #[test]
+    fn verify_constants() {
+        assert_eq!(CURVE_EQUATION_B.to_bytes(), CURVE_EQUATION_B_BYTES);
+    }
+}

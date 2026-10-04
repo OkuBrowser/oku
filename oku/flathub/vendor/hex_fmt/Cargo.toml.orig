@@ -1,0 +1,11 @@
+[package]
+name = "hex_fmt"
+description = "Formatting and shortening byte slices as hexadecimal strings"
+version = "0.3.0"
+license = "MIT/Apache-2.0"
+authors = ["Andreas Fackler <AndreasFackler@gmx.de>"]
+repository = "https://github.com/poanetwork/hex_fmt"
+readme = "README.md"
+keywords = ["format", "hex", "display", "debug"]
+categories = ["value-formatting", "development-tools::debugging", "no-std"]
+edition = "2018"

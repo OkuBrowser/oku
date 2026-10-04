@@ -1,0 +1,27 @@
+[package]
+name = "base45"
+version ="3.2.0"
+authors = ["Rickard Natt och Dag <rickard@nattochdag.dev>"]
+edition = "2018"
+description = "Encoder/decoder for base45"
+license = "MIT"
+repository = "https://github.com/opendevtools/base45"
+homepage = "https://github.com/opendevtools/base45"
+readme = "README.md"
+keywords = ["base45", "encode", "decode"]
+categories = ["encoding"]
+
+[dependencies]
+
+[dev-dependencies]
+criterion = "0.3"
+rand = "0.8"
+
+[[bench]]
+name = "bench"
+harness = false
+
+[features]
+default = ["std"]
+std = []
+unsafe = []

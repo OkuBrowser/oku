@@ -1,0 +1,14 @@
+framework = "CoreWLAN"
+crate = "objc2-core-wlan"
+required-crates = ["objc2", "objc2-foundation"]
+custom-lib-rs = true
+macos = "10.6"
+maccatalyst = "13.0"
+
+external.SFAuthorization.module = "SecurityFoundation.SFAuthorization"
+
+# Set counterparts
+class.CWConfiguration.counterpart = "MutableSubclass(CoreWLAN.CWConfiguration.CWMutableConfiguration)"
+class.CWMutableConfiguration.counterpart = "ImmutableSuperclass(CoreWLAN.CWConfiguration.CWConfiguration)"
+class.CWNetworkProfile.counterpart = "MutableSubclass(CoreWLAN.CWNetworkProfile.CWMutableNetworkProfile)"
+class.CWMutableNetworkProfile.counterpart = "ImmutableSuperclass(CoreWLAN.CWNetworkProfile.CWNetworkProfile)"

@@ -1,5 +1,18 @@
 [source.crates-io]
 replace-with = "vendored-sources"
 
+[source."git+https://github.com/dariusc93/rust-ipfs.git?rev=a1f64c39"]
+git = "https://github.com/dariusc93/rust-ipfs.git"
+rev = "a1f64c39"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/emmyoh/easy_fuser"]
+git = "https://github.com/emmyoh/easy_fuser"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/emmyoh/vox"]
+git = "https://github.com/emmyoh/vox"
+replace-with = "vendored-sources"
+
 [source.vendored-sources]
 directory = "vendor"

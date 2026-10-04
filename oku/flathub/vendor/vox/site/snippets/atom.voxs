@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+ <title>{{ global.title }}</title>
+ <updated>{{ meta.date.rfc_3339 }}</updated>
+ <link href="{{ '/atom.xml' | prepend: global.url }}" rel="self"/>
+ <link href="{{ global.url }}/"/>
+ <id>{{ global.url }}/</id>
+ <author>
+   <name>{{ global.author }}</name>
+ </author>
+
+ {% for post in include.posts %}
+ <entry>
+   <title>{{ post.data.title | escape }}</title>
+   <link href="{{ post.url | url_encode | prepend: "/" | prepend: global.url }}"/>
+   {% if post.date %}
+   <updated>{{ post.date.rfc_3339 }}</updated>
+   {% endif %}
+   <id>{{ post.url | url_encode | prepend: "/" | prepend: global.url }}</id>
+   <content type="html">{{ post.rendered | escape }}</content>
+ </entry>
+ {% endfor %}
+
+</feed>

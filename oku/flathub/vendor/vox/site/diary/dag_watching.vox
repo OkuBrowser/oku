@@ -1,0 +1,112 @@
+---
+title = "DAG Visualisation & Watching"
+date = 2024-05-29T00:00:00+00:00
+layout = "post"
+permalink = "date"
+---
+
+{% markdown %}
+
+## Notes
+I've been using two particular terminal invocations frequently.
+
+### Linting & formatting
+```sh
+cargo fix --edition --edition-idioms --allow-dirty; cargo clippy --fix -Z unstable-options --allow-dirty; cargo fix --edition --edition-idioms --bin vox --features="cli" --allow-dirty; cargo clippy --fix -Z unstable-options --bin vox --features="cli" --allow-dirty; cargo fmt
+```
+
+These commands lint Vox, check it for errors, and then format its code.
+
+### Installing the local copy of Vox
+```sh
+cargo install --path . --features="cli"
+```
+
+This command allows me to use the `vox` CLI built with my latest local changes.
+
+---
+
+## Goals
+
+Today, I'm concerned with:
+- Colouring pages differently when visualising the DAG; currently, the same colour is used for all pages.
+- Adding an optional path parameter to the CLI; currently, the current working directory is used by the CLI.
+- Finishing up the watching feature; currently, this feature is untested and certainly broken.
+- Putting together this development diary.
+- Adding a `meta` templating context.
+
+### DAG Visualisation
+Colouring should be done based on the node's label.
+To me, beige (ie, a light orange) is the colour of layouts, and a light blue complement is appropriate for collection-less pages.
+- If the page is a layout page, set its colour to beige (<img src="https://placehold.co/15x15/FFDFBA/FFDFBA.png" alt="#FFDFBA" style="margin-bottom: auto;display: inline;">).
+- If the page is a page in a collection, set its colour to light green (<img src="https://placehold.co/15x15/DAFFBA/DAFFBA.png" alt="#DAFFBA" style="margin-bottom: auto;display: inline;">).
+- If the page is a page not in a collection, set its colour to light blue (<img src="https://placehold.co/15x15/BADAFF/BADAFF.png" alt="#BADAFF" style="margin-bottom: auto;display: inline;">).
+
+### CLI Path Parameter
+The CLI should take an `Option<PathBuf>`. If this path is `None`, do nothing. Otherwise, use this path to set the current environment path.
+
+### Watching
+If changes are made, wait until a certain period (eg, five seconds) has elapsed where no further changes have been made.
+When such a period has elapsed, do the following:
+
+1. Build a new DAG.
+2. Obtain the difference between the old and new DAGs; ie, calculate the set of added or modified nodes.
+    - A node is modified if it has the same label, but its page is different (not comparing `url` or `rendered`).
+        - If a node's page is the same (excluding `url` or `rendered`), it is unchanged.
+    - A node is added if its label appears in the new DAG, but not the old one.
+    - A node is removed if its label appears in the old DAG, but not the new one.
+3. Compute which pages need to be rendered, noting their node IDs.
+    - All pages that were modified need to be re-rendered.
+        - Their descendants in the new DAG also need to be rendered.
+    - All pages that were added need to be rendered.
+        - Their descendants in the new DAG also need to be rendered.
+    - Nothing is done with the pages that were removed. Necessary changes are covered by the two cases above.
+4. Merge the DAGs.
+    - In the new DAG, replace all pages not needing rendering with their rendered counterparts from the old DAG.
+5. Render & output the appropriate pages.
+
+### Development Diary
+Maintaining a development diary is important for three primary reasons:
+1. It conveys to others that the project is being developed.
+2. It aids me in returning to the project when my attention temporarily turned away from in-progress work.
+3. It helps me think through the logic before beginning to implement features or bug fixes.
+
+To build this development diary, I'll need to perform the following tasks:
+1. Find design inspiration for the site.
+2. Put together the layouts for the site (and write the `global.toml`).
+3. Put together the stylesheet for the site.
+4. Write the index page of the diary.
+
+To publish this development diary, I'll use a GitHub workflow similar to the one I wrote for [`vox-basic`](https://github.com/emmyoh/vox-basic).
+
+### `meta` Context
+The `meta` context comprises the following:
+- `meta.date`, being the current date-time of the build.
+- `meta.builder`, being the name of the software building the site ('Vox').
+- `meta.version`, being the current version number of Vox.
+
+
+Regarding `meta.builder`: I envision Vox as the reference implementation of a standard way of putting static sites together.
+Often, static site generators offer benefits & tradeoffs that are unrelated to the variation in the user experience. Users should be able to migrate their sites between implementations of what is ultimately the same class of software without needing to rewrite everything.
+This makes Vox (and the abstract 'standard' it describes) very opinionated; it specifies TOML as the frontmatter language (and `---` as the frontmatter delimiters) and Liquid as the templating language. I've come to the conclusion that these choices make sense for any future static site generator anyway, but am of course cognisant of the fact that if too many significantly disagree, then I've simply created [yet another way](https://xkcd.com/927) of building static sites.
+
+---
+
+## Future Goals
+
+In the future, this tool needs:
+1. A blog pertaining to the project, very similar in appearance to the development diary, but different in scope.
+    - Posts regarding the project's milestones, and perhaps more 'philosophical' posts about static site generators belong here. Essentially, this blog will be public-facing, while the development diary is intended for those working on Vox.
+2. Documentation on usage, essentially doubling as a specification of the 'standard' I described earlier.
+3. A friendly introduction to Vox and what it can do, including the following resources:
+    - Installation instructions.
+    - Previously mentioned usage documentation.
+    - Previously mentioned blog.
+    - Previously mentioned development diary.
+        - The code documentation generated using the Rust toolchain.
+
+Additionally, it'd be useful if I documented the CLI code. While such documentation would not be public-facing (ie, not in the generated code documentation on the site), it would be useful to have while developing the CLI.
+
+That's all for now. Thanks for reading!
+
+{% endmarkdown %}

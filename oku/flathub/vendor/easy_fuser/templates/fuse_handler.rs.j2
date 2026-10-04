@@ -1,0 +1,494 @@
+use std::ffi::{OsStr, OsString};
+use std::path::Path;
+use std::time::Duration;
+
+use crate::types::*;
+use easy_fuser_macro::fuse_handler_fnsig;
+
+{% if mode == "async" %}
+use async_trait::async_trait;
+{% endif %}
+
+/// The `FuseHandler` trait is the core interface for implementing a userspace filesystem via FUSE (Filesystem in Userspace).
+///
+/// This trait defines methods that correspond to various filesystem operations. By implementing this trait,
+/// you can create custom filesystem behaviors for your FUSE-based filesystem.
+///
+/// # Type Parameter
+///
+/// - `T`: A type that implements `FileIdType`. This represents the unique identifier for files and directories in your filesystem.
+///
+/// # Usage
+///
+/// To create a custom filesystem, implement this trait for your struct. You can choose to implement all methods
+/// or rely on default implementations provided by one of the provided templates (like `MirrorFs` or `DefaultFuseHandler`).
+///
+/// ## Example: Custom Filesystem with MirrorFs as base
+///
+/// ```rust,ignore
+/// use easy_fuser::fuse_presets::mirror_fs::*;
+/// use easy_fuser::fuse_presets::DefaultFuseHandler;
+/// use easy_fuser::fuse_parallel::prelude::*; // or fuse_serial::prelude::* or fuse_async::prelude::*
+/// use easy_fuser_macro::delegate_fs; // or delegate_fs_sync_to_async for async mode
+/// use std::path::PathBuf;
+/// use std::ffi::OsStr;
+///
+/// struct MyCustomFs {
+///     mirror_fs: MirrorFs,
+///     default_fs: DefaultFuseHandler<PathBuf>,
+/// }
+///
+/// impl FuseHandler for MyCustomFs {
+///     type TId = PathBuf;
+///
+///     // Custom implementation for lookup:
+///     fn lookup(&self, req: &RequestInfo, parent_id: PathBuf, name: &OsStr) -> FuseResult<FileAttribute> {
+///         // Custom logic for lookup operation...
+///         // Delegate to mirror_fs:
+///         self.mirror_fs.lookup(req, parent_id, name)
+///     }
+///
+///     // Delegate other methods:
+///     delegate_fs! { mirror_fs, [ read, write, getattr ] }
+///     delegate_fs! { default_fs, [ statfs, link ] }
+/// }
+/// ```
+///
+/// # Important Methods
+///
+/// While all methods in this trait are important for a fully functional filesystem, some key methods include:
+///
+/// - `lookup`: Look up a directory entry by name and get its attributes.
+/// - `getattr`: Get file attributes.
+/// - `read`: Read data from a file.
+/// - `write`: Write data to a file.
+/// - `readdir`: Read directory contents.
+/// - `open`: Open a file.
+/// - `create`: Create and open a file.
+///
+/// # Default Implementations
+///
+/// Many methods in this trait have default implementations that delegate to the inner handler returned by `get_inner()`.
+/// This allows for easy extension and customization of existing filesystem implementations by chaining/overriding their behaviors.
+///
+/// # Multithreading, Safety, Traits & Lifetime
+///
+/// ## Using serial feature
+///
+/// This trait is bound by the `'static` lifetime. However, it doesn't need `Send` or `Sync`.
+///
+/// **Note:** Using `spawn_mount` for your filesystem will require at least the `Send` trait.
+///
+/// ## Using parallel or async feature
+///
+/// This trait requires `Send + Sync` and `'static` lifetime.
+///
+/// **Important:** FUSE will lock some operations to run at the same time with the same inode, such as `readdir`.
+/// This behaviour is not well documented and cannot be guaranteed for now.
+///
+/// # Additional Resources:
+/// For more detailed information, refer to the fuser project documentation, which serves as the foundation for this crate: <https://docs.rs/fuser>
+///
+/// Documentation is inspired by the original fuser documentation
+{%- if mode == "async" %}
+#[async_trait]
+{%- endif %}
+pub trait FuseHandler: 'static
+    {% if mode != "serial" %}
+        + Send + Sync{# Never put this on serial mode #}
+    {% endif %}
+{
+    type TId: FileIdType {% if mode == "async" %}+ Send{% endif %};
+
+    {% macro async_keyword() -%}{% if mode == "async" %}async{% endif %}{%- endmacro %}
+    {% macro await_keyword() -%}{% if mode == "async" %}.await{% endif %}{%- endmacro %}
+
+    /// Provide a default Time-To-Live for file metadata
+    ///
+    /// Can be overriden for each FileAttributes returned.
+    fn get_default_ttl(&self) -> Duration {
+        Duration::from_secs(1)
+    }
+
+    /// Initialize the filesystem and configure kernel connection
+    /// 
+    /// A default implementation is provided that does nothing
+    fn init(&self, req: &RequestInfo, config: &mut KernelConfig) -> FuseResult<()> {
+        let _req = req;
+        let _config = config;
+        Ok(())
+    }
+
+    fuse_handler_fnsig!{
+        /// Perform cleanup operations on filesystem exit
+        /// 
+        /// A default implementation is provided that does nothing
+        destroy => {}
+    }
+
+    /// Check file access permissions
+    ///
+    /// This method is called for the access() system call. If the 'default_permissions'
+    /// mount option is given, this method is not called. This method is not called
+    /// under Linux kernel versions 2.4.x
+    {{ async_keyword() }} fn access(&self, req: &RequestInfo, file_id: Self::TId, mask: AccessFlags) -> FuseResult<()>;
+
+    /// Map block index within file to block index within device
+    ///
+    /// Note: This makes sense only for block device backed filesystems mounted
+    /// with the 'blkdev' option
+    {{ async_keyword() }} fn bmap(&self, req: &RequestInfo, file_id: Self::TId, blocksize: u32, idx: u64) -> FuseResult<u64>;
+
+    /// Copy the specified range from the source inode to the destination inode
+    {{ async_keyword() }} fn copy_file_range(
+        &self,
+        req: &RequestInfo,
+        file_in: Self::TId,
+        file_handle_in: BorrowedFileHandle<'_>,
+        offset_in: u64,
+        file_out: Self::TId,
+        file_handle_out: BorrowedFileHandle<'_>,
+        offset_out: u64,
+        len: u64,
+        flags: CopyFileRangeFlags,
+    ) -> FuseResult<u32>;
+
+    /// Create and open a file
+    ///
+    /// If the file does not exist, first create it with the specified mode, and then
+    /// open it. Open flags (with the exception of O_NOCTTY) are available in flags.
+    /// If this method is not implemented or under Linux kernel versions earlier than
+    /// 2.6.15, the mknod() and open() methods will be called instead.
+    {{ async_keyword() }} fn create(
+        &self,
+        req: &RequestInfo,
+        parent_id: Self::TId,
+        name: &OsStr,
+        mode: u32,
+        umask: u32,
+        flags: OpenFlags,
+    ) -> FuseResult<(OwnedFileHandle, <Self::TId as FileIdType>::Metadata, FopenFlags)>;
+
+    /// Preallocate or deallocate space to a file
+    {{ async_keyword() }} fn fallocate(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        offset: i64,
+        length: i64,
+        mode: FallocateFlags,
+    ) -> FuseResult<()>;
+
+    /// Flush cached data for an open file
+    ///
+    /// Called on each close() of the opened file. Not guaranteed to be called after writes or at all.
+    /// Used for returning write errors or removing file locks.
+    {{ async_keyword() }} fn flush(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        lock_owner: u64,
+    ) -> FuseResult<()>;
+
+    #[allow(unused_variables)]
+    /// Release references to an inode, if the nlookup count reaches zero (to substract from the number of lookups).
+    /// 
+    /// A default implementation is provided that does nothing. It is advised to implement in case of manual Inode handling to release memory
+    {{ async_keyword() }} fn forget(&self, req: &RequestInfo, file_id: Self::TId, nlookup: u64) {}
+
+    /// Synchronize file contents
+    ///
+    /// If datasync is true, only flush user data, not metadata.
+    {{ async_keyword() }} fn fsync(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        datasync: bool,
+    ) -> FuseResult<()>;
+
+    /// Synchronize directory contents
+    ///
+    /// If the datasync parameter is true, then only the directory contents should
+    /// be flushed, not the metadata. The file_handle will contain the value set
+    /// by the opendir method, or will be undefined if the opendir method didn't
+    /// set any value.
+    {{ async_keyword() }} fn fsyncdir(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        datasync: bool,
+    ) -> FuseResult<()>;
+
+    /// Modify file attributes
+    {{ async_keyword() }} fn getattr(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: Option<BorrowedFileHandle<'_>>,
+    ) -> FuseResult<FileAttribute>;
+
+    /// Test for a POSIX file lock.
+    {{ async_keyword() }} fn getlk(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        lock_owner: u64,
+        lock_info: LockInfo,
+    ) -> FuseResult<LockInfo>;
+
+    /// Get an extended attribute
+    {{ async_keyword() }} fn getxattr(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        name: &OsStr,
+        size: u32,
+    ) -> FuseResult<Vec<u8>>;
+
+    /// control device
+    {{ async_keyword() }} fn ioctl(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        flags: IoctlFlags,
+        cmd: u32,
+        in_data: Vec<u8>,
+        out_size: u32,
+    ) -> FuseResult<(i32, Vec<u8>)>;
+
+    /// Create a hard link.
+    {{ async_keyword() }} fn link(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        newparent: Self::TId,
+        newname: &OsStr,
+    ) -> FuseResult<<Self::TId as FileIdType>::Metadata>;
+
+    /// List extended attribute names
+    {{ async_keyword() }} fn listxattr(&self, req: &RequestInfo, file_id: Self::TId, size: u32) -> FuseResult<Vec<u8>>;
+
+    /// Retrieve file attributes for a directory entry by name and increment the lookup count associated with the inode.
+    {{ async_keyword() }} fn lookup(&self, req: &RequestInfo, parent_id: Self::TId, name: &OsStr) -> FuseResult<<Self::TId as FileIdType>::Metadata>;
+
+    /// Reposition read/write file offset
+    {{ async_keyword() }} fn lseek(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        seek: SeekFrom,
+    ) -> FuseResult<i64>;
+
+    /// Create a new directory
+    {{ async_keyword() }} fn mkdir(
+        &self,
+        req: &RequestInfo,
+        parent_id: Self::TId,
+        name: &OsStr,
+        mode: u32,
+        umask: u32,
+    ) -> FuseResult<<Self::TId as FileIdType>::Metadata>;
+
+    /// Create a new file node (regular file, device, FIFO, socket, etc)
+    {{ async_keyword() }} fn mknod(
+        &self,
+        req: &RequestInfo,
+        parent_id: Self::TId,
+        name: &OsStr,
+        mode: u32,
+        umask: u32,
+        rdev: DeviceType,
+    ) -> FuseResult<<Self::TId as FileIdType>::Metadata>;
+
+    /// Open a file and return a file handle.
+    ///
+    /// Open flags (with the exception of O_CREAT, O_EXCL, O_NOCTTY and O_TRUNC) are available in flags. You may store an arbitrary file handle (pointer, index, etc) in file_handle response, and use this in other all other file operations (read, write, flush, release, fsync). Filesystem may also implement stateless file I/O and not store anything in fh. There are also some flags (direct_io, keep_cache) which the filesystem may set, to change the way the file is opened. See fuse_file_info structure in <fuse_common.h> for more details.
+    {{ async_keyword() }} fn open(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        flags: OpenFlags,
+    ) -> FuseResult<(OwnedFileHandle, FopenFlags)>;
+
+    /// Open a directory
+    ///
+    /// Allows storing a file handle for use in subsequent directory operations.
+    {{ async_keyword() }} fn opendir(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        flags: OpenFlags,
+    ) -> FuseResult<(OwnedFileHandle, FopenFlags)>;
+
+    /// Read data from a file
+    ///
+    /// Read should send exactly the number of bytes requested except on EOF or error, otherwise the rest of the data will be substituted with zeroes. An exception to this is when the file has been opened in ‘direct_io’ mode, in which case the return value of the read system call will reflect the return value of this operation. fh will contain the value set by the open method, or will be undefined if the open method didn’t set any value.
+    ///
+    /// flags: these are the file flags, such as O_SYNC. Only supported with ABI >= 7.9 lock_owner: only supported with ABI >= 7.9
+    {{ async_keyword() }} fn read(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        seek: SeekFrom,
+        size: u32,
+        flags: OpenFlags,
+        lock_owner: Option<u64>,
+    ) -> FuseResult<Vec<u8>>;
+
+    /// Read directory contents
+    ///
+    /// Returns a list of directory entries with minimal metadata.
+    ///
+    /// Important: The returned file names (OsString) must not contain any slashes ('/').
+    /// Including slashes in the file names will result in undefined behavior.
+    {{ async_keyword() }} fn readdir(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+    ) -> FuseResult<Vec<(OsString, <Self::TId as FileIdType>::MinimalMetadata)>>;
+
+    /// Read directory contents with full file attributes
+    ///
+    /// Default implementation combines readdir and lookup operations.
+    ///
+    /// Important: The returned file names (OsString) must not contain any slashes ('/').
+    /// Including slashes in the file names will result in undefined behavior.
+    {{ async_keyword() }} fn readdirplus(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+    ) -> FuseResult<Vec<(OsString, <Self::TId as FileIdType>::Metadata)>> {
+        let readdir_result = self.readdir(req, file_id.clone(), file_handle)
+            {{ await_keyword() }}?;
+        let mut result = Vec::with_capacity(readdir_result.len());
+        for (name, _) in readdir_result.into_iter() {
+            let metadata = self.lookup(req, file_id.clone(), &name)
+                {{ await_keyword() }}?;
+            result.push((name, metadata));
+        }
+        Ok(result)
+    }
+
+    /// Read the target of a symbolic link
+    {{ async_keyword() }} fn readlink(&self, req: &RequestInfo, file_id: Self::TId) -> FuseResult<Vec<u8>>;
+
+    /// Release an open file
+    ///
+    /// Called when all file descriptors are closed and all memory mappings are unmapped.
+    /// Guaranteed to be called once for every open() call.
+    {{ async_keyword() }} fn release(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: OwnedFileHandle,
+        flags: OpenFlags,
+        lock_owner: Option<u64>,
+        flush: bool,
+    ) -> FuseResult<()>;
+
+    /// Release an open directory
+    ///
+    /// This method is called exactly once for every successful opendir operation.
+    /// The file_handle parameter will contain the value set by the opendir method,
+    /// or will be undefined if the opendir method didn't set any value.
+    {{ async_keyword() }} fn releasedir(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: OwnedFileHandle,
+        flags: OpenFlags,
+    ) -> FuseResult<()>;
+
+    /// Remove an extended attribute.
+    {{ async_keyword() }} fn removexattr(&self, req: &RequestInfo, file_id: Self::TId, name: &OsStr) -> FuseResult<()>;
+
+    /// Rename a file or directory
+    {{ async_keyword() }} fn rename(
+        &self,
+        req: &RequestInfo,
+        parent_id: Self::TId,
+        name: &OsStr,
+        newparent: Self::TId,
+        newname: &OsStr,
+        flags: RenameFlags,
+    ) -> FuseResult<()>;
+
+    /// Remove a directory
+    {{ async_keyword() }} fn rmdir(&self, req: &RequestInfo, parent_id: Self::TId, name: &OsStr) -> FuseResult<()>;
+
+    {{ async_keyword() }} fn setattr(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        attrs: SetAttrRequest<'_>,
+    ) -> FuseResult<FileAttribute>;
+
+    /// Acquire, modify or release a POSIX file lock
+    ///
+    /// For POSIX threads (NPTL) there's a 1-1 relation between pid and owner, but
+    /// otherwise this is not always the case. For checking lock ownership, 'fi->owner'
+    /// must be used. The l_pid field in 'struct flock' should only be used to fill
+    /// in this field in getlk().
+    {{ async_keyword() }} fn setlk(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        lock_owner: u64,
+        lock_info: LockInfo,
+        sleep: bool,
+    ) -> FuseResult<()>;
+
+    /// Set an extended attribute
+    {{ async_keyword() }} fn setxattr(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        name: &OsStr,
+        value: Vec<u8>,
+        flags: SetXAttrFlags,
+        position: u32,
+    ) -> FuseResult<()>;
+
+    /// Get file system statistics
+    {{ async_keyword() }} fn statfs(&self, req: &RequestInfo, file_id: Self::TId) -> FuseResult<StatFs>;
+
+    /// Create a symbolic link.
+    {{ async_keyword() }} fn symlink(
+        &self,
+        req: &RequestInfo,
+        parent_id: Self::TId,
+        link_name: &OsStr,
+        target: &Path,
+    ) -> FuseResult<<Self::TId as FileIdType>::Metadata>;
+
+    /// Write data to a file
+    ///
+    /// Write should return exactly the number of bytes requested except on error. An exception to this is when the file has been opened in ‘direct_io’ mode, in which case the return value of the write system call will reflect the return value of this operation. fh will contain the value set by the open method, or will be undefined if the open method didn’t set any value.
+    ///
+    /// write_flags: will contain FUSE_WRITE_CACHE, if this write is from the page cache. If set, the pid, uid, gid, and fh may not match the value that would have been sent if write cachin is disabled flags: these are the file flags, such as O_SYNC. Only supported with ABI >= 7.9 lock_owner: only supported with ABI >= 7.9
+    {{ async_keyword() }} fn write(
+        &self,
+        req: &RequestInfo,
+        file_id: Self::TId,
+        file_handle: BorrowedFileHandle<'_>,
+        seek: SeekFrom,
+        data: Vec<u8>,
+        write_flags: WriteFlags,
+        flags: OpenFlags,
+        lock_owner: Option<u64>,
+    ) -> FuseResult<u32>;
+
+    /// Remove a file
+    {{ async_keyword() }} fn unlink(&self, req: &RequestInfo, parent_id: Self::TId, name: &OsStr) -> FuseResult<()>;
+}

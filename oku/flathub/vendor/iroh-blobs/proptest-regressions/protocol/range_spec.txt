@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 5ff4de8531a81c637b4d202c97b724a41a989bc6894464e84db5ac2a519c08a9 # shrinks to ranges = [RangeSet{1..2}]
+cc 50cb338763aa276705bb970d57d3d87e834f31a7e57bba810f46690c6d1e9955 # shrinks to ranges = [RangeSet{7..98}, RangeSet{7..98}]
+cc 8579821a8bde7872fed2cfa38e8a5923706b9915f3920e9c2d101a06bc789309 # shrinks to ranges = []

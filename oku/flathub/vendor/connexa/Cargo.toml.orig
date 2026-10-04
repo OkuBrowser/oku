@@ -1,0 +1,182 @@
+[package]
+name = "connexa"
+version = "0.6.0"
+edition = "2024"
+license = "Apache-2.0 OR MIT"
+authors = ["Darius Clark"]
+exclude = [".gitignore"]
+description = "High level abstraction of rust-libp2p"
+readme = "README.md"
+repository = "https://github.com/dariusc93/connexa"
+rust-version = "1.95.0"
+categories = ["network-programming", "asynchronous"]
+keywords = ["libp2p", "p2p", "networking", "peer-to-peer"]
+
+[features]
+default = ["full"]
+
+full = ["stream", "floodsub", "identify", "dcutr", "gossipsub", "autonat", "relay", "kad", "keypair_base64_encoding", "ping", "request-response", "request-response-misc", "rendezvous", "upnp", "mdns", "rsa", "dns", "ed25519", "secp256k1", "ecdsa", "tls", "noise", "tcp", "quic", "pnet", "websocket", "yamux", "cid"]
+
+rsa = ["libp2p/rsa"]
+ed25519 = ["libp2p/ed25519"]
+secp256k1 = ["libp2p/secp256k1"]
+ecdsa = ["libp2p/ecdsa"]
+
+identify = ["libp2p/identify"]
+gossipsub = ["libp2p/gossipsub"]
+floodsub = ["libp2p/floodsub"]
+autonat = ["libp2p/autonat"]
+relay = ["libp2p/relay"]
+dcutr = ["libp2p/dcutr"]
+kad = ["libp2p/kad"]
+ping = ["libp2p/ping"]
+request-response = ["libp2p/request-response"]
+request-response-misc = ["request-response", "libp2p/json", "libp2p/cbor"]
+rendezvous = ["libp2p/rendezvous"]
+upnp = ["libp2p/upnp"]
+stream = ["dep:libp2p-stream"]
+mdns = ["libp2p/mdns"]
+
+keypair_base64_encoding = ["dep:base64"]
+
+dns = ["libp2p/dns", "dep:parking_lot", "dep:serde", "dep:serde_json", "dep:url", "dep:js-sys", "dep:web-sys"]
+tls = ["libp2p/tls"]
+noise = ["libp2p/noise"]
+tcp = ["libp2p/tcp"]
+quic = ["libp2p/quic"]
+pnet = ["libp2p/pnet"]
+
+yamux = ["libp2p/yamux"]
+
+testing = []
+
+aes-gcm = ["dep:aes-gcm"]
+plaintext = []
+
+serde = ["dep:serde", "dep:serde_bytes", "web-time/serde"]
+fs = ["dep:cbor4ii", "serde"]
+indexeddb = ["dep:idb", "serde"]
+redb = ["dep:redb", "dep:cbor4ii", "serde"]
+sqlite = ["dep:sqlx", "dep:cbor4ii", "serde"]
+
+webrtc = ["dep:libp2p-webrtc", "dep:libp2p-webrtc-websys", "dep:rustls"]
+websocket = ["libp2p/websocket", "rcgen", "dep:pem", "libp2p/websocket-websys"]
+webtransport = ["libp2p/webtransport-websys"]
+
+[workspace]
+members = ["examples/autorelay", "examples/browser-webrtc", "examples/custom-behaviour-and-context", "examples/custom-transport", "examples/distributed-key-value-store", "examples/file-sharing-request-response", "examples/file-sharing-stream", "examples/floodsub", "examples/gossipsub", "examples/ipfs-kad", "examples/peer-store", "examples/relay", "examples/rendezvous", "examples/stream", "examples/upnp"]
+
+[workspace.dependencies]
+async-rt = "0.2.0"
+aes-gcm = "0.11.1"
+async-trait = { version = "0.1.89" }
+base64 = "0.22.1"
+bytes = "1.10.1"
+chacha20poly1305 = { version = "0.11.0", features = ["zeroize"] }
+cid = "0.11.1"
+either = "1.15.0"
+futures = { version = "0.3.31" }
+futures-timer = "3.0.0"
+futures-timeout = "0.1.3"
+getrandom = { version = "0.4" }
+hickory-resolver = "0.26.1"
+idb = "0.6.5"
+indexmap = "2.10.0"
+libp2p = { version = "0.57.0" }
+libp2p-allow-block-list = "0.7.0"
+libp2p-connection-limits = "0.7.0"
+libp2p-stream = { version = "=0.5.0-alpha" }
+libp2p-webrtc = { version = "=0.10.0-alpha", features = ["pem"] }
+libp2p-webrtc-websys = "0.5.0"
+other-error = "0.1.1"
+pollable-map = "0.1.7"
+parking_lot = "0.12"
+pem = { version = "3.0.5" }
+cbor4ii = { version = "1.2.2", features = ["serde1"] }
+rand = { version = "0.10" }
+rcgen = { version = "0.14.3", features = ["pem", "x509-parser"] }
+redb = "2"
+rlimit = "0.10.2"
+rustls = { version = "0.23.45", default-features = false, features = ["ring", "std"] }
+send_wrapper = "0.6.0"
+serde = { version = "1.0.219" }
+serde-wasm-bindgen = "0.6.5"
+serde_bytes = "0.11.19"
+serde_json = "1"
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
+thiserror = "2.0.18"
+tracing = { version = "0.1.41" }
+zeroize = "1.8.1"
+
+tokio = { default-features = false, version = "1.47.1" }
+js-sys = "0.3"
+url = "2"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = { version = "0.4.50" }
+web-sys = { version = "0.3", features = [
+    "AbortSignal",
+    "Headers",
+    "Request",
+    "RequestInit",
+    "Response",
+    "Window",
+    "WorkerGlobalScope",
+] }
+web-time = "1.1.0"
+
+
+[dependencies]
+async-rt = { workspace = true }
+async-trait.workspace = true
+aes-gcm = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
+bytes = { workspace = true }
+chacha20poly1305 = { workspace = true }
+cid = { workspace = true, optional = true }
+either.workspace = true
+futures.workspace = true
+futures-timeout.workspace = true
+indexmap.workspace = true
+libp2p-allow-block-list.workspace = true
+libp2p-connection-limits.workspace = true
+libp2p-stream = { workspace = true, optional = true }
+other-error.workspace = true
+pem = { workspace = true, optional = true }
+pollable-map.workspace = true
+cbor4ii = { workspace = true, optional = true }
+rand.workspace = true
+serde = { features = ["derive"], workspace = true, optional = true }
+serde_bytes = { workspace = true, optional = true }
+thiserror.workspace = true
+tracing = { workspace = true }
+web-time = { workspace = true }
+zeroize = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+futures-timer.workspace = true
+libp2p = { features = ["macros", "tokio", "serde"], workspace = true }
+libp2p-webrtc = { workspace = true, features = ["tokio"], optional = true }
+hickory-resolver.workspace = true
+rcgen = { workspace = true, optional = true }
+redb = { workspace = true, optional = true }
+rlimit.workspace = true
+rustls = { workspace = true, optional = true }
+sqlx = { workspace = true, optional = true }
+tokio = { features = ["full"], workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+futures-timer = { workspace = true, features = ["wasm-bindgen"] }
+getrandom = { workspace = true, features = ["wasm_js"] }
+idb = { workspace = true, optional = true }
+js-sys = { workspace = true, optional = true }
+libp2p = { features = ["macros", "serde"], workspace = true }
+libp2p-webrtc-websys = { workspace = true, optional = true }
+parking_lot = { workspace = true, optional = true }
+send_wrapper = { workspace = true, features = ["futures"] }
+serde-wasm-bindgen.workspace = true
+serde_json = { workspace = true, optional = true }
+tokio = { default-features = false, features = ["sync", "macros"], workspace = true }
+url = { workspace = true, optional = true }
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+web-sys = { workspace = true, optional = true }

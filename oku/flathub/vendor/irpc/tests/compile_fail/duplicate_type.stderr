@@ -1,0 +1,8 @@
+error: Each variant must have a unique request type
+ --> tests/compile_fail/duplicate_type.rs:4:1
+  |
+4 | / enum Enum {
+5 | |     A(u8),
+6 | |     B(u8),
+7 | | }
+  | |_^

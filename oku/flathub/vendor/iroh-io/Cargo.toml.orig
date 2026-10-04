@@ -1,0 +1,37 @@
+[package]
+name = "iroh-io"
+version = "0.6.2"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+authors = ["rklaehn <rklaehn@protonmail.com>", "n0 team"]
+repository = "https://github.com/n0-computer/iroh"
+description = "async local io"
+keywords = ["io", "async", "http"]
+categories = ["asynchronous"]
+rust-version = "1.75"
+
+[dependencies]
+bytes = "1"
+futures-lite = "2.3"
+pin-project = "1"
+reqwest = { version = "0.11", features = ["stream"], default-features = false, optional = true }
+smallvec = { version = "1", default-features = false, optional = true }
+tokio = { version = "1", features = ["io-util", "rt"], optional = true }
+tokio-util = { version = "0.7", default-features = false, optional = true }
+
+# x- features are experimental and have no expectation of API stability whatsoever. Use at your own risk.
+[features]
+x-http = ["reqwest"]
+tokio-io = ["tokio", "smallvec"]
+stats = []
+default = ["tokio-io"]
+
+[package.metadata.docs.rs]
+features = ["x-http", "tokio-io", "stats"]
+
+[dev-dependencies]
+axum = { version = "0.6" }
+hyper = { version = "0.14", features = ["server", "http1"], default-features = false }
+proptest = "1"
+tempfile = "3"
+tokio = { version = "1", features = ["rt", "test-util", "macros"] }

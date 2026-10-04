@@ -1,0 +1,25 @@
+[package]
+name = "layout-rs"
+version = "0.1.3"
+authors = ["Nadav Rotem <nadav256@gmail.com>"]
+edition = "2018"
+description = "A graph visualization program"
+keywords = ["visualization", "svg", "render", "dot", "graphviz"]
+license = "MIT"
+readme = "../README.md"
+repository = "https://github.com/nadavrot/layout"
+
+# Renaming the library allows us to publish the crate as `layout-rs`,
+# but imports will begin with:
+#
+# ```rust
+# use layout;
+# ```
+[lib]
+name = "layout"
+
+[features]
+log = ["dep:log"]
+
+[dependencies]
+log = { version = "0.4.17", optional = true }

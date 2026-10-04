@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+xs 1682536914 4245068891 1497826029 2220247057 # shrinks to (needle, haystack) = (Needle { data: [0, 0, 0, 0, 0, 0, 91, 0, 0, 0, 0, 0, 0, 0, 0, 0], len: 7 }, Haystack { data: [91, 1, 1, 1, 1, 92, 1, 1, 1, 1, 1, 1, 1, 6, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 7, 2, 0, 0, 0, 53, 0, 0, 0, 0, 0, 0, 0, 15, 0, 29, 0, 0, 53, 28, 0, 41, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], (addr): 0x111a160a0, start: 1 })

@@ -1,0 +1,171 @@
+# Iroh Relay
+
+Iroh's relay is a feature within [iroh], a peer-to-peer networking system
+designed to facilitate direct, encrypted connections between devices. Iroh aims
+to simplify decentralized communication by automatically handling connections
+through "relays" when direct connections aren't immediately possible. The relay
+server helps establish connections by temporarily routing encrypted traffic
+until a direct, P2P connection is feasible. Once this direct path is set up,
+the relay server steps back, and the data flows directly between devices. This
+approach allows Iroh to maintain a secure, low-latency connection, even in
+challenging network situations.
+
+This crate provides a complete setup for creating and interacting with iroh
+relays, including:
+- Relay Protocol: The protocol used to communicate between relay servers and
+  clients
+- Relay Server: A fully-fledged iroh-relay server over HTTP or HTTPS.
+  Optionally will also expose a QAD endpoint and metrics.
+- Relay Client: A client for establishing connections to the relay.
+- Server Binary: A CLI for running your own relay server. It can be configured
+  to also expose metrics.
+
+
+Used in [iroh], created with love by the [n0 team](https://n0.computer/).
+
+## Build the server
+
+You can build an optimised release of `iroh-relay` by running `cargo build`
+with the appropriate flags from the workspace parent directory as follows.
+
+```
+cd ../
+cargo build \
+  --profile optimized-release \
+  --package iroh-relay \
+  --features server
+```
+
+You will find the optimised binary at `target/optimized-release/iroh-relay`.
+
+## Access control
+
+The relay server supports several access control modes, configured via the
+`access` field in the TOML config file.
+
+### Allow everyone (default)
+
+```toml
+access = "everyone"
+```
+
+### Allowlist / Denylist by endpoint ID
+
+```toml
+# Allow only specific endpoints
+access.allowlist = ["<endpoint-id>", "<endpoint-id>"]
+
+# Or block specific endpoints and allow everyone else
+access.denylist = ["<endpoint-id>"]
+```
+
+### Shared token (local, no external service)
+
+Requires connecting clients to present one of the configured shared secrets via an
+`Authorization: Bearer <token>` header, or a `?token=` URL query parameter.
+
+```toml
+access.shared_token = ["token-a", "token-b"]
+```
+
+The token list can also be overridden by the `IROH_RELAY_ACCESS_TOKEN` environment
+variable, which sets a single allowed token and takes precedence over the config file
+value. A single value is used (rather than a comma-separated list) to avoid restricting
+the character set of tokens.
+
+The token list must not be empty, and no token may be an empty string; the server will
+fail to start if either condition is violated.
+
+On the client side, set the token using
+[`RelayConfig::with_auth_token`](https://docs.rs/iroh-relay/latest/iroh_relay/struct.RelayConfig.html#method.with_auth_token)
+or
+[`RelayMap::with_auth_token`](https://docs.rs/iroh-relay/latest/iroh_relay/struct.RelayMap.html#method.with_auth_token).
+
+> **Note:** this shared token does not support revocation other than updating the config and restarting the service.
+
+### HTTP callout (external auth service)
+
+The relay calls an external HTTP endpoint for each incoming connection,
+passing the connecting endpoint's ID. The token below authenticates the relay
+to your auth service (machine-to-machine), not the connecting client.
+
+```toml
+access.http.url = "https://your-auth-service.example.com/relay-auth"
+# Optional: authenticate the relay's outbound request to your service
+access.http.bearer_token = "service-to-service-secret"
+```
+
+The bearer token can also be set via the `IROH_RELAY_HTTP_BEARER_TOKEN`
+environment variable.
+
+## Local testing
+
+Advice for testing your application that uses `iroh` with a locally running `iroh-relay` server
+
+### dev mode
+When running the relay server using the `--dev` flag, you will:
+- only run the server over http, not https
+- will NOT run the QUIC endpoint that enables QUIC address discovery
+
+The relay can be contacted at "http://localhost:3340".
+
+Both https and QUIC address discovery require TLS certificates. It's possible to run QUIC address discovery using locally generated TLS certificates, but it takes a few extra steps and so, is disabled by default for now.
+
+### dev mode with QUIC address discovery
+
+So you want to test out QUIC address discovery locally?
+
+In order to do that you need TLS certificates.
+
+The easiest get that is to generate self-signed certificates using `rcgen`
+  - get rcgen (`git clone https://github.com/rustls/rcgen`)
+  - cd to the `rcgen` directory
+  - generate local certs using `cargo run -- -o path/to/certs`
+
+Next, add the certificate paths to your iroh-relay config, here is an example of a config.toml file that will enable quic address discovery.
+```toml
+enable_quic_addr_discovery = true
+
+[tls]
+cert_mode = "Manual"
+manual_cert_path = "/path/to/certs/cert.pem"
+manual_key_path = "/path/to/certs/cert.key.pem"
+```
+
+Then run the server with the `--dev` flag, like you would when normally testing locally:
+`cargo run --features="server" --bin iroh-relay -- --config-path=/path/to/config.toml --dev`
+
+The relay server will run over http on port 3340, as it does using the `--dev` flag, but it will also run a QUIC server on port 7824.
+
+The relay will use the configured TLS certificates for the QUIC connection, but use http (rather than https) for the server.
+
+### Using iroh-relay as a library to run in-process relays in integration tests
+
+When using iroh as a transport library in an application or other library, there is a simple way of running an in-process relay server:
+
+- Enable `test-utils` feature of the `iroh` crate
+```toml
+iroh = { version = "0.95", features = ["test-utils"] }
+```
+- Spawn a relay server by calling [`iroh::test_utils::run_relay_server().await`](https://docs.rs/iroh/latest/iroh/test_utils/fn.run_relay_server.html)
+This will start a relay server with a self-signed TLS certificate, listening on a localhost port, and return the server's URL.
+- For the iroh endpoints to successfully connect to the relay, disable TLS certificate verification by calling [`Endpoint::ca_tls_config`](https://docs.rs/iroh/latest/iroh/endpoint/struct.Builder.html#method.ca_tls_config) with  `CaRootConfig::insecure_skip_verify()`.
+
+# License
+
+This project is licensed under either of
+
+ * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
+   https://www.apache.org/licenses/LICENSE-2.0)
+ * MIT license ([LICENSE-MIT](LICENSE-MIT) or
+   https://opensource.org/licenses/MIT)
+
+at your option.
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in this project by you, as defined in the Apache-2.0 license,
+shall be dual licensed as above, without any additional terms or conditions.
+
+[iroh]: https://github.com/n0-computer/iroh

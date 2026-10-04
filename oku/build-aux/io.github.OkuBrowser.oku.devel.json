@@ -78,6 +78,10 @@
                 },
                 {
                     "type" : "dir",
+                    "path" : "./vendor"
+                },
+                {
+                    "type" : "dir",
                     "path" : "../"
                 },
                 "cargo-sources.json"

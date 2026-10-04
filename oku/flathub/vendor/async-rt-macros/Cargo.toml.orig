@@ -1,0 +1,21 @@
+[package]
+name = "async-rt-macros"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/dariusc93/async-rt"
+categories = ["asynchronous"]
+keywords = ["async", "non-blocking", "futures"]
+authors = ["Darius Clark"]
+exclude = [".gitignore"]
+description = "Attribute macros for async-rt"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro-crate = "3.5.0"
+proc-macro2 = "1.0.107"
+quote = "1.0.47"
+syn = { version = "3.0.4", features = ["full"] }

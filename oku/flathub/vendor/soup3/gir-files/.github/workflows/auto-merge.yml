@@ -1,0 +1,40 @@
+name: Auto Merge PRs from github-actions[bot]
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled]
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+
+    if: github.event.pull_request.user.login == 'github-actions[bot]'
+
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: read
+
+    steps:
+      - name: Wait for all required status checks
+        run: |
+          echo "Waiting for all required status checks to pass..."
+          for i in {1..60}; do
+            STATUS=$(gh api repos/${{ github.repository }}/commits/${{ github.event.pull_request.head.sha }}/status --jq '.state')
+            echo "Current status: $STATUS"
+            if [[ "$STATUS" == "success" ]]; then
+              echo "All checks passed!"
+              break
+            elif [[ "$STATUS" == "failure" ]]; then
+              echo "Some checks failed. Exiting."
+              exit 1
+            fi
+            sleep 10
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge PR using gh CLI
+        run: gh pr merge ${{ github.event.pull_request.html_url }} --merge --admin --delete-branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

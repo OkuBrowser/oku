@@ -1,0 +1,21 @@
+[package]
+name = "other-error"
+version = "0.1.1"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+authors = ["Darius Clark"]
+exclude = [".gitignore"]
+description = "Small wrapper for sharing or combining errors"
+readme = "README.md"
+repository = "https://github.com/dariusc93/other-error"
+rust-version = "1.81"
+keywords = ["error", "error-handling"]
+categories = ["rust-patterns", "no-std::no-alloc"]
+
+[features]
+default = ["std"]
+std = ["either/std", "alloc"]
+alloc = []
+
+[dependencies]
+either = { version = "1", default-features = false }

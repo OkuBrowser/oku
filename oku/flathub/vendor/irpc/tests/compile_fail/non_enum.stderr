@@ -1,0 +1,5 @@
+error: RpcRequests can only be applied to enums
+ --> tests/compile_fail/non_enum.rs:4:1
+  |
+4 | struct Foo;
+  | ^^^^^^^^^^^

@@ -1,0 +1,108 @@
+[package]
+name = "n0-dns-resolver"
+version = "0.1.0"
+edition = "2024"
+readme = "README.md"
+description = "A small async DNS stub resolver built on simple-dns, used by iroh."
+license = "MIT OR Apache-2.0"
+authors = ["n0 team"]
+repository = "https://github.com/n0-computer/iroh"
+keywords = ["dns", "resolver", "networking", "async"]
+rust-version = "1.91"
+
+[lints.rust]
+missing_debug_implementations = "warn"
+# The transport_tls, transport_https, with_rustls and with_crypto_provider cfgs
+# are emitted (with their check-cfg) by build.rs; only the docs.rs cfg is here.
+unexpected_cfgs = { level = "warn", check-cfg = [
+    "cfg(n0_dns_resolver_docsrs)",
+] }
+
+[lints.clippy]
+unused-async = "warn"
+
+[dependencies]
+derive_more = { version = "2.0.1", features = ["display"] }
+lru = "0.18.0"
+n0-error = "1.0.0"
+n0-future = "0.3"
+rand = "0.10"
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"], optional = true }
+rustc-hash = "2.1.3"
+rustls = { version = "0.23.33", default-features = false, optional = true }
+simple-dns = "0.12"
+tokio = { version = "1", features = ["macros", "sync", "io-util", "net"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["logging"], optional = true }
+tracing = "0.1"
+webpki-roots = { version = "1.0.7", optional = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+ndk-context = "0.1"
+jni = "0.22"
+
+[target.'cfg(target_vendor = "apple")'.dependencies]
+system-configuration = "0.8"
+
+[target.'cfg(windows)'.dependencies]
+ipconfig = "0.3"
+
+[features]
+default = ["transport-tls", "transport-https", "tls-ring"]
+# DNS-over-TLS and DNS-over-HTTPS both build on rustls; each pulls the roots used
+# to build a default client config when the caller does not supply one.
+transport-tls = ["dep:rustls", "dep:tokio-rustls", "dep:webpki-roots"]
+transport-https = ["dep:reqwest", "dep:rustls", "dep:webpki-roots"]
+# A rustls crypto provider, used to build that default client config.
+tls-ring = ["rustls?/ring"]
+tls-aws-lc-rs = ["rustls?/aws-lc-rs"]
+
+[target.'cfg(target_os = "android")'.dev-dependencies]
+android-activity = { version = "0.6", features = ["native-activity"] }
+paranoid-android = "0.2.2"
+
+[dev-dependencies]
+hickory-resolver = { version = "0.26.0", features = ["tokio", "system-config"] }
+http = "1"
+iroh-base = { version = "1.0.3", default-features = false, features = ["key"] }
+tokio = { version = "1", features = ["macros", "rt"] }
+tracing-subscriber = "0.3.23"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "n0_dns_resolver_docsrs"]
+
+[package.metadata.cargo_check_external_types]
+allowed_external_types = [
+    # The error type carries n0_error::AnyError sources.
+    "n0_error::*",
+    # The builder accepts a caller-provided rustls TLS client config.
+    "rustls::client::client_conn::ClientConfig",
+    # TransportError exposes the reqwest error behind DNS-over-HTTPS failures.
+    "reqwest::error::Error",
+]
+
+[package.metadata.android]
+# arm64 phones and x86_64 emulators.
+build_targets = ["aarch64-linux-android", "x86_64-linux-android"]
+
+[package.metadata.android.sdk]
+min_sdk_version = 24
+target_sdk_version = 33
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.INTERNET"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.ACCESS_NETWORK_STATE"
+
+[[example]]
+name = "compare_iroh_lookups"
+required-features = ["transport-https", "tls-ring"]
+
+# The same example, packaged for Android. cargo-apk needs a `cdylib`, and an
+# example cannot be both that and a runnable binary, so this is a separate
+# target that compiles the one above as a module.
+[[example]]
+name = "compare_iroh_lookups_android"
+required-features = ["transport-https", "tls-ring"]
+crate-type = ["cdylib"]

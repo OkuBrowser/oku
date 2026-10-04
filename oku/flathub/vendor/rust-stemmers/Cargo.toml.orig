@@ -1,0 +1,13 @@
+[package]
+name = "rust-stemmers"
+version = "1.2.0"
+authors = ["Jakob Demler <jdemler@curry-software.com>", "CurrySoftware <info@curry-software.com>"]
+description = "A rust implementation of some popular snowball stemming algorithms"
+repository = "https://github.com/CurrySoftware/rust-stemmers"
+readme = "README.md"
+keywords = ["nlp", "stemming", "information", "retrieval", "language"]
+license = "MIT/BSD-3-Clause"
+
+[dependencies]
+serde = "^1.0"
+serde_derive = "^1.0"

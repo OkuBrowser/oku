@@ -1,0 +1,261 @@
+[crate_name_overrides]
+"java_script_core" = "javascriptcore"
+
+[options]
+generate_safety_asserts = true
+girs_directories = ["../gir-files", "../webkit-gir-files"]
+library = "WebKit"
+single_version_file = true
+target_path = "."
+version = "6.0"
+min_cfg_version = "2.40.0"
+work_mode = "normal"
+use_gi_docgen = true
+
+generate = [
+  "WebKit.*",
+  "WebKit.ApplicationInfo",
+  "WebKit.Credential",
+  "WebKit.AuthenticationScheme",
+  "WebKit.SecurityOrigin",
+  "WebKit.AutomationBrowsingContextPresentation",
+  "WebKit.AutomationSession",
+  "WebKit.AutoplayPolicy",
+  "WebKit.BackForwardListItem",
+  "WebKit.BackForwardList",
+  "WebKit.CacheModel",
+  "WebKit.PermissionRequest",
+  "WebKit.ClipboardPermissionRequest",
+  "WebKit.ColorChooserRequest",
+  "WebKit.ContextMenu",
+  "WebKit.ContextMenuItem",
+  "WebKit.ContextMenuAction",
+  "WebKit.CookieAcceptPolicy",
+  "WebKit.CookiePersistentStorage",
+  "WebKit.CredentialPersistence",
+  "WebKit.DeviceInfoPermissionRequest",
+  "WebKit.Download",
+  "WebKit.URIRequest",
+  "WebKit.URIResponse",
+  "WebKit.DownloadError",
+  "WebKit.EditorState",
+  "WebKit.EditorTypingAttributes",
+  "WebKit.FaviconDatabase",
+  "WebKit.FaviconDatabaseError",
+  "WebKit.Feature",
+  "WebKit.FeatureStatus",
+  "WebKit.FeatureList",
+  "WebKit.FileChooserRequest",
+  "WebKit.FindController",
+  "WebKit.FindOptions",
+  "WebKit.FormSubmissionRequest",
+  "WebKit.GeolocationManager",
+  "WebKit.GeolocationPosition",
+  "WebKit.GeolocationPermissionRequest",
+  "WebKit.HardwareAccelerationPolicy",
+  "WebKit.HitTestResult",
+  "WebKit.HitTestResultContext",
+  "WebKit.ITPFirstParty",
+  "WebKit.ITPThirdParty",
+  "WebKit.Image",
+  "WebKit.InputHints",
+  "WebKit.InputMethodContext",
+  "WebKit.InputPurpose",
+  "WebKit.InputMethodUnderline",
+  "WebKit.InsecureContentEvent",
+  "WebKit.JavascriptError",
+  "WebKit.LoadEvent",
+  "WebKit.MediaCaptureState",
+  "WebKit.MediaError",
+  "WebKit.MediaKeySystemPermissionRequest",
+  "WebKit.MemoryPressureSettings",
+  "WebKit.NavigationType",
+  "WebKit.NavigationPolicyDecision",
+  "WebKit.PolicyDecision",
+  "WebKit.NetworkError",
+  "WebKit.NetworkProxyMode",
+  "WebKit.NetworkProxySettings",
+  "WebKit.TLSErrorsPolicy",
+  "WebKit.Notification",
+  "WebKit.NotificationPermissionRequest",
+  "WebKit.OptionMenu",
+  "WebKit.OptionMenuItem",
+  "WebKit.PermissionState",
+  "WebKit.PermissionStateQuery",
+  "WebKit.PointerLockPermissionRequest",
+  "WebKit.PolicyDecisionType",
+  "WebKit.PolicyError",
+  "WebKit.PrintError",
+  "WebKit.PrintOperationResponse",
+  "WebKit.ResponsePolicyDecision",
+  "WebKit.SaveMode",
+  "WebKit.ScriptDialog",
+  "WebKit.ScriptDialogType",
+  "WebKit.ScriptMessageReply",
+  "WebKit.SecurityManager",
+  "WebKit.SnapshotError",
+  "WebKit.SnapshotOptions",
+  "WebKit.SnapshotRegion",
+  "WebKit.URISchemeRequest",
+  "WebKit.URISchemeResponse",
+  "WebKit.UserContentFilter",
+  "WebKit.UserContentFilterError",
+  "WebKit.UserContentInjectedFrames",
+  "WebKit.UserContentManager",
+  "WebKit.UserScript",
+  "WebKit.UserStyleSheet",
+  "WebKit.UserMediaPermissionRequest",
+  "WebKit.UserMessageError",
+  "WebKit.UserScriptInjectionTime",
+  "WebKit.UserStyleLevel",
+  "WebKit.WebExtension",
+  "WebKit.WebExtensionError",
+  "WebKit.WebExtensionMode",
+  "WebKit.WebInspector",
+  "WebKit.WebExtensionMatchPattern",
+  "WebKit.WebExtensionMatchPatternOptions",
+  "WebKit.WebExtensionMatchPatternError",
+  "WebKit.WebViewBase",
+  "WebKit.WebProcessTerminationReason",
+  "WebKit.WebResource",
+  "WebKit.WebViewSessionState",
+  "WebKit.WebsiteData",
+  "WebKit.WebsiteDataTypes",
+  "WebKit.WebsiteDataAccessPermissionRequest",
+  "WebKit.XRSessionFeatures",
+  "WebKit.XRPermissionRequest",
+  "WebKit.XRSessionMode",
+]
+
+manual = [
+  "Gtk.Accessible",
+  "Gtk.Buildable",
+  "Gtk.ConstraintTarget",
+  "Gtk.Widget",
+  "GLib.Bytes",
+  "Gdk.Rectangle",
+  "Gio.Cancellable",
+  "GLib.Variant",
+  "Gio.File",
+  "GLib.Error",
+  "GLib.KeyFile",
+  "GLib.Quark",
+  "Gio.InputStream",
+  "Gdk.RGBA",
+  "Gio.UnixFDList",
+  "Soup.MessageHeaders",
+  "JavaScriptCore.Value",
+  "Gtk.Window",
+  "Gtk.PageSetup",
+  "Gtk.PrintSettings",
+  "Gdk.Event",
+  "GLib.DateTime",
+  "Gtk.FileFilter",
+  "Soup.Cookie",
+  "Gio.Action",
+  "Gio.TlsCertificate",
+  "Gio.TlsCertificateFlags",
+  "Gio.TlsPasswordFlags",
+  "Gdk.Texture",
+  "GLib.TimeSpan",
+  "Gio.Icon",
+  "Gio.LoadableIcon",
+  "Gio.Initable",
+]
+
+[[object]]
+name = "WebKit.CookieManager"
+status = "generate"
+  [[object.function]]
+  pattern = "(add|delete)_cookie"
+    [[object.function.parameter]]
+    name = "cookie"
+    const = true
+  [[object.function]]
+  name = "replace_cookies"
+  ignore = true # TODO: implement me
+
+[[object]]
+name = "WebKit.AuthenticationRequest"
+status = "generate"
+  [[object.function]]
+  name = "authenticate"
+    [[object.function.parameter]]
+    name = "credential"
+    const = true
+
+[[object]]
+name = "WebKit.NetworkSession"
+status = "generate"
+generate_builder = true
+  [[object.function]]
+  name = "set_proxy_settings"
+    [[object.function.parameter]]
+    name = "proxy_settings"
+    const = true
+
+[[object]]
+name = "WebKit.PrintOperation"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "WebKit.Settings"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "WebKit.UserContentFilterStore"
+status = "generate"
+  [[object.function]]
+  name = "fetch_identifiers"
+  ignore = true # expected struct `Vec`, found `*mut *mut i8`
+
+[[object]]
+name = "WebKit.UserMessage"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "WebKit.WebContext"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "WebKit.WebsiteDataManager"
+status = "generate"
+generate_builder = true
+  [[object.function]]
+  name = "clear"
+  manual = true # expected `i64`, found struct `TimeSpan`
+  [[object.function]]
+  name = "remove"
+  manual = true # website_data` escapes the associated function body here
+
+[[object]]
+name = "WebKit.WebsitePolicies"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "WebKit.WebView"
+status = "generate"
+generate_builder = true
+  [[object.signal]]
+  name = "create"
+    [object.signal.return]
+    nullable = true
+
+[[object]]
+name = "WebKit.WindowProperties"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "WebKit.NavigationAction"
+status = "generate"
+  [[object.function]]
+  pattern = "(get_frame_name|get_modifiers|get_mouse_button|get_navigation_type|get_request|is_redirect|is_user_gesture)"
+    [[object.function.parameter]]
+    name = "navigation"
+    const = true

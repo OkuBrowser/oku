@@ -1,0 +1,172 @@
+name: tests
+
+on:
+  push:
+    branches:
+      # This helps fill the caches properly, caches are not shared between PRs.
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  MSRV: "1.91"
+  RUST_BACKTRACE: 1
+  RUSTFLAGS: -Dwarnings
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-make
+      - name: cargo clippy
+        run: cargo clippy --locked --workspace --all-targets --all-features
+      - run: cargo make format-check
+
+  test:
+    runs-on: ${{ matrix.target.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - os: "ubuntu-latest"
+            toolchain: "x86_64-unknown-linux-gnu"
+            name: "Linux GNU"
+          - os: "macOS-latest"
+            toolchain: "x86_64-apple-darwin"
+            name: "macOS"
+          - os: "windows-latest"
+            toolchain: "x86_64-pc-windows-msvc"
+            name: "Windows MSVC"
+          - os: "windows-latest"
+            toolchain: "x86_64-pc-windows-gnu"
+            name: "Windows GNU"
+        channel:
+          - "stable"
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.channel }}
+          targets: ${{ matrix.target.toolchain }}
+      - uses: swatinem/rust-cache@v2
+      - name: cargo test (workspace, all features)
+        run: cargo test --locked --workspace --all-features --bins --tests --examples
+      - name: cargo test (workspace, default features)
+        run: cargo test --locked --workspace --bins --tests --examples
+      - name: cargo test (workspace, no default features)
+        run: cargo test --locked --workspace --no-default-features --bins --tests --examples
+      - name: cargo check (irpc, no default features)
+        run: cargo check --locked --no-default-features --bins --tests --examples
+      - name: cargo check (irpc, feature derive)
+        run: cargo check --locked --no-default-features --features derive --bins --tests --examples
+      - name: cargo check (irpc, feature spans)
+        run: cargo check --locked --no-default-features --features spans --bins --tests --examples
+      - name: cargo check (irpc, feature rpc)
+        run: cargo check --locked --no-default-features --features rpc --bins --tests --examples
+      - name: cargo check (irpc, feature tracing-opentelemetry)
+        run: cargo check --locked --no-default-features --features tracing-opentelemetry --bins --tests --examples
+
+  test-release:
+    runs-on: ${{ matrix.target.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - os: "ubuntu-latest"
+            toolchain: "x86_64-unknown-linux-gnu"
+            name: "Linux GNU"
+          - os: "macOS-latest"
+            toolchain: "x86_64-apple-darwin"
+            name: "macOS"
+          - os: "windows-latest"
+            toolchain: "x86_64-pc-windows-msvc"
+            name: "Windows MSVC"
+          - os: "windows-latest"
+            toolchain: "x86_64-pc-windows-gnu"
+            name: "Windows GNU"
+        channel:
+          - "stable"
+          - "beta"
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.channel }}
+          targets: ${{ matrix.target.toolchain }}
+      - uses: swatinem/rust-cache@v2
+      - name: cargo test
+        run: cargo test --release --locked --workspace --all-features --bins --tests --examples
+
+  check_docs:
+    timeout-minutes: 30
+    name: Checking docs
+    runs-on: ubuntu-latest
+    env:
+      RUSTC_WRAPPER: "sccache"
+      SCCACHE_GHA_ENABLED: "on"
+      RUSTDOCFLAGS: -Dwarnings
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/install@cargo-docs-rs
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: irpc
+        run: cargo docs-rs -p irpc
+      - name: irpc-iroh
+        run: cargo docs-rs -p irpc-iroh
+
+  wasm_build:
+    name: Build wasm32
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: '--cfg getrandom_backend="wasm_js"'
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Install wasm-tools
+        uses: bytecodealliance/actions/wasm-tools/setup@v1
+      - name: wasm32 build
+        run: cargo build --target wasm32-unknown-unknown --all
+      # If the Wasm file contains any 'import "env"' declarations, then
+      # some non-Wasm-compatible code made it into the final code.
+      - name: Ensure no 'import "env"' in wasm
+        run: |
+          ! wasm-tools print --skeleton target/wasm32-unknown-unknown/debug/irpc.wasm | grep 'import "env"'
+          ! wasm-tools print --skeleton target/wasm32-unknown-unknown/debug/irpc_iroh.wasm | grep 'import "env"'
+
+  # Checks correct runtime deps and features are requested by not including dev-dependencies.
+  check-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+      - name: cargo check
+        run: cargo check --workspace --all-features --lib --bins
+
+  minimal-crates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: swatinem/rust-cache@v2
+      - name: cargo check
+        run: |
+          rm -f Cargo.lock
+          cargo +nightly check -Z minimal-versions -p irpc -p irpc-derive --all-features --lib --bins

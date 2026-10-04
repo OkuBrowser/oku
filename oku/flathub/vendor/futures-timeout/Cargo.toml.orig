@@ -1,0 +1,30 @@
+[package]
+name = "futures-timeout"
+version = "0.2.1"
+edition = "2021"
+rust-version = "1.81"
+description = """
+A utility that provides timeouts for futures and streams
+"""
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/dariusc93/futures-timeout"
+authors = ["Darius Clark"]
+exclude = [".gitignore"]
+keywords = ["async", "futures", "timer", "timeout", "wasm"]
+categories = ["asynchronous"]
+
+[features]
+default = []
+
+[dependencies]
+futures-core = { version = "0.3.31", default-features = false }
+pin-project = "1.1.10"
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+futures-timer = { version = "3.0.3", features = ["wasm-bindgen"] }
+
+[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
+futures-timer = "3.0.3"
+
+[dev-dependencies]
+futures = { version = "0.3.31", default-features = false, features = ["std", "alloc", "async-await", "executor"] }

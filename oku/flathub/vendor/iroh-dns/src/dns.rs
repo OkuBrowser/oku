@@ -1,0 +1,1416 @@
+//! Configurable DNS resolver.
+//!
+//! The main export is the [`DnsResolver`] struct. It provides methods to resolve domain names
+//! to IPv4 and IPv6 addresses, and to look up TXT records. Additionally, the resolver features
+//! methods to resolve the [`EndpointInfo`] for an iroh [`EndpointId`] from `_iroh` TXT records.
+//! See the [`crate::endpoint_info`] module documentation for details on how iroh endpoint records
+//! are structured.
+
+use std::{
+    collections::VecDeque,
+    fmt,
+    future::Future,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    pin::Pin,
+    sync::Arc,
+};
+
+use arc_swap::ArcSwap;
+use iroh_base::EndpointId;
+use n0_error::{AnyError, StackError, e, stack_error};
+use n0_future::{
+    Either, MaybeFuture, Stream, StreamExt,
+    boxed::BoxFuture,
+    stream,
+    time::{self, Duration},
+};
+use tokio::sync::Notify;
+use url::Url;
+
+use crate::{ParseError, endpoint_info::EndpointInfo};
+
+/// Default DNS query timeout.
+pub const DNS_TIMEOUT: Duration = Duration::from_secs(3);
+
+/// The n0 address lookup DNS origin, for production.
+pub const N0_DNS_ENDPOINT_ORIGIN_PROD: &str = "dns.iroh.link.";
+/// The n0 address lookup DNS origin, for testing.
+pub const N0_DNS_ENDPOINT_ORIGIN_STAGING: &str = "staging-dns.iroh.link.";
+
+/// Exposes a JVM to iroh so that we can read the system's DNS configuration.
+///
+/// This calls [`ndk_context::initialize_android_context`] to expose a
+/// `JavaVM` and Application Context to Rust code so that we can use JNI.
+/// This is required to get the configured nameservers on Android.
+///
+/// If this function is not called, fetching the configured nameservers will fail
+/// and the default [`DnsResolver`] will use fallback nameservers instead.
+///
+/// If you call [`ndk_context::initialize_android_context`] already somewhere
+/// up the stack in your app, or use a crate like `ndk-glue` or `android-activity`
+/// that do this for you, then there's no need to call this function.
+///
+/// If you don't use a glue crate, a typical way to initialize the context is
+/// via `JNI_OnLoad`:
+///
+/// *Note: `install_android_jni_context` is reexported from `iroh`, so you can substitute
+/// `iroh_dns` for `iroh` below.*
+///
+/// ```ignore
+/// #[cfg(target_os = "android")]
+/// #[no_mangle]
+/// pub extern "C" fn JNI_OnLoad(
+///     vm: jni::JavaVM,
+///     res: *mut std::os::raw::c_void,
+/// ) -> jni::sys::jint {
+///     use std::ffi::c_void;
+///
+///     let vm = vm.get_java_vm_pointer() as *mut c_void;
+///     unsafe {
+///         iroh_dns::install_android_jni_context(vm, res);
+///     }
+///     jni::JNIVersion::V6.into()
+/// }
+/// ```
+///
+/// # Safety
+///
+/// Both the `java_vm` and `context_jobject` pointers must remain valid until the process exits.
+/// See also [`ndk_context::initialize_android_context`].
+///
+/// [`ndk_context`]: https://docs.rs/ndk-context
+/// [`ndk_context::initialize_android_context`]: https://docs.rs/ndk-context/latest/ndk_context/fn.initialize_android_context.html
+//
+// Inlined rather than re-exported from `n0-dns-resolver`: a `pub use` of the
+// resolver crate's item does not resolve on a `doc`-only build (the dependency
+// is compiled without the `doc` cfg, so its item is absent), so we mirror the
+// signature and cfg here and delegate to it on Android.
+#[cfg(any(target_os = "android", doc))]
+pub unsafe fn install_android_jni_context(
+    java_vm: *mut std::ffi::c_void,
+    application_context: *mut std::ffi::c_void,
+) {
+    #[cfg(target_os = "android")]
+    unsafe {
+        n0_dns_resolver::install_android_jni_context(java_vm, application_context);
+    }
+    #[cfg(not(target_os = "android"))]
+    let _ = (java_vm, application_context);
+}
+
+/// Percent of total delay to jitter. 20 means +/- 20% of delay.
+const MAX_JITTER_PERCENT: u64 = 20;
+
+/// Trait for DNS resolvers used in iroh.
+pub trait Resolver: fmt::Debug + Send + Sync + 'static {
+    /// Looks up an IPv4 address.
+    fn lookup_ipv4(&self, host: String) -> BoxFuture<Result<BoxIter<Ipv4Addr>, DnsError>>;
+
+    /// Looks up an IPv6 address.
+    fn lookup_ipv6(&self, host: String) -> BoxFuture<Result<BoxIter<Ipv6Addr>, DnsError>>;
+
+    /// Looks up TXT records.
+    fn lookup_txt(&self, host: String) -> BoxFuture<Result<BoxIter<TxtRecordData>, DnsError>>;
+
+    /// Clears the internal cache.
+    fn clear_cache(&self);
+
+    /// Returns a freshly-built resolver to replace `self` after a network change.
+    ///
+    /// The returned resolver replaces the previous one inside [`DnsResolver`] via an
+    /// atomic swap. Build a new instance with re-bound sockets and re-read nameserver
+    /// configuration rather than mutating in place. Must not perform IO: defer DNS
+    /// queries and socket binds until the new resolver is first used. May be called
+    /// concurrently, in which case all but one allocated replacement is dropped unused.
+    fn reset(&self) -> Box<dyn Resolver>;
+}
+
+/// Boxed iterator alias.
+///
+/// Used in return types of [`Resolver`] methods.
+pub type BoxIter<T> = Box<dyn Iterator<Item = T> + Send + 'static>;
+
+/// Potential errors related to DNS operations.
+///
+/// Distinct, matchable causes have their own variant, such as [`Self::NxDomain`]
+/// (a nameserver reported the name does not exist, unlike a transient transport
+/// or timeout failure). Any other cause is reported as [`Self::Resolve`], whose
+/// [`AnyError`] source carries the underlying error.
+///
+/// The resolver backing this crate is an implementation detail and its error
+/// types are not part of the public API. If you depend on `n0-dns-resolver`
+/// directly and need the exact reason, downcast a [`Self::Resolve`] source:
+///
+/// ```ignore
+/// if let DnsError::Resolve { source, .. } = &err {
+///     if let Some(inner) = source.downcast_ref::<n0_dns_resolver::Error>() {
+///         // match on `inner` for the specific failure
+///     }
+/// }
+/// ```
+#[allow(missing_docs)]
+#[stack_error(derive, add_meta, std_sources)]
+#[non_exhaustive]
+pub enum DnsError {
+    #[error("Request timed out")]
+    Timeout {},
+    #[error("No response")]
+    NoResponse {},
+    #[error("Resolve failed, IPv4: {ipv4}, IPv6: {ipv6}")]
+    ResolveBoth {
+        ipv4: Box<DnsError>,
+        ipv6: Box<DnsError>,
+    },
+    #[error("Missing host")]
+    MissingHost {},
+    /// A resolution failure not covered by another variant.
+    ///
+    /// Downcast the source (see the type-level docs) to recover the specific cause.
+    #[error("Failed to resolve")]
+    Resolve {
+        #[error(from)]
+        source: AnyError,
+    },
+    #[error("Invalid DNS response: not a query for _iroh.z32encodedpubkey")]
+    InvalidResponse {},
+    /// The domain name does not exist (NXDOMAIN).
+    ///
+    /// A nameserver authoritatively reported that the name does not exist, as
+    /// opposed to a transient transport or timeout failure, so retrying will not
+    /// make the lookup succeed.
+    //
+    // Appended after `InvalidResponse` so the pre-existing variants keep their
+    // discriminants.
+    #[error("Domain name does not exist (NXDOMAIN)")]
+    NxDomain {},
+}
+
+/// Potential errors related to DNS endpoint address lookups.
+#[allow(missing_docs)]
+#[stack_error(derive, add_meta, from_sources)]
+#[non_exhaustive]
+pub enum LookupError {
+    #[error("Malformed txt from lookup")]
+    ParseError { source: ParseError },
+    #[error("Failed to resolve TXT record")]
+    LookupFailed { source: DnsError },
+}
+
+/// Error returned when a staggered call fails.
+#[stack_error(derive, add_meta)]
+#[error("no calls succeeded: [{}]", errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(""))]
+pub struct StaggeredError<E: n0_error::StackError + 'static> {
+    errors: Vec<E>,
+}
+
+impl<E: StackError + 'static> StaggeredError<E> {
+    /// Returns an iterator over all encountered errors.
+    pub fn iter(&self) -> impl Iterator<Item = &E> {
+        self.errors.iter()
+    }
+}
+
+/// Builder for [`DnsResolver`].
+#[derive(Debug, Clone, Default)]
+pub struct Builder {
+    use_system_defaults: bool,
+    nameservers: Vec<NameserverConfig>,
+    fallback_mode: FallbackMode,
+    fallback_nameservers: Vec<NameserverConfig>,
+    #[cfg(not(wasm_browser))]
+    tls_client_config: Option<rustls::ClientConfig>,
+}
+
+/// How the resolver uses its fallback nameservers relative to the primary ones.
+///
+/// The *primary* nameservers come from the system DNS configuration and the
+/// nameservers added on the [`Builder`]. The *fallback* nameservers default to a
+/// set of public resolvers, which [`Builder::fallback_nameserver_configs`] can
+/// override. Select the mode with [`Builder::with_fallback_mode`].
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum FallbackMode {
+    /// Never queries the fallback nameservers.
+    Never,
+    /// Races the fallback nameservers alongside the primary ones from the start.
+    Eager,
+    /// Uses the fallback nameservers only when the system configuration is empty.
+    ///
+    /// A system configuration counts as empty when it yields no nameservers,
+    /// whether because it could not be read or because it listed none. One that
+    /// did yield nameservers is never supplemented: if those fail at query time
+    /// the lookup fails rather than escalating. Without
+    /// [`Builder::with_system_defaults`] there is no configuration at all, which
+    /// also counts as empty, so this behaves like [`Self::Eager`] then.
+    IfSystemEmpty,
+    /// Keeps the fallback nameservers as a lower-priority tier.
+    ///
+    /// They are queried only once every primary nameserver has failed or timed
+    /// out. This is the default.
+    #[default]
+    Deferred,
+}
+
+impl FallbackMode {
+    /// Converts into the resolver crate's fallback mode.
+    ///
+    /// Returns `None` for [`Self::Never`]. The resolver crate has no such mode,
+    /// because its fallback tier starts empty and querying nothing is simply
+    /// adding nothing. Here the tier defaults to public resolvers, so we keep a
+    /// way to say no.
+    fn to_resolver_mode(self) -> Option<n0_dns_resolver::FallbackMode> {
+        match self {
+            FallbackMode::Never => None,
+            FallbackMode::Eager => Some(n0_dns_resolver::FallbackMode::Eager),
+            FallbackMode::IfSystemEmpty => Some(n0_dns_resolver::FallbackMode::IfSystemEmpty),
+            FallbackMode::Deferred => Some(n0_dns_resolver::FallbackMode::Deferred),
+        }
+    }
+}
+
+/// A DNS nameserver configuration for a single server.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NameserverConfig {
+    addr: SocketAddr,
+    protocol: DnsProtocol,
+    server_name: Option<String>,
+}
+
+impl NameserverConfig {
+    fn new(addr: IpAddr, port: u16, protocol: DnsProtocol) -> Self {
+        Self {
+            addr: SocketAddr::new(addr, port),
+            protocol,
+            server_name: None,
+        }
+    }
+
+    /// Creates a new nameserver config for DNS over UDP (Do53).
+    ///
+    /// This nameserver will be using DNS over UDP on port 53, see
+    /// [`Self::with_port`] to further customise this nameserver.
+    pub fn udp(addr: IpAddr) -> Self {
+        Self::new(addr, 53, DnsProtocol::Udp)
+    }
+
+    /// Creates a new nameserver config for DNS over TCP (Do53).
+    ///
+    /// This nameserver will be using DNS over TCP on port 53, see
+    /// [`Self::with_port`] to further customise this nameserver.
+    pub fn tcp(addr: IpAddr) -> Self {
+        Self::new(addr, 53, DnsProtocol::Tcp)
+    }
+
+    /// Creates a new nameserver config for DNS over TLS (DoT).
+    ///
+    /// This nameserver will be using DNS over TLS on port 853, see
+    /// [`Self::with_port`] and [`Self::with_tls_server_name`] to further customise
+    /// this nameserver.
+    pub fn tls(addr: IpAddr) -> Self {
+        Self::new(addr, 853, DnsProtocol::Tls)
+    }
+
+    /// Creates a new nameserver config for DNS over HTTPS (DoH).
+    ///
+    /// This nameserver will be using DNS over HTTPS on port 443, see
+    /// [`Self::with_port`] and [`Self::with_tls_server_name`] to further customise
+    /// this nameserver.
+    pub fn https(addr: IpAddr) -> Self {
+        Self::new(addr, 443, DnsProtocol::Https)
+    }
+
+    /// Sets the port for the nameserver.
+    ///
+    /// # Returns
+    ///
+    /// A new instance is returned, this struct is essentially a builder for itself.
+    pub fn with_port(self, port: u16) -> Self {
+        Self {
+            addr: SocketAddr::new(self.addr.ip(), port),
+            ..self
+        }
+    }
+
+    /// Sets the TLS server name for the nameserver.
+    ///
+    /// Nameservers are always connected to via IP address. However for the protocols
+    /// running over TLS (DoT & DoH), the server certificate may use a server name rather
+    /// than IP address. When enabled the TLS `ClientHello` will use this server name in the
+    /// SNI.
+    ///
+    /// # Returns
+    ///
+    /// A new instance is returned, this struct is essentially a builder for itself.
+    pub fn with_tls_server_name(self, server_name: impl Into<String>) -> Self {
+        Self {
+            server_name: Some(server_name.into()),
+            ..self
+        }
+    }
+
+    fn into_resolver_nameserver(self) -> n0_dns_resolver::Nameserver {
+        if let Some(server_name) = self.server_name {
+            return n0_dns_resolver::Nameserver::with_server_name(
+                self.addr,
+                self.protocol.to_resolver_protocol(),
+                server_name,
+            );
+        }
+        n0_dns_resolver::Nameserver::new(self.addr, self.protocol.to_resolver_protocol())
+    }
+}
+
+/// Protocols over which DNS records can be resolved.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum DnsProtocol {
+    /// DNS over UDP
+    ///
+    /// This is the classic DNS protocol and supported by most DNS servers.
+    #[default]
+    Udp,
+    /// DNS over TCP
+    ///
+    /// This is specified in the original DNS RFCs, but is not supported by all DNS servers.
+    Tcp,
+    /// DNS over TLS
+    ///
+    /// Performs DNS lookups over TLS-encrypted TCP connections, as defined in [RFC 7858].
+    ///
+    /// [RFC 7858]: https://www.rfc-editor.org/rfc/rfc7858.html
+    Tls,
+    /// DNS over HTTPS
+    ///
+    /// Performs DNS lookups over HTTPS, as defined in [RFC 8484].
+    ///
+    /// [RFC 8484]: https://www.rfc-editor.org/rfc/rfc8484.html
+    Https,
+}
+
+impl DnsProtocol {
+    /// Converts into the resolver crate's protocol type.
+    fn to_resolver_protocol(self) -> n0_dns_resolver::DnsProtocol {
+        match self {
+            DnsProtocol::Udp => n0_dns_resolver::DnsProtocol::Udp,
+            DnsProtocol::Tcp => n0_dns_resolver::DnsProtocol::Tcp,
+            DnsProtocol::Tls => n0_dns_resolver::DnsProtocol::Tls,
+            DnsProtocol::Https => n0_dns_resolver::DnsProtocol::Https,
+        }
+    }
+}
+
+impl Builder {
+    /// Makes the builder respect the host system's DNS configuration.
+    ///
+    /// The configuration is read in a platform-specific way. If that fails, or
+    /// if it lists no nameservers, the fallback tier answers instead, subject
+    /// to the [`FallbackMode`].
+    pub fn with_system_defaults(mut self) -> Self {
+        self.use_system_defaults = true;
+        self
+    }
+
+    /// Adds a single nameserver config.
+    ///
+    /// For DNS-over-TLS and DNS-over-HTTPS, the server name is inferred from the
+    /// IP address. To set a different one, build a [`NameserverConfig`] with
+    /// [`NameserverConfig::with_tls_server_name`] and pass it to
+    /// [`Self::add_nameserver_config`].
+    #[deprecated(since = "1.2.0", note = "use add_nameserer_config()")]
+    pub fn with_nameserver(mut self, addr: SocketAddr, protocol: DnsProtocol) -> Self {
+        self.nameservers.push(NameserverConfig {
+            addr,
+            protocol,
+            server_name: None,
+        });
+        self
+    }
+
+    /// Adds a list of nameserver configs.
+    ///
+    /// For DNS-over-TLS and DNS-over-HTTPS, the server name is inferred from the
+    /// IP address. To set a different one, build a [`NameserverConfig`] with
+    /// [`NameserverConfig::with_tls_server_name`] and pass it to
+    /// [`Self::add_nameserver_configs`].
+    #[deprecated(since = "1.2.0", note = "use add_nameserer_configs()")]
+    pub fn with_nameservers(
+        mut self,
+        nameservers: impl IntoIterator<Item = (SocketAddr, DnsProtocol)>,
+    ) -> Self {
+        self.nameservers.extend(
+            nameservers
+                .into_iter()
+                .map(|(addr, protocol)| NameserverConfig {
+                    addr,
+                    protocol,
+                    server_name: None,
+                }),
+        );
+        self
+    }
+
+    /// Adds a single nameserver config.
+    pub fn add_nameserver_config(mut self, nameserver: NameserverConfig) -> Self {
+        self.nameservers.push(nameserver);
+        self
+    }
+
+    /// Adds a list of nameserver configs.
+    pub fn add_nameserver_configs(
+        mut self,
+        nameservers: impl IntoIterator<Item = NameserverConfig>,
+    ) -> Self {
+        self.nameservers.extend(nameservers);
+        self
+    }
+
+    /// Sets a custom TLS client configuration.
+    ///
+    /// This overrides the default configuration used for DNS-over-TLS and
+    /// DNS-over-HTTPS.
+    ///
+    /// When neither the `tls-ring` nor `tls-aws-lc-rs` feature is enabled,
+    /// DNS-over-TLS and DNS-over-HTTPS require a custom configuration containing
+    /// a crypto provider, supplied with [`Self::tls_client_config`].
+    #[cfg(not(wasm_browser))]
+    pub fn tls_client_config(mut self, client_config: rustls::ClientConfig) -> Self {
+        self.tls_client_config = Some(client_config);
+        self
+    }
+
+    /// Sets how the fallback nameservers are used relative to the primary ones.
+    ///
+    /// The default is [`FallbackMode::Deferred`]: the fallback nameservers are a
+    /// lower-priority tier, queried only when the primary nameservers fail or
+    /// time out. See [`FallbackMode`] for the other modes.
+    pub fn with_fallback_mode(mut self, mode: FallbackMode) -> Self {
+        self.fallback_mode = mode;
+        self
+    }
+
+    /// Disables the fallback nameservers, so only the primary ones are queried.
+    ///
+    /// Shorthand for [`Self::with_fallback_mode`] with [`FallbackMode::Never`].
+    pub fn disable_fallback(self) -> Self {
+        self.with_fallback_mode(FallbackMode::Never)
+    }
+
+    /// Adds nameservers to the fallback tier, in place of the default ones.
+    ///
+    /// Appends, so it can be called repeatedly. Adding any nameserver here
+    /// replaces the default public resolvers, which are only used when this
+    /// list is left empty. Has no effect when the fallback mode is
+    /// [`FallbackMode::Never`].
+    pub fn fallback_nameserver_configs(
+        mut self,
+        nameservers: impl IntoIterator<Item = NameserverConfig>,
+    ) -> Self {
+        self.fallback_nameservers.extend(nameservers);
+        self
+    }
+
+    /// Builds the DNS resolver.
+    pub fn build(self) -> DnsResolver {
+        DnsResolver::custom(DefaultResolver(Arc::new(
+            self.into_resolver_builder().build(),
+        )))
+    }
+
+    /// Maps this configuration onto the resolver crate's builder.
+    ///
+    /// Split out from [`Self::build`] so that the mapping can be asserted on
+    /// without a resolver in the way.
+    fn into_resolver_builder(self) -> n0_dns_resolver::Builder {
+        // The resolver crate's builder starts empty, so every source this
+        // builder was asked for is added explicitly.
+        let mut builder = n0_dns_resolver::DnsResolver::builder().nameservers(
+            self.nameservers
+                .into_iter()
+                .map(NameserverConfig::into_resolver_nameserver),
+        );
+        if self.use_system_defaults {
+            builder = builder.use_system_config();
+        }
+        // Unlike the resolver crate, the fallback tier is opt-out here: leaving
+        // the list empty means the default public resolvers rather than none.
+        if let Some(mode) = self.fallback_mode.to_resolver_mode() {
+            builder = builder.fallback_mode(mode);
+            builder = if self.fallback_nameservers.is_empty() {
+                builder.default_fallback_nameservers()
+            } else {
+                builder.fallback_nameservers(
+                    self.fallback_nameservers
+                        .into_iter()
+                        .map(NameserverConfig::into_resolver_nameserver),
+                )
+            };
+        }
+        #[cfg(not(wasm_browser))]
+        if let Some(tls_client_config) = self.tls_client_config {
+            builder = builder.tls_client_config(tls_client_config);
+        }
+        builder
+    }
+}
+
+/// Adapts [`n0_dns_resolver::DnsResolver`] to the [`Resolver`] trait.
+///
+/// Converts the resolver crate's types to this crate's own, so that
+/// `n0-dns-resolver` stays an internal detail rather than part of the public API.
+#[derive(Debug)]
+struct DefaultResolver(Arc<n0_dns_resolver::DnsResolver>);
+
+impl Resolver for DefaultResolver {
+    fn lookup_ipv4(&self, host: String) -> BoxFuture<Result<BoxIter<Ipv4Addr>, DnsError>> {
+        let this = self.0.clone();
+        Box::pin(async move {
+            let list = this.lookup_ipv4(host).await.map_err(map_resolve_error)?;
+            let iter: BoxIter<_> = Box::new(list.into_iter());
+            Ok(iter)
+        })
+    }
+
+    fn lookup_ipv6(&self, host: String) -> BoxFuture<Result<BoxIter<Ipv6Addr>, DnsError>> {
+        let this = self.0.clone();
+        Box::pin(async move {
+            let list = this.lookup_ipv6(host).await.map_err(map_resolve_error)?;
+            let iter: BoxIter<_> = Box::new(list.into_iter());
+            Ok(iter)
+        })
+    }
+
+    fn lookup_txt(&self, host: String) -> BoxFuture<Result<BoxIter<TxtRecordData>, DnsError>> {
+        let this = self.0.clone();
+        Box::pin(async move {
+            let list = this.lookup_txt(host).await.map_err(map_resolve_error)?;
+            let iter: BoxIter<TxtRecordData> = Box::new(list.into_iter().map(convert_txt));
+            Ok(iter)
+        })
+    }
+
+    fn clear_cache(&self) {
+        self.0.clear_cache();
+    }
+
+    fn reset(&self) -> Box<dyn Resolver> {
+        Box::new(DefaultResolver(Arc::new(self.0.reset())))
+    }
+}
+
+/// Maps an [`n0_dns_resolver::Error`] onto this crate's [`DnsError`].
+///
+/// A private function rather than a `From` impl, so `n0_dns_resolver`'s error
+/// types stay out of this crate's public API. The distinct, matchable causes map
+/// to their own variant; every other cause becomes [`DnsError::Resolve`] carrying
+/// the original error as its [`AnyError`] source, which callers can downcast (see
+/// the [`DnsError`] docs).
+fn map_resolve_error(err: n0_dns_resolver::Error) -> DnsError {
+    use n0_dns_resolver::Error as E;
+    match err {
+        E::Timeout { .. } => e!(DnsError::Timeout),
+        E::NoResponse { .. } => e!(DnsError::NoResponse),
+        E::NxDomain { .. } => e!(DnsError::NxDomain),
+        E::InvalidResponse { .. } => e!(DnsError::InvalidResponse),
+        other => e!(DnsError::Resolve, AnyError::from_stack(other)),
+    }
+}
+
+/// Converts a resolver TXT record into this crate's [`TxtRecordData`].
+///
+/// Both types hold the character-strings as `Box<[Box<[u8]>]>`, so this hands
+/// over the resolver's owned slices directly rather than reallocating each one.
+fn convert_txt(txt: n0_dns_resolver::TxtRecordData) -> TxtRecordData {
+    TxtRecordData(txt.into_boxed_slices())
+}
+
+/// The DNS resolver used throughout `iroh`.
+///
+/// By default, we use a built-in resolver that reads the system's DNS configuration.
+/// The nameservers can be customized by constructing the resolver with [`Self::builder`].
+/// Alternatively, you can create a fully custom DNS resolver by implementing the [`Resolver`]
+/// trait and creating the resolver with [`Self::custom`].
+///
+/// # Usage on Android
+///
+/// The system-defaults reader uses JNI through [`ndk_context`], which must be
+/// initialized with a `JavaVM` and `Application` context before the resolver
+/// is constructed. Glue crates like ndk-glue and android-activity do this
+/// before `main`. Apps that don't use either should call [`install_android_jni_context`]
+/// once at startup, see docs there for details.
+///
+/// If `ndk_context` is not initialized, fetching the system config on Android will fail
+/// and the resolver will use the fallback nameservers instead, subject to the configured
+/// [`FallbackMode`]. Due to how things are implemented in `ndk_context`, detecting the
+/// failure relies on unwinding a panic. If your app uses `panic = "abort"` in its
+/// compilation profile, this doesn't work, so in that case your app will panic if no
+/// JNI context is initialized.
+/// Therefore, either make sure that the JNI context is installed, or don't use
+/// `panic = "abort"`.
+///
+/// [`install_android_jni_context`]: crate::install_android_jni_context
+/// [`ndk_context`]: https://docs.rs/ndk-context
+#[derive(Debug, Clone)]
+pub struct DnsResolver {
+    inner: Arc<Inner>,
+}
+
+/// Shared state behind [`DnsResolver`].
+#[derive(Debug)]
+struct Inner {
+    /// Wakes in-flight [`Self::op`] calls when the resolver is swapped.
+    notify_reset: Notify,
+    resolver: ArcSwap<Box<dyn Resolver>>,
+}
+
+impl Inner {
+    fn new(inner: Box<dyn Resolver>) -> Self {
+        Self {
+            notify_reset: Notify::new(),
+            resolver: ArcSwap::from_pointee(inner),
+        }
+    }
+
+    /// Atomically swaps the resolver and wakes in-flight [`Self::op`] calls.
+    ///
+    /// The swap happens before the wake. An op that observes or misses the wake is
+    /// then guaranteed to load the new resolver. Non-blocking.
+    ///
+    /// Under contention only the first concurrent caller's swap lands; the others
+    /// drop their freshly-built resolver. The winner's notification is enough since
+    /// every in-flight op will pick up the new resolver on its next iteration.
+    fn reset(&self) {
+        let current = self.resolver.load();
+        let new = Arc::new(current.reset());
+        let prev = self.resolver.compare_and_swap(&current, new);
+        if Arc::ptr_eq(&current, &prev) {
+            self.notify_reset.notify_waiters();
+        }
+    }
+
+    fn clear_cache(&self) {
+        self.resolver.load().clear_cache();
+    }
+
+    /// Runs `f(resolver)` with a timeout, restarting against the new resolver if
+    /// [`Self::reset`] fires.
+    ///
+    /// Three things race in `biased` order: the lookup completes (returned even if a
+    /// reset happened concurrently, since a successful result is still valid), a reset
+    /// is observed (drop the in-flight future and re-run `f`), or the timeout elapses.
+    ///
+    /// `timeout` is per-attempt. Each retry starts a fresh sleep, so the wall-clock
+    /// total can exceed it if many resets fire. This is intentional: a fresh attempt
+    /// against a just-changed network should not inherit the previous attempt's
+    /// remaining budget.
+    ///
+    /// `f` may be invoked more than once and so must be `Fn`. Captured state must be
+    /// reusable across calls, typically by cloning inside the closure body.
+    ///
+    /// `notified` is enabled before `load_full`. Combined with [`Self::reset`]'s
+    /// swap-then-notify ordering: a wake missed before `enable()` had already been
+    /// preceded by the swap, so the following `load_full` returns the new resolver.
+    async fn op<F, Fut, R, E>(&self, timeout: Duration, f: F) -> Result<R, DnsError>
+    where
+        E: 'static + Send + Into<DnsError>,
+        R: 'static + Send,
+        F: 'static + Send + Fn(Arc<Box<dyn Resolver>>) -> Fut,
+        Fut: 'static + Send + Future<Output = Result<R, E>>,
+    {
+        loop {
+            let notified = self.notify_reset.notified();
+            tokio::pin!(notified);
+            notified.as_mut().enable();
+
+            let timeout = n0_future::time::sleep(timeout);
+            tokio::pin!(timeout);
+
+            let resolver = self.resolver.load_full();
+            let fut = f(resolver);
+            tokio::pin!(fut);
+
+            tokio::select! {
+                biased;
+                res = fut => return res.map_err(Into::into),
+                _ = notified => continue,
+                _ = timeout => return Err(e!(DnsError::Timeout)),
+            }
+        }
+    }
+}
+
+impl DnsResolver {
+    /// Creates a new DNS resolver with sensible cross-platform defaults.
+    ///
+    /// Reads the host system's DNS configuration, with the default public
+    /// resolvers behind it as a fallback tier. Those are queried only when the
+    /// system configuration cannot be read, which happens on some Android
+    /// versions, or when its nameservers do not answer.
+    pub fn new() -> Self {
+        Builder::default().with_system_defaults().build()
+    }
+
+    /// Creates a new DNS resolver configured with a single UDP DNS nameserver.
+    pub fn with_nameserver(nameserver: SocketAddr) -> Self {
+        Builder::default()
+            .add_nameserver_config(
+                NameserverConfig::udp(nameserver.ip()).with_port(nameserver.port()),
+            )
+            .build()
+    }
+
+    /// Creates a builder to construct a DNS resolver with custom options.
+    pub fn builder() -> Builder {
+        Builder::default()
+    }
+
+    /// Creates a new [`DnsResolver`] from a struct that implements [`Resolver`].
+    ///
+    /// If you need more customization for DNS resolving than the [`Builder`] allows, you can
+    /// implement the [`Resolver`] trait on a struct and implement DNS resolution
+    /// however you see fit.
+    pub fn custom(resolver: impl Resolver) -> Self {
+        Self {
+            inner: Arc::new(Inner::new(Box::new(resolver))),
+        }
+    }
+
+    /// Removes all entries from the cache.
+    pub fn clear_cache(&self) {
+        self.inner.clear_cache();
+    }
+
+    /// Replaces the inner resolver with a freshly-built one.
+    ///
+    /// Call this on a major host network change to pick up the new system DNS
+    /// configuration and rebind sockets. The swap is atomic and non-blocking;
+    /// in-flight lookups retry against the new resolver. See [`Resolver::reset`].
+    pub fn reset(&self) {
+        self.inner.reset();
+    }
+
+    /// Looks up a TXT record.
+    pub async fn lookup_txt<T: ToString>(
+        &self,
+        host: T,
+        timeout: Duration,
+    ) -> Result<impl Iterator<Item = TxtRecordData>, DnsError> {
+        let host = host.to_string();
+        let res = self
+            .inner
+            .op(timeout, move |resolver| resolver.lookup_txt(host.clone()))
+            .await?;
+        Ok(res)
+    }
+
+    /// Performs an IPv4 lookup with a timeout.
+    pub async fn lookup_ipv4<T: ToString>(
+        &self,
+        host: T,
+        timeout: Duration,
+    ) -> Result<impl Iterator<Item = IpAddr> + use<T>, DnsError> {
+        let host = host.to_string();
+        let addrs = self
+            .inner
+            .op(timeout, move |resolver| resolver.lookup_ipv4(host.clone()))
+            .await?;
+        Ok(addrs.into_iter().map(IpAddr::V4))
+    }
+
+    /// Performs an IPv6 lookup with a timeout.
+    pub async fn lookup_ipv6<T: ToString>(
+        &self,
+        host: T,
+        timeout: Duration,
+    ) -> Result<impl Iterator<Item = IpAddr> + use<T>, DnsError> {
+        let host = host.to_string();
+        let addrs = self
+            .inner
+            .op(timeout, move |resolver| resolver.lookup_ipv6(host.clone()))
+            .await?;
+        Ok(addrs.into_iter().map(IpAddr::V6))
+    }
+
+    /// Resolves IPv4 and IPv6 in parallel with a timeout.
+    ///
+    /// `LookupIpStrategy::Ipv4AndIpv6` will wait for ipv6 resolution timeout, even if it is
+    /// not usable on the stack, so we manually query both lookups concurrently and time them out
+    /// individually.
+    pub async fn lookup_ipv4_ipv6<T: ToString>(
+        &self,
+        host: T,
+        timeout: Duration,
+    ) -> Result<impl Iterator<Item = IpAddr> + use<T>, DnsError> {
+        let host = host.to_string();
+        let res = tokio::join!(
+            self.lookup_ipv4(host.clone(), timeout),
+            self.lookup_ipv6(host, timeout)
+        );
+
+        match res {
+            (Ok(ipv4), Ok(ipv6)) => Ok(LookupIter::Both(ipv4.chain(ipv6))),
+            (Ok(ipv4), Err(_)) => Ok(LookupIter::Ipv4(ipv4)),
+            (Err(_), Ok(ipv6)) => Ok(LookupIter::Ipv6(ipv6)),
+            (Err(ipv4_err), Err(ipv6_err)) => Err(e!(DnsError::ResolveBoth {
+                ipv4: Box::new(ipv4_err),
+                ipv6: Box::new(ipv6_err)
+            })),
+        }
+    }
+
+    /// Resolves a hostname from a URL to an IP address.
+    pub async fn resolve_host(
+        &self,
+        url: &Url,
+        prefer_ipv6: bool,
+        timeout: Duration,
+    ) -> Result<IpAddr, DnsError> {
+        let host = url.host().ok_or_else(|| e!(DnsError::MissingHost))?;
+        match host {
+            url::Host::Domain(domain) => {
+                // Need to do a DNS lookup
+                let lookup = tokio::join!(
+                    self.lookup_ipv4(domain, timeout),
+                    self.lookup_ipv6(domain, timeout)
+                );
+                let (v4, v6) = match lookup {
+                    (Err(ipv4_err), Err(ipv6_err)) => {
+                        return Err(e!(DnsError::ResolveBoth {
+                            ipv4: Box::new(ipv4_err),
+                            ipv6: Box::new(ipv6_err)
+                        }));
+                    }
+                    (Err(_), Ok(mut v6)) => (None, v6.next()),
+                    (Ok(mut v4), Err(_)) => (v4.next(), None),
+                    (Ok(mut v4), Ok(mut v6)) => (v4.next(), v6.next()),
+                };
+                if prefer_ipv6 {
+                    v6.or(v4).ok_or_else(|| e!(DnsError::NoResponse))
+                } else {
+                    v4.or(v6).ok_or_else(|| e!(DnsError::NoResponse))
+                }
+            }
+            url::Host::Ipv4(ip) => Ok(IpAddr::V4(ip)),
+            url::Host::Ipv6(ip) => Ok(IpAddr::V6(ip)),
+        }
+    }
+
+    /// Resolves a hostname from a URL to its IP addresses, streamed as they resolve.
+    ///
+    /// IPv4 and IPv6 are looked up concurrently and each address is yielded as
+    /// soon as its lookup completes, so a caller can start dialing without
+    /// waiting for both families.
+    ///
+    /// A lookup failure is swallowed as long as the other family yields an address.
+    /// Only if both lookups fail does the stream yield a single [`DnsError`].
+    ///
+    /// The stream ends once both lookups have finished and every address or the error
+    /// have been yielded.
+    pub fn resolve_host_all<'a>(
+        &'a self,
+        url: &Url,
+        timeout: Duration,
+    ) -> impl Stream<Item = Result<IpAddr, DnsError>> + Send + 'a {
+        let host = match url.host() {
+            None => {
+                return Either::Left(stream::once(Err(e!(DnsError::MissingHost))));
+            }
+            Some(url::Host::Ipv4(ip)) => {
+                return Either::Left(stream::once(Ok(IpAddr::V4(ip))));
+            }
+            Some(url::Host::Ipv6(ip)) => {
+                return Either::Left(stream::once(Ok(IpAddr::V6(ip))));
+            }
+            Some(url::Host::Domain(domain)) => domain.to_string(),
+        };
+
+        type Lookup<'a, A> =
+            Pin<Box<dyn Future<Output = Result<BoxIter<A>, DnsError>> + Send + 'a>>;
+
+        struct State<'a> {
+            v4_fut: MaybeFuture<Lookup<'a, Ipv4Addr>>,
+            v6_fut: MaybeFuture<Lookup<'a, Ipv6Addr>>,
+            v4_err: Option<DnsError>,
+            v6_err: Option<DnsError>,
+            queue: VecDeque<IpAddr>,
+            closed: bool,
+            yielded: bool,
+        }
+
+        let state = State {
+            v4_fut: MaybeFuture::Some(Box::pin({
+                let host = host.clone();
+                self.inner.op(timeout, move |r| r.lookup_ipv4(host.clone()))
+            })),
+            v6_fut: MaybeFuture::Some(Box::pin({
+                let host = host.clone();
+                self.inner.op(timeout, move |r| r.lookup_ipv6(host.clone()))
+            })),
+            v4_err: None,
+            v6_err: None,
+            queue: VecDeque::new(),
+            closed: false,
+            yielded: false,
+        };
+
+        Either::Right(stream::unfold(state, async |mut state| {
+            loop {
+                if state.closed {
+                    return None;
+                }
+
+                if let Some(item) = state.queue.pop_front() {
+                    state.yielded = true;
+                    return Some((Ok(item), state));
+                }
+
+                // Return final error item once both futures completed, or None if items were yielded.
+                if state.v4_fut.is_none() && state.v6_fut.is_none() {
+                    state.closed = true;
+                    if let (Some(v4), Some(v6)) = (state.v4_err.take(), state.v6_err.take()) {
+                        let error = e!(DnsError::ResolveBoth {
+                            ipv4: Box::new(v4),
+                            ipv6: Box::new(v6),
+                        });
+                        return Some((Err(error), state));
+                    } else if !state.yielded {
+                        return Some((Err(e!(DnsError::NoResponse)), state));
+                    } else {
+                        return None;
+                    }
+                }
+                tokio::select! {
+                    // We don't actually care about polling order, but `biased` saves the randomization cost.
+                    biased;
+                    res = &mut state.v4_fut => {
+                        match res {
+                            Ok(items) => state.queue.extend(items.map(IpAddr::V4)),
+                            Err(err) => state.v4_err = Some(err),
+                        }
+                    }
+                    res = &mut state.v6_fut => {
+                        match res {
+                            Ok(items) => state.queue.extend(items.map(IpAddr::V6)),
+                            Err(err) => state.v6_err = Some(err),
+                        }
+                    }
+                }
+            }
+        }))
+    }
+
+    /// Performs an IPv4 lookup with a timeout in a staggered fashion.
+    ///
+    /// From the moment this function is called, each lookup is scheduled after the delays in
+    /// `delays_ms` with the first call being done immediately. `[200ms, 300ms]` results in calls
+    /// at T+0ms, T+200ms and T+300ms. The `timeout` is applied to each call individually. The
+    /// result of the first successful call is returned, or a summary of all errors otherwise.
+    pub async fn lookup_ipv4_staggered(
+        &self,
+        host: impl ToString,
+        timeout: Duration,
+        delays_ms: &[u64],
+    ) -> Result<impl Iterator<Item = IpAddr>, StaggeredError<DnsError>> {
+        let host = host.to_string();
+        let f = || self.lookup_ipv4(host.clone(), timeout);
+        stagger_call(f, delays_ms).await
+    }
+
+    /// Performs an IPv6 lookup with a timeout in a staggered fashion.
+    ///
+    /// From the moment this function is called, each lookup is scheduled after the delays in
+    /// `delays_ms` with the first call being done immediately. `[200ms, 300ms]` results in calls
+    /// at T+0ms, T+200ms and T+300ms. The `timeout` is applied to each call individually. The
+    /// result of the first successful call is returned, or a summary of all errors otherwise.
+    pub async fn lookup_ipv6_staggered(
+        &self,
+        host: impl ToString,
+        timeout: Duration,
+        delays_ms: &[u64],
+    ) -> Result<impl Iterator<Item = IpAddr>, StaggeredError<DnsError>> {
+        let host = host.to_string();
+        let f = || self.lookup_ipv6(host.clone(), timeout);
+        stagger_call(f, delays_ms).await
+    }
+
+    /// Races an IPv4 and IPv6 lookup with a timeout in a staggered fashion.
+    ///
+    /// From the moment this function is called, each lookup is scheduled after the delays in
+    /// `delays_ms` with the first call being done immediately. `[200ms, 300ms]` results in calls
+    /// at T+0ms, T+200ms and T+300ms. The `timeout` is applied as stated in
+    /// [`Self::lookup_ipv4_ipv6`]. The result of the first successful call is returned, or a
+    /// summary of all errors otherwise.
+    pub async fn lookup_ipv4_ipv6_staggered(
+        &self,
+        host: impl ToString,
+        timeout: Duration,
+        delays_ms: &[u64],
+    ) -> Result<impl Iterator<Item = IpAddr>, StaggeredError<DnsError>> {
+        let host = host.to_string();
+        let f = || self.lookup_ipv4_ipv6(host.clone(), timeout);
+        stagger_call(f, delays_ms).await
+    }
+
+    /// Looks up endpoint info by [`EndpointId`] and origin domain name.
+    ///
+    /// To lookup endpoints that published their endpoint info to the DNS servers run by n0,
+    /// pass [`N0_DNS_ENDPOINT_ORIGIN_PROD`] as `origin`.
+    pub async fn lookup_endpoint_by_id(
+        &self,
+        endpoint_id: &EndpointId,
+        origin: &str,
+    ) -> Result<EndpointInfo, LookupError> {
+        let name = format!("_iroh.{}.{}", endpoint_id.to_z32(), origin);
+        let lookup = self.lookup_txt(name.clone(), DNS_TIMEOUT).await?;
+        let info = EndpointInfo::from_txt_lookup(name, lookup)?;
+        Ok(info)
+    }
+
+    /// Looks up endpoint info by DNS name.
+    pub async fn lookup_endpoint_by_domain_name(
+        &self,
+        name: &str,
+    ) -> Result<EndpointInfo, LookupError> {
+        let name = if name.starts_with("_iroh.") {
+            name.to_string()
+        } else {
+            format!("_iroh.{name}")
+        };
+        let lookup = self.lookup_txt(name.clone(), DNS_TIMEOUT).await?;
+        let info = EndpointInfo::from_txt_lookup(name, lookup)?;
+        Ok(info)
+    }
+
+    /// Looks up endpoint info by DNS name in a staggered fashion.
+    ///
+    /// From the moment this function is called, each lookup is scheduled after the delays in
+    /// `delays_ms` with the first call being done immediately. `[200ms, 300ms]` results in calls
+    /// at T+0ms, T+200ms and T+300ms. The result of the first successful call is returned, or a
+    /// summary of all errors otherwise.
+    pub async fn lookup_endpoint_by_domain_name_staggered(
+        &self,
+        name: &str,
+        delays_ms: &[u64],
+    ) -> Result<EndpointInfo, StaggeredError<LookupError>> {
+        let f = || self.lookup_endpoint_by_domain_name(name);
+        stagger_call(f, delays_ms).await
+    }
+
+    /// Looks up endpoint info by [`EndpointId`] and origin domain name.
+    ///
+    /// From the moment this function is called, each lookup is scheduled after the delays in
+    /// `delays_ms` with the first call being done immediately. `[200ms, 300ms]` results in calls
+    /// at T+0ms, T+200ms and T+300ms. The result of the first successful call is returned, or a
+    /// summary of all errors otherwise.
+    pub async fn lookup_endpoint_by_id_staggered(
+        &self,
+        endpoint_id: &EndpointId,
+        origin: &str,
+        delays_ms: &[u64],
+    ) -> Result<EndpointInfo, StaggeredError<LookupError>> {
+        let f = || self.lookup_endpoint_by_id(endpoint_id, origin);
+        stagger_call(f, delays_ms).await
+    }
+}
+
+impl Default for DnsResolver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Record data for a TXT record.
+///
+/// This contains a list of character strings, as defined in [RFC 1035 Section 3.3.14].
+///
+/// [`TxtRecordData`] implements [`fmt::Display`], so you can call [`ToString::to_string`] to
+/// convert the record data into a string. This will parse each character string with
+/// [`String::from_utf8_lossy`] and then concatenate all strings without a separator.
+///
+/// If you want to process each character string individually, use [`Self::iter`].
+///
+/// [RFC 1035 Section 3.3.14]: https://datatracker.ietf.org/doc/html/rfc1035#section-3.3.14
+#[derive(Debug, Clone)]
+pub struct TxtRecordData(Box<[Box<[u8]>]>);
+
+impl TxtRecordData {
+    /// Returns an iterator over the character strings contained in this TXT record.
+    pub fn iter(&self) -> impl Iterator<Item = &[u8]> {
+        self.0.iter().map(|x| x.as_ref())
+    }
+}
+
+impl fmt::Display for TxtRecordData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for s in self.iter() {
+            write!(f, "{}", String::from_utf8_lossy(s))?
+        }
+        Ok(())
+    }
+}
+
+impl FromIterator<Box<[u8]>> for TxtRecordData {
+    fn from_iter<T: IntoIterator<Item = Box<[u8]>>>(iter: T) -> Self {
+        Self(iter.into_iter().collect())
+    }
+}
+
+impl From<Vec<Box<[u8]>>> for TxtRecordData {
+    fn from(value: Vec<Box<[u8]>>) -> Self {
+        Self(value.into_boxed_slice())
+    }
+}
+
+impl From<Vec<String>> for TxtRecordData {
+    fn from(value: Vec<String>) -> Self {
+        Self(
+            value
+                .into_iter()
+                .map(|s| s.into_bytes().into_boxed_slice())
+                .collect(),
+        )
+    }
+}
+
+/// Helper enum to give a unified type to the iterators of [`DnsResolver::lookup_ipv4_ipv6`].
+enum LookupIter<A, B> {
+    Ipv4(A),
+    Ipv6(B),
+    Both(std::iter::Chain<A, B>),
+}
+
+impl<A: Iterator<Item = IpAddr>, B: Iterator<Item = IpAddr>> Iterator for LookupIter<A, B> {
+    type Item = IpAddr;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            LookupIter::Ipv4(iter) => iter.next(),
+            LookupIter::Ipv6(iter) => iter.next(),
+            LookupIter::Both(iter) => iter.next(),
+        }
+    }
+}
+
+/// Staggers calls to the future F with the given delays.
+///
+/// The first call is performed immediately. The first call to succeed generates an Ok result
+/// ignoring any previous error. If all calls fail, an error summarizing all errors is returned.
+async fn stagger_call<
+    T,
+    E: StackError + 'static,
+    F: Fn() -> Fut,
+    Fut: Future<Output = Result<T, E>>,
+>(
+    f: F,
+    delays_ms: &[u64],
+) -> Result<T, StaggeredError<E>> {
+    let mut calls = n0_future::FuturesUnorderedBounded::new(delays_ms.len() + 1);
+    // NOTE: we add the 0 delay here to have a uniform set of futures. This is more performant than
+    // using alternatives that allow futures of different types.
+    for delay in std::iter::once(&0u64).chain(delays_ms) {
+        let delay = add_jitter(delay);
+        let fut = f();
+        let staggered_fut = async move {
+            time::sleep(delay).await;
+            fut.await
+        };
+        calls.push(staggered_fut)
+    }
+
+    let mut errors = vec![];
+    while let Some(call_result) = calls.next().await {
+        match call_result {
+            Ok(t) => return Ok(t),
+            Err(e) => errors.push(e),
+        }
+    }
+
+    Err(e!(StaggeredError { errors }))
+}
+
+fn add_jitter(delay: &u64) -> Duration {
+    // If delay is 0, return 0 immediately.
+    if *delay == 0 {
+        return Duration::ZERO;
+    }
+
+    // Calculate jitter as a random value in the range of +/- MAX_JITTER_PERCENT of the delay.
+    let max_jitter = delay.saturating_mul(MAX_JITTER_PERCENT * 2) / 100;
+    let jitter = rand::random::<u64>() % max_jitter;
+
+    Duration::from_millis(delay.saturating_sub(max_jitter / 2).saturating_add(jitter))
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use std::sync::atomic::AtomicUsize;
+
+    use n0_tracing_test::traced_test;
+
+    use super::*;
+
+    #[test]
+    fn builder_named_nameservers_carry_server_name() {
+        let addr = SocketAddr::new(std::net::Ipv4Addr::new(1, 1, 1, 1).into(), 443);
+        let builder = Builder::default()
+            .add_nameserver_config(
+                NameserverConfig::https(addr.ip()).with_tls_server_name("cloudflare-dns.com"),
+            )
+            .add_nameserver_config(
+                NameserverConfig::tls(addr.ip())
+                    .with_port(addr.port())
+                    .with_tls_server_name("cloudflare-dns.com"),
+            )
+            .fallback_nameserver_configs([
+                NameserverConfig::https(addr.ip()).with_tls_server_name("fallback.example.com")
+            ]);
+        let ns = &builder.nameservers;
+        assert_eq!(ns[0].protocol, DnsProtocol::Https);
+        assert_eq!(ns[0].addr.port(), 443);
+        assert_eq!(ns[0].server_name.as_deref(), Some("cloudflare-dns.com"));
+        assert_eq!(ns[1].protocol, DnsProtocol::Tls);
+        assert_eq!(ns[1].addr.port(), 443);
+        assert_eq!(ns[1].server_name.as_deref(), Some("cloudflare-dns.com"));
+        assert_eq!(
+            builder.fallback_nameservers[0].server_name.as_deref(),
+            Some("fallback.example.com")
+        );
+    }
+
+    /// Collects the nameserver addresses the resolver crate ends up configured
+    /// with, for a builder that reads nothing from the host.
+    fn resolver_nameservers(builder: Builder) -> Vec<SocketAddr> {
+        builder
+            .into_resolver_builder()
+            .build()
+            .configured_nameservers()
+            .iter()
+            .map(|ns| ns.addr())
+            .collect()
+    }
+
+    /// An empty fallback list means the default public resolvers, not none.
+    ///
+    /// The resolver crate's fallback tier starts empty, so this mapping is ours
+    /// to keep: leaving the list unset here has to opt into its defaults.
+    #[test]
+    fn empty_fallback_list_uses_public_resolvers() {
+        let addrs = resolver_nameservers(Builder::default());
+        assert!(!addrs.is_empty());
+        assert!(addrs.iter().any(|addr| addr.ip() == CLOUDFLARE_IP));
+    }
+
+    /// `disable_fallback` leaves the resolver with no nameservers at all.
+    #[test]
+    fn disable_fallback_drops_the_public_resolvers() {
+        let addrs = resolver_nameservers(Builder::default().disable_fallback());
+        assert!(addrs.is_empty(), "{addrs:?}");
+    }
+
+    /// An explicit fallback list replaces the defaults rather than adding to them.
+    #[test]
+    fn explicit_fallback_list_replaces_the_defaults() {
+        let custom = SocketAddr::new(std::net::Ipv4Addr::new(192, 0, 2, 1).into(), 53);
+        let addrs = resolver_nameservers(
+            Builder::default().fallback_nameserver_configs([NameserverConfig::udp(custom.ip())]),
+        );
+        assert_eq!(addrs, vec![custom]);
+    }
+
+    const CLOUDFLARE_IP: IpAddr = IpAddr::V4(std::net::Ipv4Addr::new(1, 1, 1, 1));
+
+    #[tokio::test]
+    #[traced_test]
+    async fn stagger_basic() {
+        const CALL_RESULTS: &[Result<u8, u8>] = &[Err(2), Ok(3), Ok(5), Ok(7)];
+        static DONE_CALL: AtomicUsize = AtomicUsize::new(0);
+        let f = || {
+            let r_pos = DONE_CALL.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            async move {
+                tracing::info!(r_pos, "call");
+                CALL_RESULTS[r_pos].map_err(|_| e!(DnsError::InvalidResponse))
+            }
+        };
+
+        let delays = [1000, 15];
+        let result = stagger_call(f, &delays).await.unwrap();
+        assert_eq!(result, 5)
+    }
+
+    #[test]
+    #[traced_test]
+    fn jitter_test_zero() {
+        let jittered_delay = add_jitter(&0);
+        assert_eq!(jittered_delay, Duration::from_secs(0));
+    }
+
+    //Sanity checks that I did the math right
+    #[test]
+    #[traced_test]
+    fn jitter_test_nonzero_lower_bound() {
+        let delay: u64 = 300;
+        for _ in 0..100 {
+            assert!(add_jitter(&delay) >= Duration::from_millis(delay * 8 / 10));
+        }
+    }
+
+    #[test]
+    #[traced_test]
+    fn jitter_test_nonzero_upper_bound() {
+        let delay: u64 = 300;
+        for _ in 0..100 {
+            assert!(add_jitter(&delay) < Duration::from_millis(delay * 12 / 10));
+        }
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    async fn custom_resolver() {
+        #[derive(Debug)]
+        struct MyResolver;
+        impl Resolver for MyResolver {
+            fn lookup_ipv4(&self, host: String) -> BoxFuture<Result<BoxIter<Ipv4Addr>, DnsError>> {
+                Box::pin(async move {
+                    let addr = if host == "foo.example" {
+                        Ipv4Addr::new(1, 1, 1, 1)
+                    } else {
+                        return Err(e!(DnsError::NoResponse));
+                    };
+                    let iter: BoxIter<Ipv4Addr> = Box::new(vec![addr].into_iter());
+                    Ok(iter)
+                })
+            }
+
+            fn lookup_ipv6(&self, _host: String) -> BoxFuture<Result<BoxIter<Ipv6Addr>, DnsError>> {
+                todo!()
+            }
+
+            fn lookup_txt(
+                &self,
+                _host: String,
+            ) -> BoxFuture<Result<BoxIter<TxtRecordData>, DnsError>> {
+                todo!()
+            }
+
+            fn clear_cache(&self) {
+                todo!()
+            }
+
+            fn reset(&self) -> Box<dyn Resolver> {
+                todo!()
+            }
+        }
+
+        let resolver = DnsResolver::custom(MyResolver);
+        let mut iter = resolver
+            .lookup_ipv4("foo.example", Duration::from_secs(1))
+            .await
+            .expect("not to fail");
+        let addr = iter.next().expect("one result");
+        assert_eq!(addr, "1.1.1.1".parse::<IpAddr>().unwrap());
+
+        let res = resolver
+            .lookup_ipv4("bar.example", Duration::from_secs(1))
+            .await;
+        assert!(matches!(res, Err(DnsError::NoResponse { .. })))
+    }
+}

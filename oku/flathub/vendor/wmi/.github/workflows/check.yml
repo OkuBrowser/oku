@@ -1,0 +1,106 @@
+name: check
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # Cargo build - Only chrono (default features)
+      - name: Build - Default
+        run: cargo build
+
+      # Cargo build - No features
+      - name: Build - No features
+        run: cargo build --no-default-features
+
+      # Cargo build - Only time
+      - name: Build - Only time feature
+        run: cargo build --no-default-features --features=time
+
+      # Cargo build - All features
+      - name: Build - All features
+        run: cargo build --all-features
+
+  windows-crate-compat:
+    name: windows-rs crate compatibility (${{ matrix.windows-version }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        windows-version: ["0.59.0", "0.60.0", "0.61.1", "0.62.2"]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Pin windows crate version
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          cargo generate-lockfile
+
+          $windows_pkgid = cargo pkgid windows
+          $windows_core_pkgid = cargo pkgid windows-core
+
+          cargo update "$windows_pkgid" --precise ${{ matrix.windows-version }}
+          cargo update "$windows_core_pkgid" --precise ${{ matrix.windows-version }}
+
+      - name: Check - All features
+        run: cargo check --all-features
+
+  test:
+    name: Run tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # Test on default features
+      - name: Test - All targets
+        run: cargo test --all-targets
+
+      # Test time crate
+      - name: Test - Only tests with the Time crate
+        run: cargo test --tests --no-default-features --features=time
+
+      # Test documentation with the 'test' feature
+      - name: Test - Only Documentation
+        run: cargo test --doc --features=test
+
+  fmt:
+    name: Rustfmt
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Run format check
+        run: cargo fmt --check
+
+  clippy:
+    name: Clippy
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Run clippy
+        run: cargo clippy -- -D warnings

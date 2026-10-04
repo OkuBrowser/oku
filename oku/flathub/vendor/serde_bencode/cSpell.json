@@ -1,0 +1,20 @@
+{
+    "words": [
+        "bencoded",
+        "Calisota",
+        "Duckburg",
+        "httpseeds",
+        "Krpc",
+        "lcov",
+        "libfuzzer",
+        "newtype",
+        "rustflags",
+        "Serde",
+        "Walke"
+    ],
+    "enableFiletypes": [
+        "dockerfile",
+        "shellscript",
+        "toml"
+    ]
+}

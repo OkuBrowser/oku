@@ -24,6 +24,8 @@ builddir
 # These are files used for local Flatpak creation
 flatpak-cargo-generator.py
 build-aux/cargo-sources.json
+build-aux/vendor
+./vendor
 
 # Generated when building WebKit
 gtk4-dependencies

@@ -1,0 +1,5 @@
+error: Unknown arguments provided: ["fnord"]
+ --> tests/compile_fail/extra_attr_types.rs:5:5
+  |
+5 |     #[rpc(tx = NoSender, rx = NoReceiver, fnord = Foo)]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

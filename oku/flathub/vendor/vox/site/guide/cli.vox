@@ -1,0 +1,43 @@
+---
+title = "Command-Line Interface"
+layout = "page"
+permalink = "none"
+---
+
+{% markdown %}
+Vox has two subcommands: `vox build` and `vox serve`.
+
+## Building
+
+To build a site, invoke `vox build`. This command takes an optional path argument, if not building a site in the current working directory.\
+This command takes the following options:
+* `-w` or `--watch`: will watch for changes.
+* `-v` or `--verbosity`: sets the maximum level of logging output.
+    - `-v`: warnings
+    - `-vv`: information
+    - `-vvv`: debugging messages
+    - `-vvvv`: trace logs
+* `-d` or `--visualise-dag`: will output a visualisation of the DAG to `dag.svg`.
+* `-s` or `--generate-syntax-css`: will output a stylesheet for code highlighting `css/code.css`.
+
+### Example
+
+To build from the current working directory while watching, visualising the DAG, and logging everything:
+```sh
+vox build -w -d -vvvv
+```
+
+## Serving
+
+When `vox serve` is invoked, the site is first built, then served locally.\
+This command takes the same arguments and flags as `vox build`, as well as the following additional options:
+* `-p <PORT>;` or `--port <PORT>`: the port to serve on (defaults to `80`).
+
+### Example
+
+To serve from `./site` on port `8080` while watching, visualising the DAG, and logging warnings & information:
+```sh
+vox serve -p 8080 -w -d -vv ./site
+```
+
+{% endmarkdown %}

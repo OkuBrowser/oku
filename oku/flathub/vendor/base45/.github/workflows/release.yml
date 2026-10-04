@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test and create release
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.semantic.outputs.new_release_version }}
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Rust (nightly)
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          components: rustfmt, clippy
+          override: true
+
+      - name: Install semantic-release-rust
+        run: cargo install semantic-release-rust --version 1.0.0-alpha.8
+
+      - name: Run tests
+        run: |
+          cargo clippy --all-targets --all-features -- -D warnings
+          cargo test --locked
+          cargo fmt --all -- --check
+
+      - name: Semantic Release
+        uses: cycjimmy/semantic-release-action@v2
+        id: semantic
+        with:
+          semantic_version: 17.1.1
+          extra_plugins: |
+            @semantic-release/changelog@5.0.1
+            @semantic-release/exec@5.0
+            @semantic-release/git@9.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Generate Cargo.lock after release
+        run: cargo generate-lockfile
+
+      - name: Push updated Cargo.lock
+        uses: EndBug/add-and-commit@v5
+        with:
+          message: "chore(release): update lockfile"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

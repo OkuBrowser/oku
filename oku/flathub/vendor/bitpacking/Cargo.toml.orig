@@ -1,0 +1,30 @@
+[package]
+name = "bitpacking"
+version = "0.9.3"
+authors = ["Paul Masurel <paul.masurel@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+keywords = ["integer", "compression", "bitpacking"]
+description = "Fast integer compression/decompression via SIMD bit-packing. Port of simdcomp to rust."
+repository = "https://github.com/quickwit-oss/bitpacking"
+homepage = "https://github.com/quickwit-oss/bitpacking"
+edition = "2021"
+
+[dependencies]
+crunchy = "0.2"
+
+[dev-dependencies]
+rand = "0.8"
+criterion = { version = "0.3", features = ["html_reports"] }
+proptest = "1.4"
+
+[features]
+bitpacker1x = []
+bitpacker4x = []
+bitpacker8x = []
+default = ["bitpacker1x", "bitpacker4x", "bitpacker8x"]
+
+[[bench]]
+name = "bitpacking_bench"
+path = "src/bitpacking_bench.rs"
+harness = false

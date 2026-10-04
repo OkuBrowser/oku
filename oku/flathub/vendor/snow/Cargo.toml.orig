@@ -1,0 +1,123 @@
+[package]
+name = "snow"
+description = "A pure-rust implementation of the Noise Protocol Framework"
+homepage = "https://github.com/mcginty/snow"
+documentation = "https://docs.rs/snow/"
+repository = "https://github.com/mcginty/snow"
+version = "0.10.0"
+authors = ["Jake McGinty <me@jakebot.org>", "trevp"]
+license = "Apache-2.0 OR MIT"
+categories = ["cryptography"]
+readme = "README.md"
+keywords = ["noise", "protocol", "crypto"]
+edition = "2024"
+rust-version = "1.85"
+
+# This is slightly mumbo-jumboey, but in short:
+# Features with a -resolver suffix simply enables the existence of a specific resolver,
+# and -accelerated suffix means that this resolver will be the default used by the Builder.
+#
+# If default features are disabled and default-resolver is used, required crypto primitives
+# must be enabled individually.
+[features]
+default = ["default-resolver", "default-resolver-crypto", "std"]
+default-resolver = []
+default-resolver-crypto = [
+    "use-aes-gcm",
+    "use-chacha20poly1305",
+    "use-blake2",
+    "use-sha2",
+    "use-curve25519",
+    "use-getrandom",
+]
+nightly = ["blake2/simd_opt", "subtle/nightly"]
+ring-resolver = ["ring", "std"]
+ring-accelerated = ["ring-resolver", "default-resolver", "std"]
+vector-tests = []
+hfs = []
+risky-raw-split = []
+
+# Backwards-compatibility aliases
+pqclean_kyber1024 = ["use-pqcrypto-kyber1024"]
+xchachapoly = ["use-xchacha20poly1305"]
+
+# Enable std features on dependencies if possible.
+std = ["getrandom/std", "subtle/std", "ring/std", "blake2/std", "sha2/std"]
+
+# Crypto primitives for default-resolver.
+use-curve25519 = ["curve25519-dalek", "default-resolver"]
+use-chacha20poly1305 = ["chacha20poly1305", "default-resolver"]
+use-xchacha20poly1305 = ["chacha20poly1305", "default-resolver"]
+use-blake2 = ["blake2", "default-resolver"]
+use-sha2 = ["sha2", "default-resolver"]
+use-aes-gcm = ["aes-gcm", "default-resolver"]
+use-getrandom = ["getrandom", "default-resolver"]
+use-pqcrypto-kyber1024 = [
+    "pqcrypto-kyber",
+    "pqcrypto-traits",
+    "hfs",
+    "default-resolver",
+]
+use-p256 = ["p256", "default-resolver"]
+
+[[bench]]
+name = "benches"
+harness = false
+
+[badges]
+travis-ci = { repository = "mcginty/snow", branch = "master" }
+
+[dependencies]
+subtle = { version = "2.4", default-features = false }
+
+# default crypto provider
+getrandom = { version = "0.3", optional = true }
+aes-gcm = { version = "0.10", optional = true, default-features = false, features = [
+    "aes",
+] }
+chacha20poly1305 = { version = "0.10", optional = true, default-features = false }
+blake2 = { version = "0.10", optional = true, default-features = false }
+sha2 = { version = "0.10", optional = true, default-features = false }
+curve25519-dalek = { version = "4.1.3", optional = true, default-features = false }
+p256 = { version = "0.13.2", features = ["ecdh"], optional = true }
+
+pqcrypto-kyber = { version = "0.8", optional = true }
+pqcrypto-traits = { version = "0.3", optional = true }
+
+# ring crypto provider
+ring = { version = "0.17.12", optional = true }
+
+[dev-dependencies]
+criterion = "0.6"
+serde = "1.0"
+serde_json = "1.0"
+serde_derive = "1.0"
+hex = "0.4"
+x25519-dalek = "2.0"
+rand_core = { version = "0.9", default-features = false }
+
+[build-dependencies]
+rustc_version = "0.4"
+
+[profile.test]
+opt-level = 1
+
+[package.metadata.docs.rs]
+features = ["ring-resolver"]
+all-features = false
+no-default-features = false
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+unseparated_literal_suffix = "warn"
+std_instead_of_core = "warn"
+as_conversions = "warn"
+shadow_reuse = "warn"
+missing_asserts_for_indexing = "warn"
+missing_assert_message = "warn"
+
+pedantic = { level = "warn", priority = -1 }
+doc_markdown = "allow"
+used_underscore_items = "allow"

@@ -1,0 +1,19 @@
+[options]
+girs_directories = ["../../gir-files", "../../webkit-gir-files"]
+work_mode = "sys"
+min_cfg_version = "2.40.0"
+library = "JavaScriptCore"
+version = "6.0"
+single_version_file = "."
+target_path = "."
+
+external_libraries = [
+    "GLib",
+    "GObject",
+]
+
+ignore = [
+    "JavaScriptCore.MAJOR_VERSION",
+    "JavaScriptCore.MICRO_VERSION",
+    "JavaScriptCore.MINOR_VERSION",
+]
