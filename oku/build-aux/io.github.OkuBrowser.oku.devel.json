@@ -65,8 +65,8 @@
                 "install -Dm644 ./oku/data/${FLATPAK_ID}.desktop -t /app/share/applications/",
                 "mkdir -p /app/share/icons/hicolor",
                 "cp -avr ./oku/data/hicolor /app/share/icons/",
-                "install -Dm644 ./README.md -t /app/share/doc/oku/",
-                "install -Dm644 ./COPYING -t /app/share/doc/oku/"
+                "install -Dm644 ./oku/README.md -t /app/share/doc/oku/",
+                "install -Dm644 ./oku/COPYING -t /app/share/doc/oku/"
             ],
             "sources" : [
                 {
