@@ -19,6 +19,7 @@ impl Settings {
 
         // Update configuration from window's perspective
         let window_imp = window.imp();
+        #[cfg(feature = "browser")]
         imp.config
             .bind_property("colour-per-domain", &window_imp.config, "colour-per-domain")
             .bidirectional()
@@ -151,7 +152,7 @@ impl Settings {
 
         imp.appearance_group.set_title("Appearance");
         imp.appearance_group
-            .set_description(Some("Preferences regarding the browser's look &amp; feel"));
+            .set_description(Some("Preferences regarding Oku's look &amp; feel"));
         imp.appearance_group.add(&imp.colour_scheme_row);
         #[cfg(feature = "browser")]
         imp.appearance_group.add(&imp.domain_colour_row);
@@ -171,7 +172,7 @@ impl Settings {
 
         imp.colour_scheme_row.set_title("Colour scheme");
         imp.colour_scheme_row
-            .set_subtitle("Whether the browser should be light or dark");
+            .set_subtitle("Whether Oku should be light or dark");
         imp.colour_scheme_row
             .set_model(imp.colour_scheme_selection.model().as_ref());
         style_manager
@@ -192,9 +193,8 @@ impl Settings {
         imp.palette_list.append("Brown");
         imp.palette_selection.set_model(Some(&imp.palette_list));
 
-        imp.palette_row.set_title("Browser colour");
-        imp.palette_row
-            .set_subtitle("The colour of the browser window");
+        imp.palette_row.set_title("Window colour");
+        imp.palette_row.set_subtitle("The colour of the Oku window");
         imp.palette_row
             .set_model(imp.palette_selection.model().as_ref());
     }
@@ -205,6 +205,6 @@ impl Settings {
 
         imp.domain_colour_row.set_title("Colour cycling");
         imp.domain_colour_row
-            .set_subtitle("Change the browser colour for different sites");
+            .set_subtitle("Change the window colour for different sites");
     }
 }

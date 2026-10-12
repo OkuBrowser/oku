@@ -374,6 +374,12 @@ async fn main() {
                         &style_provider,
                         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
                     );
+                    if let None = application.windows().last() {
+                        crate::widgets::window::Window::new(
+                            application,
+                            &style_provider,
+                        );
+                    };
                 })
             );
         }

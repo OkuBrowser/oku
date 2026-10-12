@@ -166,7 +166,6 @@ pub mod imp {
         pub(crate) main_box: gtk::Box,
         pub(crate) fullscreen_box: libadwaita::ToolbarView,
         pub(crate) fullscreen_motion_controller: gtk::EventControllerMotion,
-        #[cfg(feature = "browser")]
         pub(crate) tab_overview: libadwaita::TabOverview,
         pub(crate) split_view: libadwaita::OverlaySplitView,
         // Sidebar content
@@ -360,7 +359,6 @@ impl Window {
         this.setup_menu_popover();
         #[cfg(feature = "browser")]
         this.setup_find_popover();
-        #[cfg(feature = "browser")]
         this.setup_tabs();
         this.setup_main_content(
             #[cfg(feature = "browser")]
@@ -413,6 +411,7 @@ impl Window {
 
         // Window appearance
         apply_appearance_config(style_manager, self);
+        #[cfg(feature = "browser")]
         imp.config.connect_notify_local(
             Some("colour-per-domain"),
             clone!(
@@ -709,7 +708,6 @@ impl Window {
         self.setup_okunet_fetch_overlay();
 
         imp.main_overlay.set_vexpand(true);
-        #[cfg(feature = "browser")]
         imp.main_overlay.set_child(Some(&imp.tab_view));
         #[cfg(feature = "browser")]
         imp.main_overlay.add_overlay(&imp.progress_bar);
@@ -758,13 +756,16 @@ impl Window {
             feature = "browser" => {
                 imp.tab_overview.set_enable_new_tab(true);
                 imp.tab_overview.set_enable_search(true);
-                imp.tab_overview.set_view(Some(&imp.tab_view));
-                imp.tab_overview.set_child(Some(&imp.split_view));
-
-                self.set_content(Some(&imp.tab_overview));
             }
-            _ => ()
+            _ => {
+                imp.tab_overview.set_enable_new_tab(false);
+                imp.tab_overview.set_enable_search(false);
+            }
         }
+        imp.tab_overview.set_view(Some(&imp.tab_view));
+        imp.tab_overview.set_child(Some(&imp.split_view));
+
+        self.set_content(Some(&imp.tab_overview));
     }
 
     pub fn setup_fullscreen_overlay(&self) {
