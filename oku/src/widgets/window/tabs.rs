@@ -1,4 +1,4 @@
-use super::*;
+use super::Window;
 use crate::widgets::okunet::net::Net;
 use crate::window_util::{get_title, get_view_from_page, update_nav_bar};
 use glib::clone;
@@ -22,7 +22,7 @@ pub enum NewTabArguments<'a> {
     Web(&'a NewWebTabArguments<'a>),
 }
 
-impl<'a> Default for &NewTabArguments<'a> {
+impl Default for &NewTabArguments<'_> {
     fn default() -> Self {
         &NewTabArguments::OkuNet
     }
@@ -78,7 +78,7 @@ impl Window {
             .bind(&imp.tab_bar_revealer, "reveal-child", gtk::Widget::NONE);
     }
 
-    pub fn new_tab(&self, arguments: &Option<&NewTabArguments>) -> NewTabReturn {
+    pub fn new_tab(&self, arguments: Option<&NewTabArguments>) -> NewTabReturn {
         let imp = self.imp();
 
         let arguments = arguments.unwrap_or_default();
@@ -168,7 +168,7 @@ impl Window {
             #[weak]
             web_context,
             move |_| {
-                this.new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                this.new_tab(Some(&NewTabArguments::Web(&NewWebTabArguments {
                     web_context: &web_context,
                     related_view: None,
                     initial_request: None,
@@ -180,7 +180,7 @@ impl Window {
                 #[weak]
                 web_context,
                 move |window: &Self, _, _| {
-                    window.new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                    window.new_tab(Some(&NewTabArguments::Web(&NewWebTabArguments {
                         web_context: &web_context,
                         related_view: None,
                         initial_request: None,
@@ -216,7 +216,7 @@ impl Window {
             web_context,
             #[upgrade_or_panic]
             move |_| this
-                .new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                .new_tab(Some(&NewTabArguments::Web(&NewWebTabArguments {
                     web_context: &web_context,
                     related_view: None,
                     initial_request: None
@@ -240,28 +240,29 @@ impl Window {
                     selected_page.set_needs_attention(false);
                 }
                 let web_view = this.get_view();
-                this.update_color(&web_view.as_ref().ok(), &style_manager);
+                this.update_color(web_view.as_ref().ok(), &style_manager);
                 if web_view.is_err() {
                     return;
                 }
                 let web_view = web_view.expect("Web view exists");
                 update_nav_bar(&imp.nav_entry, &web_view);
-                match imp.is_private.get() {
-                    true => this.set_title(Some(&format!("{} — Private", get_title(&web_view)))),
-                    false => this.set_title(Some(&get_title(&web_view))),
+                if imp.is_private.get() {
+                    this.set_title(Some(&format!("{} — Private", get_title(&web_view))));
+                } else {
+                    this.set_title(Some(&get_title(&web_view)));
                 }
                 this.update_load_progress(&web_view);
                 if web_view.is_loading() {
-                    imp.refresh_button.set_icon_name("cross-large-symbolic")
+                    imp.refresh_button.set_icon_name("cross-large-symbolic");
                 } else {
                     imp.refresh_button
-                        .set_icon_name("arrow-circular-top-right-symbolic")
+                        .set_icon_name("arrow-circular-top-right-symbolic");
                 }
                 imp.back_button.set_sensitive(web_view.can_go_back());
                 imp.forward_button.set_sensitive(web_view.can_go_forward());
-                this.update_color(&Some(&web_view), &style_manager);
+                this.update_color(Some(&web_view), &style_manager);
                 imp.zoom_percentage
-                    .set_text(&format!("{:.0}%", web_view.zoom_level() * 100.0))
+                    .set_text(&format!("{:.0}%", web_view.zoom_level() * 100.0));
             }
         ));
     }
@@ -271,17 +272,18 @@ impl Window {
     /// # Arguments
     ///
     /// * `ipfs` - An IPFS client
+
     pub fn create_window_from_drag(
         &self,
         web_context: &WebContext,
     ) -> std::option::Option<libadwaita::TabView> {
-        let application = self.application().unwrap().downcast().unwrap();
+        let application = self.application()?.downcast().ok()?;
         let new_window = self::Window::new(
             &application,
             &self.imp().style_provider.borrow(),
             web_context,
             self.imp().is_private.get(),
         );
-        Some(new_window.imp().tab_view.to_owned())
+        Some(new_window.imp().tab_view.clone())
     }
 }

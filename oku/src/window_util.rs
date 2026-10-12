@@ -12,7 +12,7 @@ use webkit2gtk::{functions::uri_for_display, prelude::WebViewExt};
 ///
 /// * `nav_entry` - The navigation bar of the browser
 ///
-/// * `web_view` - The WebKit instance for the current tab
+/// * `web_view` - The `WebKit` instance for the current tab
 pub fn connect(nav_entry: &impl IsA<gtk::Editable>, web_view: &webkit2gtk::WebView) {
     let nav_text = nav_entry.text().to_string();
     let mut parsed_url = url::Url::parse(&nav_text);
@@ -25,9 +25,9 @@ pub fn connect(nav_entry: &impl IsA<gtk::Editable>, web_view: &webkit2gtk::WebVi
         // When URL is missing a scheme
         Err(url::ParseError::RelativeUrlWithoutBase) => {
             let nav_text_with_base = if is_hive_uri(&nav_text) {
-                format!("hive://{}", nav_text)
+                format!("hive://{nav_text}")
             } else if is_ipfs_uri(&nav_text) {
-                format!("ipfs://{}", nav_text)
+                format!("ipfs://{nav_text}")
             } else {
                 nav_text.clone()
             };
@@ -40,15 +40,15 @@ pub fn connect(nav_entry: &impl IsA<gtk::Editable>, web_view: &webkit2gtk::WebVi
                 }
                 // Still not valid, even with protocol
                 Err(e) => {
-                    error!("{}", e);
-                    web_view.load_uri(&format!("oku:search/{}", nav_text));
+                    error!("{e}");
+                    web_view.load_uri(&format!("oku:search/{nav_text}"));
                 }
             }
         }
         // URL is malformed beyond missing a scheme
         Err(e) => {
-            error!("{}", e);
-            web_view.load_uri(&format!("oku:search/{}", nav_text));
+            error!("{e}");
+            web_view.load_uri(&format!("oku:search/{nav_text}"));
         }
     }
 }
@@ -75,11 +75,11 @@ pub fn is_ipfs_uri(nav_text: &str) -> bool {
 ///
 /// * `nav_entry` - The navigation bar of the browser
 ///
-/// * `web_view` - The WebKit instance for the current tab
+/// * `web_view` - The `WebKit` instance for the current tab
 pub fn update_nav_bar(nav_entry: &AddressEntry, web_view: &webkit2gtk::WebView) {
     let mut url = web_view.uri().unwrap_or_default().to_string();
     if url.starts_with("oku:home") || url.starts_with("about:") || url.starts_with("view-source:") {
-        url = "".to_string();
+        url = String::new();
     }
     if let Some(search_stripped) = url.strip_prefix("oku:search/") {
         url = search_stripped.to_owned();
@@ -88,7 +88,8 @@ pub fn update_nav_bar(nav_entry: &AddressEntry, web_view: &webkit2gtk::WebView) 
     nav_entry.update_uri(web_view.uri().unwrap_or_default().to_string());
 }
 
-/// Provide the default configuration for Oku's WebView
+/// Provide the default configuration for Oku's `WebView`
+
 pub fn new_webkit_settings() -> webkit2gtk::Settings {
     let settings = webkit2gtk::Settings::new();
     settings.set_javascript_can_open_windows_automatically(true);
@@ -129,15 +130,18 @@ pub fn new_webkit_settings() -> webkit2gtk::Settings {
     settings
 }
 
-/// Get the WebKit instance for the current tab
+/// Get the `WebKit` instance for the current tab
 ///
 /// # Arguments
 ///
-/// * `page` - The TabPage containing the the WebKit instance
+/// * `page` - The `TabPage` containing the the `WebKit` instance
 pub fn get_view_from_page(
     page: &libadwaita::TabPage,
 ) -> miette::Result<(gtk::Overlay, webkit2gtk::WebView)> {
-    let overlay = page.child().downcast::<gtk::Overlay>().unwrap();
+    let overlay = page
+        .child()
+        .downcast::<gtk::Overlay>()
+        .map_err(|e| miette::miette!("{e}"))?;
     Ok((
         overlay.clone(),
         overlay
@@ -157,10 +161,10 @@ pub fn get_window_from_widget(widget: &impl IsA<gtk::Widget>) -> crate::widgets:
 }
 
 pub fn get_view_stack_page_by_name(
-    name: String,
+    name: &str,
     view_stack: &libadwaita::ViewStack,
 ) -> Option<libadwaita::ViewStackPage> {
-    view_stack.child_by_name(&name).map(|x| view_stack.page(&x))
+    view_stack.child_by_name(name).map(|x| view_stack.page(&x))
 }
 
 /// Update a tab's icon
@@ -169,8 +173,8 @@ pub fn get_view_stack_page_by_name(
 ///
 /// * `tab_view` - The tabs of the current browser window
 ///
-/// * `web_view` - The WebKit instance for the tab
-pub fn update_favicon(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebView) {
+/// * `web_view` - The `WebKit` instance for the tab
+pub fn update_favicon(tab_view: &libadwaita::TabView, web_view: &webkit2gtk::WebView) {
     let relevant_page = tab_view.page(web_view.parent().as_ref().unwrap());
     let web_favicon = &web_view.favicon();
     match &web_favicon {
@@ -213,20 +217,24 @@ pub fn get_title(web_view: &webkit2gtk::WebView) -> String {
 ///
 /// * `tab_view` - The tabs of the current browser window
 ///
-/// * `web_view` - The WebKit instance for the tab
-pub fn update_title(tab_view: libadwaita::TabView, web_view: &webkit2gtk::WebView) {
-    let relevant_page = tab_view.page(web_view.parent().as_ref().unwrap());
-    let title = get_title(web_view);
-    relevant_page.set_title(&title);
+/// * `web_view` - The `WebKit` instance for the tab
+pub fn update_title(tab_view: &libadwaita::TabView, web_view: &webkit2gtk::WebView) {
+    if let Some(web_view_parent) = web_view.parent().as_ref() {
+        let relevant_page = tab_view.page(web_view_parent);
+        let title = get_title(web_view);
+        relevant_page.set_title(&title);
+    }
 }
 
-pub fn uri_attributes(x: String) -> pango::AttrList {
+pub fn uri_attributes(x: &str) -> pango::AttrList {
     let attributes = pango::AttrList::new();
     if let Some(authority_start) = x.find("://") {
         let foreground_alpha_dim = pango::AttrInt::new_foreground_alpha(u16::pow(2, 15));
         let mut foreground_alpha_dark = pango::AttrInt::new_foreground_alpha(u16::MAX);
+        #[allow(clippy::cast_possible_truncation)]
         foreground_alpha_dark.set_start_index((authority_start + 3) as u32);
-        if let Some(authority_end) = x[authority_start + 3..].find("/") {
+        if let Some(authority_end) = x[authority_start + 3..].find('/') {
+            #[allow(clippy::cast_possible_truncation)]
             foreground_alpha_dark.set_end_index((authority_start + 3 + authority_end) as u32);
         }
         attributes.insert(foreground_alpha_dim);

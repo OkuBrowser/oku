@@ -3,9 +3,9 @@ use crate::discovery::{DEFAULT_INITIAL_PUBLISH_DELAY, DEFAULT_REPUBLISH_DELAY};
 use crate::fs::FS_PATH;
 #[cfg(feature = "persistent")]
 use log::error;
-use miette::miette;
 #[cfg(feature = "persistent")]
 use miette::IntoDiagnostic;
+use miette::miette;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "persistent")]
 use std::{path::PathBuf, sync::LazyLock};
@@ -49,13 +49,13 @@ impl OkuFsConfig {
             Ok(config_file_toml) => match toml::from_str(&config_file_toml) {
                 Ok(config) => Ok(config),
                 Err(e) => {
-                    error!("{}", e);
+                    error!("{e}");
                     let config = Self::default();
                     Ok(config)
                 }
             },
             Err(e) => {
-                error!("{}", e);
+                error!("{e}");
                 let config = Self::default();
                 let config_toml = toml::to_string_pretty(&config).into_diagnostic()?;
                 std::fs::write(&*CONFIG_PATH, config_toml).into_diagnostic()?;
@@ -77,6 +77,7 @@ impl OkuFsConfig {
     /// # Returns
     ///
     /// [`OkuFsConfig::republish_delay`] if set, or [`crate::discovery::DEFAULT_REPUBLISH_DELAY`] otherwise.
+
     pub fn get_republish_delay(&self) -> Duration {
         self.republish_delay
             .try_lock()
@@ -103,6 +104,7 @@ impl OkuFsConfig {
     /// # Returns
     ///
     /// [`OkuFsConfig::initial_publish_delay`] if set, or [`crate::discovery::DEFAULT_INITIAL_PUBLISH_DELAY`] otherwise.
+
     pub fn get_initial_publish_delay(&self) -> Duration {
         self.initial_publish_delay
             .try_lock()

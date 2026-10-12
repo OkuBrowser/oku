@@ -1,6 +1,6 @@
 use super::{BrowserDatabase, DATABASE};
 use miette::IntoDiagnostic;
-use native_db::*;
+use native_db::{ToKey, native_db, transaction};
 use native_model::{Model, native_model};
 use oku_core::fs::FS_PATH;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};

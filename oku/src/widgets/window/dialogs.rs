@@ -1,4 +1,4 @@
-use super::*;
+use super::Window;
 use crate::{APP_ID, VERSION};
 use libadwaita::prelude::*;
 

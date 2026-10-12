@@ -5,7 +5,9 @@ use libadwaita::subclass::{dialog::AdwDialogImpl, preferences_dialog::Preference
 use libadwaita::{StyleManager, prelude::*};
 
 pub mod imp {
-    use super::*;
+    use super::{
+        AdwDialogImpl, Config, ObjectImpl, ObjectSubclass, PreferencesDialogImpl, WidgetImpl, glib,
+    };
 
     #[derive(Debug, Default)]
     pub struct Settings {
@@ -54,7 +56,7 @@ pub fn apply_appearance_config(
     window: &crate::widgets::window::Window,
 ) {
     style_manager.set_color_scheme(window.imp().config.imp().colour_scheme().into());
-    window.update_color(&window.get_view().as_ref().ok(), style_manager);
+    window.update_color(window.get_view().as_ref().ok(), style_manager);
 }
 
 impl Settings {

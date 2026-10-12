@@ -17,7 +17,7 @@ pub enum ReplicaEvent {
     Synced(ReplicaListItem),
 }
 
-/// High-level events emitted when the local records of OkuNet posts have changed.
+/// High-level events emitted when the local records of `OkuNet` posts have changed.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum OkuNetPostEvent {
     /// Emitted when the node starts.

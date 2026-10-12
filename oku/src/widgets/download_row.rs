@@ -31,7 +31,12 @@ use webkit2gtk::URIResponse;
 use webkit2gtk::prelude::WebViewExt;
 
 pub mod imp {
-    use super::*;
+    use super::{
+        ActionRowImpl, BoxImpl, Download, LazyLock, ListBoxRowImpl, ObjectImpl, ObjectSubclass,
+        ObjectSubclassExt, ParamSpec, ParamSpecBoolean, ParamSpecBuilderExt, ParamSpecDouble,
+        ParamSpecObject, ParamSpecString, PreferencesRowImpl, PropertySet, RefCell, ToValue, Value,
+        WidgetImpl,
+    };
 
     #[derive(Default, Debug)]
     pub struct DownloadRow {
@@ -119,7 +124,7 @@ pub mod imp {
             let obj = self.obj();
             match pspec.name() {
                 "download" => obj.download().to_value(),
-                "destination" => obj.destination().to_string().to_value(),
+                "destination" => obj.destination().clone().to_value(),
                 "uri" => obj.uri().to_value(),
                 "estimated-progress" => obj.estimated_progress().to_value(),
                 "error" => obj.error().to_value(),
@@ -151,21 +156,27 @@ impl DownloadRow {
     pub fn download(&self) -> Download {
         self.imp().download.borrow().as_ref().unwrap().clone()
     }
+
     pub fn destination(&self) -> String {
         self.imp().destination.borrow().to_string()
     }
+
     pub fn uri(&self) -> String {
         self.imp().uri.borrow().to_string()
     }
+
     pub fn estimated_progress(&self) -> f64 {
         *self.imp().estimated_progress.borrow()
     }
+
     pub fn error(&self) -> Option<String> {
         self.imp().error.borrow().clone()
     }
+
     pub fn is_finished(&self) -> bool {
         *self.imp().is_finished.borrow()
     }
+
     pub fn new(download: Download) -> Self {
         let this = Self::default();
 
@@ -348,12 +359,12 @@ impl DownloadRow {
         self.append(&imp.progress_overlay);
     }
 
-    /// Adapted from Geopard (https://github.com/ranfdev/Geopard)
+    /// Adapted from Geopard (<https://github.com/ranfdev/Geopard>)
     fn set_progress_animated(&self, progress: f64) {
         let imp = self.imp();
 
         if let Some(animation) = imp.progress_animation.borrow().as_ref() {
-            animation.pause()
+            animation.pause();
         }
         if progress == 0.0 {
             imp.progress.set_fraction(0.0);

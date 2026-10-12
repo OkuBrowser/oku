@@ -1,13 +1,13 @@
-use super::*;
+use super::{OkuFs, util};
 use crate::error::OkuFsError;
 use anyhow::anyhow;
 use bytes::Bytes;
-use futures::{future, pin_mut, StreamExt};
+use futures::{StreamExt, future, pin_mut};
 use iroh_blobs::Hash;
-use iroh_docs::store::FilterKind;
-use iroh_docs::sync::Entry;
 use iroh_docs::DocTicket;
 use iroh_docs::NamespaceId;
+use iroh_docs::store::FilterKind;
+use iroh_docs::sync::Entry;
 use log::error;
 use miette::IntoDiagnostic;
 use rayon::iter::{
@@ -121,7 +121,7 @@ impl OkuFs {
             .open(*namespace_id)
             .await
             .map_err(|e| {
-                error!("{}", e);
+                error!("{e}");
                 OkuFsError::CannotOpenReplica
             })?
             .ok_or(OkuFsError::FsEntryNotFound)?;
@@ -130,11 +130,14 @@ impl OkuFs {
             .key_prefix(file_key)
             .build();
         let entries = document.get_many(query).await.map_err(|e| {
-            error!("{}", e);
+            error!("{e}");
             OkuFsError::CannotListFiles
         })?;
         pin_mut!(entries);
-        let files: Vec<Entry> = entries.map(|entry| entry.unwrap()).collect().await;
+        let files: Vec<Entry> = entries
+            .filter_map(|entry| async { entry.ok() })
+            .collect()
+            .await;
         for file in files {
             entries_deleted += document
                 .del(
@@ -145,7 +148,7 @@ impl OkuFs {
                 )
                 .await
                 .map_err(|e| {
-                    error!("{}", e);
+                    error!("{e}");
                     OkuFsError::CannotDeleteDirectory
                 })?;
         }
@@ -169,20 +172,17 @@ impl OkuFs {
         path: &PathBuf,
     ) -> miette::Result<Hash> {
         let files = self
-            .list_files(namespace_id, &Some(path.to_path_buf()))
+            .list_files(namespace_id, &Some(path.clone()))
             .await
             .unwrap_or_default();
-        match files.len() {
-            0 => {
-                self.create_file(namespace_id, &path.join(".folder"), b"\0".as_slice())
-                    .await
-            }
-            _ => {
-                let namespace_id_str = crate::fs::util::fmt(namespace_id);
-                Err(miette::miette!(
-                    "Cannot create directory {path:?} in {namespace_id_str} as it already exists."
-                ))
-            }
+        if files.is_empty() {
+            self.create_file(namespace_id, &path.join(".folder"), b"\0".as_slice())
+                .await
+        } else {
+            let namespace_id_str = crate::fs::util::fmt(namespace_id);
+            Err(miette::miette!(
+                "Cannot create directory {path:?} in {namespace_id_str} as it already exists."
+            ))
         }
     }
 
@@ -288,6 +288,6 @@ impl OkuFs {
             .await?;
         self.read_directory(&ticket.capability.id(), path)
             .await
-            .map_err(|e| anyhow!("{}", e))
+            .map_err(|e| anyhow!("{e}"))
     }
 }

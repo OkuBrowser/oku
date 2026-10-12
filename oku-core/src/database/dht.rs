@@ -1,7 +1,7 @@
-use super::core::*;
+use super::core::OkuDatabase;
 use miette::IntoDiagnostic;
-use native_db::*;
-use native_model::{native_model, Model};
+use native_db::{ToKey, native_db};
+use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

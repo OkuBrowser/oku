@@ -1,4 +1,4 @@
-use super::*;
+use super::{NewTabArguments, NewWebTabArguments, Window};
 use crate::bookmark_item::BookmarkItem;
 use crate::database::DATABASE;
 use crate::history_item::HistoryItem;
@@ -32,7 +32,7 @@ impl Window {
         let imp = self.imp();
 
         let bookmarks_page =
-            get_view_stack_page_by_name("bookmarks".to_string(), &imp.side_view_stack).unwrap();
+            get_view_stack_page_by_name("bookmarks", &imp.side_view_stack).unwrap();
         bookmarks_page.child().set_sensitive(false);
         let bookmarks_store = self.bookmarks_store();
         let mut bookmarks = DATABASE.get_bookmarks().unwrap_or_default();
@@ -48,6 +48,7 @@ impl Window {
                     item.update(bookmark.clone(), self.clone());
                     bookmarks.remove(bookmark_index);
                 }
+                #[allow(clippy::cast_possible_truncation)]
                 None => bookmarks_store.remove(item_index as u32),
             }
         }
@@ -56,7 +57,7 @@ impl Window {
         ctx.invoke(move || {
             let bookmarks_store = this.bookmarks_store();
             let favicon_database = this.favicon_database();
-            for x in bookmarks.into_iter() {
+            for x in bookmarks {
                 bookmarks_store.append(&BookmarkItem::new(
                     x.url,
                     x.title,
@@ -71,10 +72,9 @@ impl Window {
             imp.bookmarks_sidebar_initialised.get() && old_store != bookmarks_store.snapshot();
 
         if matches!(get_view_stack_page_by_name(
-            imp.side_view_stack
+            &imp.side_view_stack
                 .visible_child_name()
-                .unwrap_or_default()
-                .to_string(),
+                .unwrap_or_default(),
                 &imp.side_view_stack,
         ), Some(x) if x == bookmarks_page)
         {
@@ -88,15 +88,15 @@ impl Window {
         let history_store = self.imp().history_store.borrow();
 
         Ref::map(history_store, |history_store| {
-            (history_store.as_deref().unwrap()) as _
+            (history_store.as_deref().expect("ListStore should be in Rc")) as _
         })
     }
 
     pub fn history_updated(&self) {
         let imp = self.imp();
 
-        let history_page =
-            get_view_stack_page_by_name("history".to_string(), &imp.side_view_stack).unwrap();
+        let history_page = get_view_stack_page_by_name("history", &imp.side_view_stack)
+            .expect("History page cannot be found");
         history_page.child().set_sensitive(false);
         let history_store = self.history_store();
         let mut history_records = DATABASE.get_history_records().unwrap_or_default();
@@ -112,6 +112,7 @@ impl Window {
                     item.update(history_record.clone(), self.clone());
                     history_records.remove(history_record_index);
                 }
+                #[allow(clippy::cast_possible_truncation)]
                 None => history_store.remove(item_index as u32),
             }
         }
@@ -120,7 +121,7 @@ impl Window {
         ctx.invoke(move || {
             let history_store = this.history_store();
             let favicon_database = this.favicon_database();
-            for x in history_records.into_iter() {
+            for x in history_records {
                 history_store.insert(
                     0,
                     &HistoryItem::new(
@@ -140,10 +141,9 @@ impl Window {
             imp.history_sidebar_initialised.get() && old_store != history_store.snapshot();
 
         if matches!(get_view_stack_page_by_name(
-            imp.side_view_stack
+            &imp.side_view_stack
                 .visible_child_name()
-                .unwrap_or_default()
-                .to_string(),
+                .unwrap_or_default(),
                 &imp.side_view_stack,
         ), Some(x) if x == history_page)
         {
@@ -156,13 +156,15 @@ impl Window {
         let replicas_store = self.imp().replicas_store.borrow();
 
         Ref::map(replicas_store, |replicas_store| {
-            (replicas_store.as_deref().unwrap()) as _
+            (replicas_store
+                .as_deref()
+                .expect("ListStore should be in Rc")) as _
         })
     }
 
-    pub async fn replicas_updated(&self, event: &ReplicaEvent) {
+    pub fn replicas_updated(&self, event: &ReplicaEvent) {
         if let Some(replicas_page) =
-            get_view_stack_page_by_name("replicas".to_string(), &self.imp().side_view_stack)
+            get_view_stack_page_by_name("replicas", &self.imp().side_view_stack)
         {
             replicas_page.child().set_sensitive(false);
         }
@@ -178,13 +180,12 @@ impl Window {
             );
         });
         if let Some(replicas_page) =
-            get_view_stack_page_by_name("replicas".to_string(), &self.imp().side_view_stack)
+            get_view_stack_page_by_name("replicas", &self.imp().side_view_stack)
         {
             if matches!(get_view_stack_page_by_name(
-                self.imp().side_view_stack
+                &self.imp().side_view_stack
                     .visible_child_name()
-                    .unwrap_or_default()
-                    .to_string(),
+                    .unwrap_or_default(),
                     &self.imp().side_view_stack,
             ), Some(x) if x == replicas_page)
             {
@@ -209,10 +210,7 @@ impl Window {
         imp.side_view_stack
             .connect_visible_child_notify(clone!(move |side_view_stack| {
                 if let Some(visible_page) = get_view_stack_page_by_name(
-                    side_view_stack
-                        .visible_child_name()
-                        .unwrap_or_default()
-                        .to_string(),
+                    &side_view_stack.visible_child_name().unwrap_or_default(),
                     side_view_stack,
                 ) {
                     visible_page.set_needs_attention(false);
@@ -244,10 +242,11 @@ impl Window {
             #[weak]
             web_context,
             move |bookmarks_model| {
-                if let Some(item) = bookmarks_model.selected_item() {
-                    let bookmarks_item = item.downcast_ref::<BookmarkItem>().unwrap();
+                if let Some(item) = bookmarks_model.selected_item()
+                    && let Some(bookmarks_item) = item.downcast_ref::<BookmarkItem>()
+                {
                     let new_view = this
-                        .new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                        .new_tab(Some(&NewTabArguments::Web(&NewWebTabArguments {
                             web_context: &web_context,
                             related_view: None,
                             initial_request: None,
@@ -450,10 +449,11 @@ impl Window {
                 #[weak]
                 web_context,
                 move |bookmarks_filter_selection_model| {
-                    if let Some(item) = bookmarks_filter_selection_model.selected_item() {
-                        let bookmarks_item = item.downcast_ref::<BookmarkItem>().unwrap();
+                    if let Some(item) = bookmarks_filter_selection_model.selected_item()
+                        && let Some(bookmarks_item) = item.downcast_ref::<BookmarkItem>()
+                    {
                         let new_view = this
-                            .new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                            .new_tab(Some(&NewTabArguments::Web(&NewWebTabArguments {
                                 web_context: &web_context,
                                 related_view: None,
                                 initial_request: None,
@@ -556,10 +556,11 @@ impl Window {
             #[weak]
             web_context,
             move |history_model| {
-                if let Some(item) = history_model.selected_item() {
-                    let history_item = item.downcast_ref::<HistoryItem>().unwrap();
+                if let Some(item) = history_model.selected_item()
+                    && let Some(history_item) = item.downcast_ref::<HistoryItem>()
+                {
                     let new_view = this
-                        .new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                        .new_tab(Some(&NewTabArguments::Web(&NewWebTabArguments {
                             web_context: &web_context,
                             related_view: None,
                             initial_request: None,
@@ -730,10 +731,11 @@ impl Window {
                 #[weak]
                 web_context,
                 move |history_filter_selection_model| {
-                    if let Some(item) = history_filter_selection_model.selected_item() {
-                        let history_item = item.downcast_ref::<HistoryItem>().unwrap();
+                    if let Some(item) = history_filter_selection_model.selected_item()
+                        && let Some(history_item) = item.downcast_ref::<HistoryItem>()
+                    {
                         let new_view = this
-                            .new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                            .new_tab(Some(&NewTabArguments::Web(&NewWebTabArguments {
                                 web_context: &web_context,
                                 related_view: None,
                                 initial_request: None,
@@ -840,7 +842,7 @@ impl Window {
                         match node.create_replica().await {
                             Ok(_) => (),
                             Err(e) => {
-                                error!("{}", e)
+                                error!("{e}");
                             }
                         }
                     }
@@ -861,8 +863,9 @@ impl Window {
             #[weak]
             imp,
             move |replicas_model| {
-                if let Some(item) = replicas_model.selected_item() {
-                    let replica_item = item.downcast_ref::<ReplicaItem>().unwrap();
+                if let Some(item) = replicas_model.selected_item()
+                    && let Some(replica_item) = item.downcast_ref::<ReplicaItem>()
+                {
                     let clipboard = gdk::Display::default().unwrap().clipboard();
                     clipboard.set_text(&replica_item.id());
                     let app = this.application().unwrap();

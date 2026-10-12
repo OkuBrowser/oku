@@ -17,7 +17,11 @@ use std::cell::RefCell;
 use std::sync::LazyLock;
 
 pub mod imp {
-    use super::*;
+    use super::{
+        BoxImpl, LazyLock, ObjectImpl, ObjectImplExt, ObjectSubclass, ObjectSubclassExt, ParamSpec,
+        ParamSpecBoolean, ParamSpecString, RefCell, ToValue, Value, WidgetClassExt, WidgetExt,
+        WidgetImpl,
+    };
 
     #[derive(Debug, Default)]
     pub struct Tag {
@@ -137,6 +141,7 @@ impl Tag {
         self.append(&imp.text_label);
         self.append(&imp.delete_button);
     }
+
     pub fn text(&self) -> String {
         self.imp().text.borrow().to_owned()
     }

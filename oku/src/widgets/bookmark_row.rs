@@ -30,7 +30,11 @@ use std::sync::LazyLock;
 use webkit2gtk::functions::uri_for_display;
 
 pub mod imp {
-    use super::*;
+    use super::{
+        ActionRowImpl, LazyLock, ListBoxRowImpl, ObjectImpl, ObjectImplExt, ObjectSubclass,
+        ObjectSubclassExt, ParamSpec, ParamSpecBoxed, ParamSpecObject, ParamSpecString,
+        PreferencesRowImpl, RefCell, ToValue, Value, WidgetClassExt, WidgetExt, WidgetImpl,
+    };
 
     #[derive(Debug, Default)]
     pub struct BookmarkRow {
@@ -202,7 +206,7 @@ impl BookmarkRow {
                 if let Some(bookmark) = DATABASE.get_bookmark(this.url()).ok().flatten()
                     && let Err(e) = DATABASE.delete_bookmark(bookmark)
                 {
-                    error!("{}", e)
+                    error!("{e}");
                 }
             }
         ));
@@ -229,15 +233,19 @@ impl BookmarkRow {
     pub fn url(&self) -> String {
         self.imp().url.borrow().to_string()
     }
+
     pub fn title_property(&self) -> String {
         self.imp().title.borrow().to_string()
     }
+
     pub fn body(&self) -> String {
         self.imp().body.borrow().to_string()
     }
+
     pub fn tags(&self) -> Vec<String> {
         self.imp().tags.borrow().to_owned()
     }
+
     pub fn favicon(&self) -> Option<gdk::Texture> {
         self.imp()
             .favicon
@@ -265,9 +273,9 @@ impl BookmarkRow {
         } else {
             self.set_title(encoded_title);
             if encoded_tags.trim().is_empty() {
-                self.set_subtitle(&encoded_url.to_string());
+                self.set_subtitle(&encoded_url.clone());
             } else {
-                self.set_subtitle(&format!("{}\n{}", encoded_url, encoded_tags));
+                self.set_subtitle(&format!("{encoded_url}\n{encoded_tags}"));
             }
         }
     }

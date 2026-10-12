@@ -24,12 +24,11 @@ impl OkuPath {
             .collect();
         let first_component = url_components
             .first()
-            .map(|x| x.to_path_buf())
-            .unwrap_or(PathBuf::from("home"));
+            .map_or(PathBuf::from("home"), std::clone::Clone::clone);
         let second_component = url_components.get(1);
         let replica_path = second_component
             .and_then(|_x| path.as_ref().strip_prefix(first_component.clone()).ok())
-            .map(|x| x.to_path_buf());
+            .map(std::path::Path::to_path_buf);
         Ok(
             match first_component
                 .as_os_str()
@@ -39,9 +38,9 @@ impl OkuPath {
             {
                 "home" => OkuPath::Home,
                 "tags" => OkuPath::Tags,
-                "tag" => second_component
-                    .map(|x| OkuPath::Tag(x.to_string_lossy().to_string()))
-                    .unwrap_or(OkuPath::Tags),
+                "tag" => second_component.map_or(OkuPath::Tags, |x| {
+                    OkuPath::Tag(x.to_string_lossy().to_string())
+                }),
                 "me" => OkuPath::Me(replica_path),
                 "follow" => OkuPath::ToggleFollow(AuthorId::from(
                     oku_core::fs::util::parse_array_hex_or_base32::<32>(

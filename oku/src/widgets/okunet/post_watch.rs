@@ -61,15 +61,13 @@ impl Net {
                 }
             }
             OkuNetPostEvent::Initialised => (),
-        };
+        }
         self.imp().posts_initialised.get() && old_store != posts_store.snapshot()
     }
 
     pub async fn setup_posts(&self) {
         // Prevent interaction with posts while we're setting up
-        if let Some(home_page) =
-            get_view_stack_page_by_name("home".to_string(), &self.imp().view_stack)
-        {
+        if let Some(home_page) = get_view_stack_page_by_name("home", &self.imp().view_stack) {
             home_page.child().set_sensitive(false);
         }
         // Add all posts
@@ -79,15 +77,13 @@ impl Net {
             let this = self.clone();
             ctx.invoke(move || {
                 let posts_store = this.posts_store();
-                for post in posts.iter() {
+                for post in &posts {
                     posts_store.insert_sorted(&PostItem::new(post), post_compare);
                 }
             });
         }
         // Allow interaction again
-        if let Some(home_page) =
-            get_view_stack_page_by_name("home".to_string(), &self.imp().view_stack)
-        {
+        if let Some(home_page) = get_view_stack_page_by_name("home", &self.imp().view_stack) {
             home_page.child().set_sensitive(true);
         }
     }

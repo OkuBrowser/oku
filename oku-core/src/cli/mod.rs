@@ -1,13 +1,13 @@
 use bytes::Bytes;
 use clap::{Parser, Subcommand};
 use env_logger::Builder;
-use iroh_docs::api::protocol::ShareMode;
 use iroh_docs::AuthorId;
 use iroh_docs::DocTicket;
 use iroh_docs::NamespaceId;
+use iroh_docs::api::protocol::ShareMode;
 use iroh_tickets::Ticket;
-use log::{info, LevelFilter};
-use miette::{miette, IntoDiagnostic};
+use log::{LevelFilter, info};
+use miette::{IntoDiagnostic, miette};
 use oku_core::config::OkuFsConfig;
 use oku_core::database::core::OkuDatabase;
 use oku_core::fs::OkuFs;
@@ -411,7 +411,6 @@ pub async fn main() -> miette::Result<()> {
         1 => LevelFilter::Warn,
         2 => LevelFilter::Info,
         3 => LevelFilter::Debug,
-        4 => LevelFilter::Trace,
         _ => LevelFilter::Trace,
     };
     let mut builder = Builder::new();
@@ -440,16 +439,16 @@ pub async fn main() -> miette::Result<()> {
             } => {
                 node.create_file(&replica_id, &path, data).await?;
                 info!(
-                    "Created file at {:?} in replica {}",
-                    path,
+                    "Created file at {} in replica {}",
+                    path.display(),
                     oku_core::fs::util::fmt(replica_id)
                 );
             }
             FsCommands::CreateDirectory { replica_id, path } => {
                 node.create_directory(&replica_id, &path).await?;
                 info!(
-                    "Created directory at {:?} in replica {}",
-                    path,
+                    "Created directory at {} in replica {}",
+                    path.display(),
                     oku_core::fs::util::fmt(replica_id)
                 );
             }
@@ -500,24 +499,24 @@ pub async fn main() -> miette::Result<()> {
                 node.write_file_using_cache(&replica_id, &path, data, &None)
                     .await?;
                 info!(
-                    "Wrote to file at {:?} in replica {}",
-                    path,
+                    "Wrote to file at {} in replica {}",
+                    path.display(),
                     oku_core::fs::util::fmt(replica_id)
                 );
             }
             FsCommands::RemoveFile { replica_id, path } => {
                 node.delete_file(&replica_id, &path).await?;
                 info!(
-                    "Removed file at {:?} in replica {}",
-                    path,
+                    "Removed file at {} in replica {}",
+                    path.display(),
                     oku_core::fs::util::fmt(replica_id)
                 );
             }
             FsCommands::RemoveDirectory { replica_id, path } => {
                 node.delete_directory(&replica_id, &path).await?;
                 info!(
-                    "Removed directory at {:?} in replica {}",
-                    path,
+                    "Removed directory at {} in replica {}",
+                    path.display(),
                     oku_core::fs::util::fmt(replica_id)
                 );
             }
@@ -537,10 +536,10 @@ pub async fn main() -> miette::Result<()> {
                 node.move_file(&old_replica_id, &old_path, &new_replica_id, &new_path)
                     .await?;
                 info!(
-                    "Moved file from {:?} in {} to {:?} in {}",
-                    old_path,
+                    "Moved file from {} in {} to {} in {}",
+                    old_path.display(),
                     oku_core::fs::util::fmt(old_replica_id),
-                    new_path,
+                    new_path.display(),
                     oku_core::fs::util::fmt(new_replica_id)
                 );
             }
@@ -553,10 +552,10 @@ pub async fn main() -> miette::Result<()> {
                 node.move_directory(&old_replica_id, &old_path, &new_replica_id, &new_path)
                     .await?;
                 info!(
-                    "Moved directory from {:?} in {} to {:?} in {}",
-                    old_path,
+                    "Moved directory from {} in {} to {} in {}",
+                    old_path.display(),
                     oku_core::fs::util::fmt(old_replica_id),
-                    new_path,
+                    new_path.display(),
                     oku_core::fs::util::fmt(new_replica_id)
                 );
             }
@@ -565,7 +564,7 @@ pub async fn main() -> miette::Result<()> {
                     .await
                     .map_err(|e| miette!("{}", e))?;
                 let files = node.list_files(&replica_id, &path).await?;
-                println!("Files: {:#?}", files);
+                println!("Files: {files:#?}");
             }
             FsCommands::GetReplicaByTicket {
                 replica_ticket,
@@ -577,7 +576,7 @@ pub async fn main() -> miette::Result<()> {
                 let files = node
                     .list_files(&replica_ticket.capability.id(), &path)
                     .await?;
-                println!("Files: {:#?}", files);
+                println!("Files: {files:#?}");
             }
             #[cfg(feature = "fuse")]
             FsCommands::Mount { path } => {
@@ -625,12 +624,12 @@ pub async fn main() -> miette::Result<()> {
             NetCommands::Import { path } => {
                 let exported_user_toml = std::fs::read_to_string(&path).into_diagnostic()?;
                 node.import_user_toml(&exported_user_toml).await?;
-                println!("Import current user from {path:?} … ");
+                println!("Import current user from {} … ", path.display());
             }
             NetCommands::Export { path } => {
                 let exported_user_toml = node.export_user_toml(&None).await?;
                 std::fs::write(&path, exported_user_toml).into_diagnostic()?;
-                println!("Exported current user to {path:?} … ");
+                println!("Exported current user to {} … ", path.display());
             }
             NetCommands::Me => {
                 let profile = node.user().await?;
@@ -642,7 +641,7 @@ pub async fn main() -> miette::Result<()> {
             }
             NetCommands::SetName { display_name } => {
                 node.set_display_name(&display_name).await?;
-                println!("Display name set to {:?} … ", display_name);
+                println!("Display name set to {display_name} … ");
             }
             NetCommands::Follow { author_id } => {
                 node.follow(&author_id).await?;
@@ -703,12 +702,12 @@ pub async fn main() -> miette::Result<()> {
                     None => (),
                     Some(tags) => {
                         let tag_set: HashSet<_> = tags.into_par_iter().collect();
-                        posts = node.posts_with_tags(&posts, &tag_set).await;
+                        posts = node.posts_with_tags(&posts, &tag_set);
                     }
                 }
                 posts.par_sort_unstable_by_key(|x| Reverse(x.entry.timestamp()));
                 for post in posts {
-                    println!("⮞ {}", util::post(&post).await);
+                    println!("⮞ {}", util::post(&post));
                 }
             }
             NetCommands::Block { author_id } => {
@@ -744,7 +743,7 @@ pub async fn main() -> miette::Result<()> {
                     None => node.post(&post_path).await?,
                     Some(id) => node.get_or_fetch_post(&id, &post_path).await?,
                 };
-                println!("{}", util::post(&post).await)
+                println!("{}", util::post(&post));
             }
             NetCommands::Search {
                 query,
@@ -753,13 +752,16 @@ pub async fn main() -> miette::Result<()> {
                 let posts =
                     OkuDatabase::search_posts(&query, &Some(result_limit)).unwrap_or_default();
                 for post in posts {
-                    println!("⮞ {}", util::post(&post).await);
+                    println!("⮞ {}", util::post(&post));
                 }
             }
-            NetCommands::Tags { count } => match count {
-                false => println!("{:?}", node.all_tags(&node.all_posts().await).await),
-                true => println!("{:#?}", node.count_tags(&node.all_posts().await).await),
-            },
+            NetCommands::Tags { count } => {
+                if count {
+                    println!("{:#?}", node.count_tags(&node.all_posts().await));
+                } else {
+                    println!("{:?}", node.all_tags(&node.all_posts().await));
+                }
+            }
         },
         None => {
             let default_author_id = node.default_author_id().await;

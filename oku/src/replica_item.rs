@@ -13,7 +13,10 @@ use std::cell::RefCell;
 use std::sync::LazyLock;
 
 pub mod imp {
-    use super::*;
+    use super::{
+        LazyLock, ObjectImpl, ObjectSubclass, ObjectSubclassExt, ParamSpec, ParamSpecBoolean,
+        ParamSpecBuilderExt, ParamSpecString, PropertySet, RefCell, ToValue, Value,
+    };
 
     #[derive(Default, Debug)]
     pub struct ReplicaItem {
@@ -81,12 +84,15 @@ impl ReplicaItem {
     pub fn id(&self) -> String {
         self.imp().id.borrow().to_string()
     }
+
     pub fn writable(&self) -> bool {
         *self.imp().writable.borrow()
     }
+
     pub fn home(&self) -> bool {
         *self.imp().home.borrow()
     }
+
     pub fn new(id: String, writable: bool, home: bool) -> Self {
         glib::Object::builder::<Self>()
             .property("id", id)

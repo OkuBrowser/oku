@@ -5,7 +5,7 @@ use crate::{
         posts::core::{OkuNote, OkuPost},
         users::OkuUser,
     },
-    fs::{watch::OkuNetPostEvent, OkuFs},
+    fs::{OkuFs, watch::OkuNetPostEvent},
 };
 use dashmap::DashMap;
 use iroh_blobs::Hash;
@@ -23,11 +23,11 @@ use std::{
 use url::Url;
 
 impl OkuFs {
-    /// Retrieves the OkuNet posts by the local user, if any.
+    /// Retrieves the `OkuNet` posts by the local user, if any.
     ///
     /// # Returns
     ///
-    /// A list of the OkuNet posts by the local user.
+    /// A list of the `OkuNet` posts by the local user.
     pub async fn posts(&self) -> Option<Vec<OkuPost>> {
         let home_replica_id = self.home_replica(&None).await;
         let directory_paths = self
@@ -41,11 +41,10 @@ impl OkuFs {
             .collect();
         let mut posts: Vec<OkuPost> = Vec::new();
         for (post_path, bytes) in post_file_paths {
-            if let Ok(entry) = self.get_entry(&home_replica_id, post_path).await {
-                if let Ok(note) = toml::from_str::<OkuNote>(String::from_utf8_lossy(bytes).as_ref())
-                {
-                    posts.push(OkuPost { entry, note })
-                }
+            if let Ok(entry) = self.get_entry(&home_replica_id, post_path).await
+                && let Ok(note) = toml::from_str::<OkuNote>(String::from_utf8_lossy(bytes).as_ref())
+            {
+                posts.push(OkuPost { entry, note });
             }
         }
         Some(posts)
@@ -72,8 +71,8 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// A list of OkuNet posts with the given tags.
-    pub async fn posts_with_tags(&self, posts: &[OkuPost], tags: &HashSet<String>) -> Vec<OkuPost> {
+    /// A list of `OkuNet` posts with the given tags.
+    pub fn posts_with_tags(&self, posts: &[OkuPost], tags: &HashSet<String>) -> Vec<OkuPost> {
         posts
             .to_owned()
             .into_par_iter()
@@ -90,7 +89,8 @@ impl OkuFs {
     /// # Returns
     ///
     /// All tags that appear across the posts.
-    pub async fn all_tags(&self, posts: &HashSet<OkuPost>) -> HashSet<String> {
+
+    pub fn all_tags(&self, posts: &HashSet<OkuPost>) -> HashSet<String> {
         HashSet::<_>::from_par_iter(posts.into_par_iter().flat_map(|x| x.note.tags.clone()))
     }
 
@@ -103,7 +103,8 @@ impl OkuFs {
     /// # Returns
     ///
     /// All tags that appear across the posts, and how often they appear.
-    pub async fn count_tags(&self, posts: &HashSet<OkuPost>) -> HashMap<String, usize> {
+
+    pub fn count_tags(&self, posts: &HashSet<OkuPost>) -> HashMap<String, usize> {
         let result: DashMap<String, AtomicUsize> = DashMap::new();
         posts.into_par_iter().for_each(|x| {
             x.note.tags.par_iter().for_each(|y| match result.get(y) {
@@ -121,7 +122,7 @@ impl OkuFs {
             .collect()
     }
 
-    /// Retrieves an OkuNet post authored by the local user using its path.
+    /// Retrieves an `OkuNet` post authored by the local user using its path.
     ///
     /// # Arguments
     ///
@@ -129,7 +130,7 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// The OkuNet post at the given path.
+    /// The `OkuNet` post at the given path.
     pub async fn post(&self, path: &PathBuf) -> miette::Result<OkuPost> {
         let namespace_id = self.home_replica(&None).await;
         match self.read_file(&namespace_id, path, &None, &None).await {
@@ -145,7 +146,7 @@ impl OkuFs {
         }
     }
 
-    /// Attempts to retrieve an OkuNet post from a file entry.
+    /// Attempts to retrieve an `OkuNet` post from a file entry.
     ///
     /// # Arguments
     ///
@@ -153,7 +154,7 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// An OkuNet post, if the entry represents one.
+    /// An `OkuNet` post, if the entry represents one.
     pub async fn post_from_entry(&self, entry: &Entry) -> miette::Result<OkuPost> {
         let bytes = self
             .content_bytes(entry, &None, &None)
@@ -167,15 +168,15 @@ impl OkuFs {
         })
     }
 
-    /// Retrieves OkuNet posts from the file entries in an [`OkuUser`].
+    /// Retrieves `OkuNet` posts from the file entries in an [`OkuUser`].
     ///
     /// # Arguments
     ///
-    /// * `user` - The OkuNet user record containing the file entries.
+    /// * `user` - The `OkuNet` user record containing the file entries.
     ///
     /// # Returns
     ///
-    /// A list of OkuNet posts contained within the user record.
+    /// A list of `OkuNet` posts contained within the user record.
     pub async fn posts_from_user(&self, user: &OkuUser) -> miette::Result<Vec<OkuPost>> {
         let mut posts: Vec<_> = Vec::new();
         for post in user.posts.clone() {
@@ -184,7 +185,7 @@ impl OkuFs {
         Ok(posts)
     }
 
-    /// Create or modify an OkuNet post in the user's home replica.
+    /// Create or modify an `OkuNet` post in the user's home replica.
     ///
     /// # Arguments
     ///
@@ -204,8 +205,8 @@ impl OkuFs {
     pub async fn create_or_modify_post(
         &self,
         url: &Url,
-        title: &String,
-        body: &String,
+        title: &str,
+        body: &str,
         tags: &HashSet<String>,
     ) -> miette::Result<(NamespaceId, PathBuf, Option<Hash>)> {
         let home_replica_id = self.home_replica(&None).await;
@@ -232,7 +233,7 @@ impl OkuFs {
         Ok((home_replica_id, post_path, hash))
     }
 
-    /// Delete an OkuNet post in the user's home replica.
+    /// Delete an `OkuNet` post in the user's home replica.
     ///
     /// # Arguments
     ///
@@ -257,7 +258,7 @@ impl OkuFs {
         deleted
     }
 
-    /// Join a swarm to fetch the latest version of an OkuNet post.
+    /// Join a swarm to fetch the latest version of an `OkuNet` post.
     ///
     /// # Arguments
     ///
@@ -267,7 +268,7 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// The requested OkuNet post.
+    /// The requested `OkuNet` post.
     pub async fn fetch_post(
         &self,
         author_id: &AuthorId,
@@ -278,7 +279,8 @@ impl OkuFs {
             .await
             .map_err(|e| miette::miette!("{}", e))?;
         let namespace_id = ticket.capability.id();
-        let post = match self
+
+        match self
             .fetch_file_with_ticket(&ticket, path, &Some(home_replica_filters()), &None, &None)
             .await
         {
@@ -294,11 +296,10 @@ impl OkuFs {
                 Ok(post)
             }
             Err(e) => Err(miette::miette!("{}", e)),
-        };
-        post
+        }
     }
 
-    /// Retrieves an OkuNet post from the database, or from the mainline DHT if not found locally.
+    /// Retrieves an `OkuNet` post from the database, or from the mainline DHT if not found locally.
     ///
     /// # Arguments
     ///
@@ -308,7 +309,7 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// The requested OkuNet post.
+    /// The requested `OkuNet` post.
     pub async fn get_or_fetch_post(
         &self,
         author_id: &AuthorId,

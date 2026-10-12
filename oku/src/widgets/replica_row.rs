@@ -33,7 +33,11 @@ use std::sync::LazyLock;
 use std::sync::atomic::Ordering;
 
 pub mod imp {
-    use super::*;
+    use super::{
+        ActionRowImpl, LazyLock, ListBoxRowImpl, ObjectImpl, ObjectImplExt, ObjectSubclass,
+        ObjectSubclassExt, ParamSpec, ParamSpecBoolean, ParamSpecString, PreferencesRowImpl,
+        RefCell, ToValue, Value, WidgetClassExt, WidgetExt, WidgetImpl,
+    };
 
     #[derive(Debug, Default)]
     pub struct ReplicaRow {
@@ -273,9 +277,9 @@ impl ReplicaRow {
                                     )
                                     .await
                                 {
-                                    Ok(_) => (),
+                                    Ok(()) => (),
                                     Err(e) => {
-                                        error!("{}", e);
+                                        error!("{e}");
                                     }
                                 }
                             }
@@ -313,9 +317,9 @@ impl ReplicaRow {
                                     ))
                                     .await
                                 {
-                                    Ok(_) => (),
+                                    Ok(()) => (),
                                     Err(e) => {
-                                        error!("{}", e);
+                                        error!("{e}");
                                     }
                                 }
                             }
@@ -351,9 +355,9 @@ impl ReplicaRow {
                                     ))
                                     .await
                                 {
-                                    Ok(_) => (),
+                                    Ok(()) => (),
                                     Err(e) => {
-                                        error!("{}", e);
+                                        error!("{e}");
                                     }
                                 }
                             }

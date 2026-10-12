@@ -1,8 +1,8 @@
 use iroh_docs::AuthorId;
 use jiff::RoundMode;
 use jiff::{
-    fmt::friendly::{Designator, Spacing, SpanPrinter},
     Timestamp,
+    fmt::friendly::{Designator, Spacing, SpanPrinter},
 };
 use oku_core::{
     database::{posts::core::OkuPost, users::OkuUser},
@@ -44,7 +44,7 @@ pub async fn print_profile(node: &OkuFs, profile: &OkuUser) -> miette::Result<()
     let mut posts = node.posts_from_user(profile).await?;
     posts.par_sort_unstable_by_key(|x| Reverse(x.entry.timestamp()));
     for post_entry in posts {
-        println!("➤ {}", post(&post_entry).await);
+        println!("➤ {}", post(&post_entry));
     }
     Ok(())
 }
@@ -63,18 +63,18 @@ pub async fn name(node: &OkuFs, author_id: &AuthorId) -> String {
 
 pub fn user_name(user: &OkuUser) -> String {
     match &user.identity {
-        Some(identity) => identity.name.to_owned(),
+        Some(identity) => identity.name.clone(),
         None => oku_core::fs::util::fmt(user.author_id),
     }
 }
 
-pub async fn post(post: &OkuPost) -> String {
+pub fn post(post: &OkuPost) -> String {
     let user = post.user();
     let timestamp_microseconds = post.entry.timestamp();
     let timestamp = Timestamp::from_microsecond(
         timestamp_microseconds
             .try_into()
-            .unwrap_or(timestamp_microseconds as i64),
+            .unwrap_or(timestamp_microseconds.cast_signed()),
     )
     .unwrap_or(Timestamp::UNIX_EPOCH);
     let timestamp_string = jiff::fmt::rfc2822::DateTimePrinter::new()

@@ -36,11 +36,11 @@ pub async fn post_oku_scheme_handler(request: SchemeRequest) -> miette::Result<B
     let url_path = OkuPath::parse(decoded_url)?;
     match url_path {
         OkuPath::ToggleFollow(author_id) => match toggle_follow(author_id).await {
-            Ok(_) => Ok("Ok".into()),
+            Ok(()) => Ok("Ok".into()),
             Err(e) => Err(e),
         },
         OkuPath::ToggleBlock(author_id) => match toggle_block(author_id).await {
-            Ok(_) => Ok("Ok".into()),
+            Ok(()) => Ok("Ok".into()),
             Err(e) => Err(e),
         },
         OkuPath::Delete(replica_path) => match glib::MainContext::default()
@@ -66,8 +66,7 @@ pub fn delete(request: SchemeRequest, replica_path: PathBuf) -> miette::Result<(
     let dialog = libadwaita::AlertDialog::new(
         Some("Delete post?"),
         Some(&format!(
-            "You are trying to delete the post {:?}. This cannot be undone.",
-            replica_path
+            "You are trying to delete the post {replica_path:?}. This cannot be undone."
         )),
     );
     dialog.add_responses(&[("cancel", "Cancel"), ("delete", "Delete")]);
@@ -98,14 +97,11 @@ pub fn delete(request: SchemeRequest, replica_path: PathBuf) -> miette::Result<(
                             #[strong]
                             request,
                             async move {
-                                match node.delete_post(&replica_path).await {
-                                    Err(e) => {
-                                        error!("{}", e);
-                                    }
-                                    _ => {
-                                        let web_view = request.0.web_view().unwrap();
-                                        web_view.reload_bypass_cache();
-                                    }
+                                if let Err(e) = node.delete_post(&replica_path).await {
+                                    error!("{e}");
+                                } else {
+                                    let web_view = request.0.web_view().unwrap();
+                                    web_view.reload_bypass_cache();
                                 }
                             }
                         ));
@@ -151,26 +147,38 @@ pub async fn get_oku_scheme_handler(request: SchemeRequest) -> miette::Result<By
     let url_path = OkuPath::parse(decoded_url)?;
     match url_path {
         OkuPath::Home => home().await,
-        OkuPath::Tags => OkuNetProvider::new().view_tags().await.map(|x| x.into()),
-        OkuPath::Tag(tag) => OkuNetProvider::new().view_tag(tag).await.map(|x| x.into()),
+        OkuPath::Tags => OkuNetProvider::new()
+            .view_tags()
+            .await
+            .map(std::convert::Into::into),
+        OkuPath::Tag(tag) => OkuNetProvider::new()
+            .view_tag(tag)
+            .await
+            .map(std::convert::Into::into),
         OkuPath::Me(replica_path) => match replica_path {
             Some(replica_path) => OkuNetProvider::new()
                 .view_self_post(replica_path)
                 .await
-                .map(|x| x.into()),
-            None => OkuNetProvider::new().view_self().await.map(|x| x.into()),
+                .map(std::convert::Into::into),
+            None => OkuNetProvider::new()
+                .view_self()
+                .await
+                .map(std::convert::Into::into),
         },
         OkuPath::User(author_id, replica_path) => match replica_path {
             Some(replica_path) => OkuNetProvider::new()
                 .view_post(author_id, replica_path)
                 .await
-                .map(|x| x.into()),
+                .map(std::convert::Into::into),
             None => OkuNetProvider::new()
                 .view_user(author_id)
                 .await
-                .map(|x| x.into()),
+                .map(std::convert::Into::into),
         },
-        OkuPath::Search(query) => OkuNetProvider::new().search(query).await.map(|x| x.into()),
+        OkuPath::Search(query) => OkuNetProvider::new()
+            .search(query)
+            .await
+            .map(std::convert::Into::into),
         _ => Err(miette::miette!(
             "Operation {:?} not supported for GET requests to Oku scheme … ",
             url_path
@@ -179,5 +187,8 @@ pub async fn get_oku_scheme_handler(request: SchemeRequest) -> miette::Result<By
 }
 
 pub async fn home() -> miette::Result<Bytes> {
-    OkuNetProvider::new().view_home().await.map(|x| x.into())
+    OkuNetProvider::new()
+        .view_home()
+        .await
+        .map(std::convert::Into::into)
 }

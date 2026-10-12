@@ -1,4 +1,4 @@
-use super::*;
+use super::Window;
 use glib::clone;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
@@ -75,7 +75,7 @@ impl Window {
                     find_controller,
                     move |_find_search_entry| {
                         imp.total_matches_label.set_text("");
-                        find_controller.search_finish()
+                        find_controller.search_finish();
                     }
                 ));
                 imp.next_find_button.connect_clicked(clone!(
@@ -111,7 +111,7 @@ impl Window {
                     find_controller,
                     move |_find_case_insensitive| {
                         imp.total_matches_label.set_text("");
-                        find_controller.search_finish()
+                        find_controller.search_finish();
                     }
                 ));
                 imp.find_at_word_starts.connect_clicked(clone!(
@@ -128,7 +128,7 @@ impl Window {
                                 .set_sensitive(false);
                         }
                         imp.total_matches_label.set_text("");
-                        find_controller.search_finish()
+                        find_controller.search_finish();
                     }
                 ));
                 imp.find_treat_medial_capital_as_word_start
@@ -139,7 +139,7 @@ impl Window {
                         find_controller,
                         move |_find_treat_medial_capital_as_word_start| {
                             imp.total_matches_label.set_text("");
-                            find_controller.search_finish()
+                            find_controller.search_finish();
                         }
                     ));
                 imp.find_backwards.connect_clicked(clone!(
@@ -156,7 +156,7 @@ impl Window {
                             imp.previous_find_button.set_icon_name("up-symbolic");
                         }
                         imp.total_matches_label.set_text("");
-                        find_controller.search_finish()
+                        find_controller.search_finish();
                     }
                 ));
                 imp.find_wrap_around.connect_clicked(clone!(
@@ -166,7 +166,7 @@ impl Window {
                     find_controller,
                     move |_find_wrap_around| {
                         imp.total_matches_label.set_text("");
-                        find_controller.search_finish()
+                        find_controller.search_finish();
                     }
                 ));
             }
@@ -301,10 +301,10 @@ impl Window {
                     if window.imp().tab_view.n_pages() == 0 {
                         return;
                     }
-                    if !find_popover.is_visible() {
-                        find_popover.popup();
-                    } else {
+                    if find_popover.is_visible() {
                         find_popover.popdown();
+                    } else {
+                        find_popover.popup();
                     }
                 }
             ))

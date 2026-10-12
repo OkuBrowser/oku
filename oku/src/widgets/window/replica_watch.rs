@@ -1,4 +1,4 @@
-use super::*;
+use super::Window;
 use crate::NODE;
 use crate::replica_item::ReplicaItem;
 use crate::window_util::get_view_stack_page_by_name;
@@ -112,14 +112,14 @@ impl Window {
                 }
             }
             ReplicaEvent::Initialised => (),
-        };
+        }
         self.imp().replicas_sidebar_initialised.get() && old_store != replicas_store.snapshot()
     }
 
     pub async fn setup_replicas(&self) {
         // Prevent interaction with replicas while we're setting up
         if let Some(replicas_page) =
-            get_view_stack_page_by_name("replicas".to_string(), &self.imp().side_view_stack)
+            get_view_stack_page_by_name("replicas", &self.imp().side_view_stack)
         {
             replicas_page.child().set_sensitive(false);
         }
@@ -131,7 +131,7 @@ impl Window {
             let this = self.clone();
             ctx.invoke(move || {
                 let replicas_store = this.replicas_store();
-                for (replica, capability_kind, is_home_replica) in replicas.iter() {
+                for (replica, capability_kind, is_home_replica) in &replicas {
                     replicas_store.append(&ReplicaItem::new(
                         oku_core::fs::util::fmt(replica),
                         matches!(capability_kind, CapabilityKind::Write),
@@ -142,7 +142,7 @@ impl Window {
         }
         // Allow interaction again
         if let Some(replicas_page) =
-            get_view_stack_page_by_name("replicas".to_string(), &self.imp().side_view_stack)
+            get_view_stack_page_by_name("replicas", &self.imp().side_view_stack)
         {
             replicas_page.child().set_sensitive(true);
         }

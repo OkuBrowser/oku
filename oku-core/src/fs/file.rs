@@ -1,16 +1,16 @@
-use super::*;
+use super::{Arc, Mutex, OkuFs, util};
 use crate::error::OkuFsError;
 use crate::fs::util::entry_key_to_path;
 use anyhow::anyhow;
 use bytes::Bytes;
-use futures::{pin_mut, StreamExt};
+use futures::{StreamExt, pin_mut};
 use iroh_blobs::Hash;
+use iroh_docs::DocTicket;
+use iroh_docs::NamespaceId;
 use iroh_docs::api::Doc;
 use iroh_docs::engine::LiveEvent;
 use iroh_docs::store::FilterKind;
 use iroh_docs::sync::Entry;
-use iroh_docs::DocTicket;
-use iroh_docs::NamespaceId;
 use log::{error, info};
 use miette::IntoDiagnostic;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -47,7 +47,7 @@ impl OkuFs {
             .open(*namespace_id)
             .await
             .map_err(|e| {
-                error!("{}", e);
+                error!("{e}");
                 OkuFsError::CannotOpenReplica
             })?
             .ok_or(OkuFsError::FsEntryNotFound)?;
@@ -60,7 +60,7 @@ impl OkuFs {
             iroh_docs::store::Query::single_latest_per_key().build()
         };
         let entries = document.get_many(query).await.map_err(|e| {
-            error!("{}", e);
+            error!("{e}");
             OkuFsError::CannotListFiles
         })?;
         pin_mut!(entries);
@@ -96,7 +96,7 @@ impl OkuFs {
             .open(*namespace_id)
             .await
             .map_err(|e| {
-                error!("{}", e);
+                error!("{e}");
                 OkuFsError::CannotOpenReplica
             })?
             .ok_or(OkuFsError::FsEntryNotFound)?;
@@ -104,7 +104,7 @@ impl OkuFs {
             .key_exact(&file_key)
             .build();
         let entry = document.get_one(query).await.map_err(|e| {
-            error!("{}", e);
+            error!("{e}");
             OkuFsError::CannotReadFile
         })?;
         match entry {
@@ -114,14 +114,16 @@ impl OkuFs {
                     .set_bytes(self.default_author_id().await, file_key, data)
                     .await
                     .map_err(|e| {
-                        error!("{}", e);
+                        error!("{e}");
                         OkuFsError::CannotCreateOrModifyFile
                     })?)
             }
             Some(_old_hash) => {
                 // The file already exists
                 let namespace_id_str = crate::fs::util::fmt(namespace_id);
-                Err(miette::miette!("File at {path:?} in replica {namespace_id_str} cannot be created as it already exists."))
+                Err(miette::miette!(
+                    "File at {path:?} in replica {namespace_id_str} cannot be created as it already exists."
+                ))
             }
         }
     }
@@ -151,7 +153,7 @@ impl OkuFs {
             .open(*namespace_id)
             .await
             .map_err(|e| {
-                error!("{}", e);
+                error!("{e}");
                 OkuFsError::CannotOpenReplica
             })?
             .ok_or(OkuFsError::FsEntryNotFound)?;
@@ -159,7 +161,7 @@ impl OkuFs {
             .key_exact(&file_key)
             .build();
         let entry = document.get_one(query).await.map_err(|e| {
-            error!("{}", e);
+            error!("{e}");
             OkuFsError::CannotReadFile
         })?;
         match entry {
@@ -170,7 +172,7 @@ impl OkuFs {
                         .set_bytes(self.default_author_id().await, file_key, data)
                         .await
                         .map_err(|e| {
-                            error!("{}", e);
+                            error!("{e}");
                             OkuFsError::CannotCreateOrModifyFile
                         })?,
                 ))
@@ -232,7 +234,7 @@ impl OkuFs {
             .open(*namespace_id)
             .await
             .map_err(|e| {
-                error!("{}", e);
+                error!("{e}");
                 OkuFsError::CannotOpenReplica
             })?
             .ok_or(OkuFsError::FsEntryNotFound)?;
@@ -240,7 +242,7 @@ impl OkuFs {
             .set_bytes(self.default_author_id().await, file_key, new_data)
             .await
             .map_err(|e| {
-                error!("{}", e);
+                error!("{e}");
                 OkuFsError::CannotCreateOrModifyFile
             })?;
 
@@ -286,7 +288,7 @@ impl OkuFs {
                 .content_bytes(&entry, &None, &None)
                 .await
                 .map_err(|e| {
-                    error!("{}", e);
+                    error!("{e}");
                     OkuFsError::CannotReadFile
                 })?;
             tempfile.write_all(&current_bytes).into_diagnostic()?;
@@ -322,7 +324,7 @@ impl OkuFs {
             .open(*namespace_id)
             .await
             .map_err(|e| {
-                error!("{}", e);
+                error!("{e}");
                 OkuFsError::CannotOpenReplica
             })?
             .ok_or(OkuFsError::FsEntryNotFound)?;
@@ -333,7 +335,7 @@ impl OkuFs {
             .get_one(query)
             .await
             .map_err(|e| {
-                error!("{}", e);
+                error!("{e}");
                 OkuFsError::CannotReadFile
             })?
             .ok_or(OkuFsError::FsEntryNotFound)?;
@@ -341,7 +343,7 @@ impl OkuFs {
             .del(entry.author(), entry.key().to_vec())
             .await
             .map_err(|e| {
-                error!("{}", e);
+                error!("{e}");
                 OkuFsError::CannotDeleteFile
             })?;
         Ok(entries_deleted)
@@ -369,7 +371,7 @@ impl OkuFs {
             .open(*namespace_id)
             .await
             .map_err(|e| {
-                error!("{}", e);
+                error!("{e}");
                 OkuFsError::CannotOpenReplica
             })?
             .ok_or(OkuFsError::FsEntryNotFound)?;
@@ -380,7 +382,7 @@ impl OkuFs {
             .get_one(query)
             .await
             .map_err(|e| {
-                error!("{}", e);
+                error!("{e}");
                 OkuFsError::CannotReadFile
             })?
             .ok_or(OkuFsError::FsEntryNotFound)?;
@@ -411,6 +413,7 @@ impl OkuFs {
                 let mut tempfile: tokio::sync::MutexGuard<'_, NamedTempFile> =
                     tempfile_lock.try_lock().into_diagnostic()?;
                 tempfile.seek(SeekFrom::Start(0)).into_diagnostic()?; // Reset seek from previous writes back to start of file
+                #[allow(clippy::cast_possible_truncation)]
                 Ok(tempfile
                     .as_file()
                     .metadata()
@@ -475,13 +478,13 @@ impl OkuFs {
             .open(*namespace_id)
             .await
             .map_err(|e| {
-                error!("{}", e);
+                error!("{e}");
                 OkuFsError::CannotOpenReplica
             })?
             .ok_or(OkuFsError::FsEntryNotFound)?;
         let query = iroh_docs::store::Query::key_exact(file_key).build();
         let entries_stream = document.get_many(query).await.map_err(|e| {
-            error!("{}", e);
+            error!("{e}");
             OkuFsError::CannotListFiles
         })?;
         pin_mut!(entries_stream);
@@ -514,18 +517,18 @@ impl OkuFs {
             .open(*namespace_id)
             .await
             .map_err(|e| {
-                error!("{}", e);
+                error!("{e}");
                 OkuFsError::CannotOpenReplica
             })?
             .ok_or(OkuFsError::FsEntryNotFound)?;
         let query = iroh_docs::store::Query::all().key_exact(file_key).build();
         let entries = document.get_many(query).await.map_err(|e| {
-            error!("{}", e);
+            error!("{e}");
             OkuFsError::CannotListFiles
         })?;
         pin_mut!(entries);
         let timestamps: Vec<u64> = entries
-            .map(|entry| entry.unwrap().timestamp())
+            .map(|entry| entry.map(|x| x.timestamp()).unwrap_or_default())
             .collect()
             .await;
         Ok(*timestamps.par_iter().min().unwrap_or(&u64::MIN))
@@ -561,7 +564,7 @@ impl OkuFs {
                 // The file is not in the file cache; we should read it directly from the replica
                 let entry = self.get_entry(namespace_id, path).await?;
                 Ok(self.content_bytes(&entry, seek, len).await.map_err(|e| {
-                    error!("{}", e);
+                    error!("{e}");
                     OkuFsError::CannotReadFile
                 })?)
             }
@@ -670,19 +673,19 @@ impl OkuFs {
             {
                 Ok(bytes) => Ok(bytes),
                 Err(e) => {
-                    error!("{}", e);
+                    error!("{e}");
                     Ok(self
                         .read_file(namespace_id, path, seek, len)
                         .await
-                        .map_err(|e| anyhow!("{}", e))?)
+                        .map_err(|e| anyhow!("{e}"))?)
                 }
             },
             Err(e) => {
-                error!("{}", e);
+                error!("{e}");
                 Ok(self
                     .read_file(namespace_id, path, seek, len)
                     .await
-                    .map_err(|e| anyhow!("{}", e))?)
+                    .map_err(|e| anyhow!("{e}"))?)
             }
         }
     }
@@ -736,6 +739,6 @@ impl OkuFs {
         }
         self.read_file(&namespace_id, path, seek, len)
             .await
-            .map_err(|e| anyhow!("{}", e))
+            .map_err(|e| anyhow!("{e}"))
     }
 }

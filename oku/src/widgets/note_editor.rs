@@ -28,7 +28,10 @@ use webkit2gtk::functions::uri_for_display;
 use webkit2gtk::prelude::WebViewExt;
 
 pub mod imp {
-    use super::*;
+    use super::{
+        AdwDialogImpl, LazyLock, ObjectImpl, ObjectSubclass, ObjectSubclassExt, ParamSpec,
+        ParamSpecBoxed, ParamSpecString, RefCell, ToValue, Value, WidgetImpl, glib,
+    };
 
     #[derive(Debug, Default)]
     pub struct NoteEditor {
@@ -106,7 +109,7 @@ pub mod imp {
 
         fn property(&self, _id: usize, pspec: &ParamSpec) -> Value {
             match pspec.name() {
-                "url" => self.obj().url().to_string().to_value(),
+                "url" => self.obj().url().clone().to_value(),
                 "title-property" => self.obj().title_property().to_value(),
                 "body" => self.obj().body().to_value(),
                 "tags" => self.obj().tags().to_value(),
@@ -213,7 +216,7 @@ impl NoteEditor {
                 if let Some(bookmark) = &bookmark
                     && let Err(e) = DATABASE.delete_bookmark(bookmark.clone())
                 {
-                    error!("{}", e)
+                    error!("{e}");
                 }
                 if let Err(e) = DATABASE.upsert_bookmark(Bookmark {
                     url: this.url(),
@@ -221,7 +224,7 @@ impl NoteEditor {
                     body: this.body(),
                     tags: HashSet::from_iter(this.tags().into_iter()),
                 }) {
-                    error!("{}", e)
+                    error!("{e}");
                 }
                 this.close();
             }
@@ -312,7 +315,7 @@ impl NoteEditor {
                         };
                         let post_from_url = {
                             let path = OkuNote::post_path_from_url(&url);
-                            node.post(&path.to_string().into()).await.ok()
+                            node.post(&path.clone().into()).await.ok()
                         };
                         if let Some(oku_post) = post_at_url.or(post_from_url) {
                             imp.url_entry.set_text(oku_post.note.url.as_ref());
@@ -352,12 +355,12 @@ impl NoteEditor {
                                             this.close();
                                         }
                                         Err(e) => {
-                                            error!("{}", e);
+                                            error!("{e}");
                                         }
                                     }
                                 }
                                 Err(e) => {
-                                    error!("{}", e);
+                                    error!("{e}");
                                 }
                             }
                         }
@@ -372,15 +375,19 @@ impl NoteEditor {
 
         this
     }
+
     pub fn url(&self) -> String {
         self.imp().url.borrow().to_string()
     }
+
     pub fn title_property(&self) -> String {
         self.imp().title.borrow().to_string()
     }
+
     pub fn body(&self) -> String {
         self.imp().body.borrow().to_string()
     }
+
     pub fn tags(&self) -> Vec<String> {
         self.imp().tags.borrow().clone()
     }

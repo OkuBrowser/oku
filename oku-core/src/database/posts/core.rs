@@ -1,13 +1,13 @@
-use super::super::core::*;
-use super::super::users::*;
+use super::super::core::DATABASE;
+use super::super::users::OkuUser;
 #[cfg(feature = "persistent")]
 use crate::fs::FS_PATH;
-use iroh_docs::sync::Entry;
 use iroh_docs::AuthorId;
+use iroh_docs::sync::Entry;
 #[cfg(feature = "persistent")]
 use log::error;
-use native_db::*;
-use native_model::{native_model, Model};
+use native_db::{ToKey, native_db};
+use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 #[cfg(feature = "persistent")]
@@ -19,10 +19,10 @@ use std::{
     time::SystemTime,
 };
 #[cfg(feature = "persistent")]
-use tantivy::{directory::MmapDirectory, Directory};
+use tantivy::{Directory, directory::MmapDirectory};
 use tantivy::{
-    schema::{Field, Schema, Value, FAST, STORED, TEXT},
     Index, IndexReader, IndexWriter, TantivyDocument, Term,
+    schema::{FAST, Field, STORED, Schema, TEXT, Value},
 };
 use tokio::sync::Mutex;
 use url::Url;
@@ -77,11 +77,11 @@ pub(crate) static POST_INDEX_WRITER: LazyLock<Arc<Mutex<IndexWriter>>> =
 #[native_db(
     primary_key(primary_key -> (Vec<u8>, Vec<u8>))
 )]
-/// An OkuNet post.
+/// An `OkuNet` post.
 pub struct OkuPost {
     /// A record of a version of the post file.
     pub entry: Entry,
-    /// The content of the post on OkuNet.
+    /// The content of the post on `OkuNet`.
     pub note: OkuNote,
 }
 
@@ -118,6 +118,7 @@ impl From<OkuPost> for TantivyDocument {
         for tag in value.note.tags {
             doc.add_text(POST_SCHEMA.1["tag"], tag);
         }
+        #[allow(clippy::cast_possible_wrap)]
         doc.add_date(
             POST_SCHEMA.1["timestamp"],
             tantivy::DateTime::from_timestamp_micros(value.entry.timestamp() as i64),
@@ -148,9 +149,7 @@ impl TryFrom<TantivyDocument> for OkuPost {
             .ok()
             .flatten()
             .ok_or(anyhow::anyhow!(
-                "No post with author {} and path {} found … ",
-                author_id,
-                path
+                "No post with author {author_id} and path {path} found … "
             ))
     }
 }
@@ -169,7 +168,7 @@ impl OkuPost {
         Term::from_field_bytes(POST_SCHEMA.1["id"], &post_key_bytes)
     }
 
-    /// Obtain the author of this post from the OkuNet database.
+    /// Obtain the author of this post from the `OkuNet` database.
     pub fn user(&self) -> OkuUser {
         match DATABASE.get_user(&self.entry.author()).ok().flatten() {
             Some(user) => user,
@@ -198,11 +197,13 @@ pub struct OkuNote {
 
 impl OkuNote {
     /// Generate a post path for the note.
+
     pub fn post_path(&self) -> String {
         Self::post_path_from_url(&self.url.to_string())
     }
 
     /// Generate a post path using a URL.
+
     pub fn post_path_from_url(url: &String) -> String {
         format!("/posts/{}.toml", bs58::encode(url.as_bytes()).into_string())
     }

@@ -1,4 +1,4 @@
-use super::super::core::*;
+use super::super::core::OkuDatabase;
 use super::core::OkuPost;
 use super::core::POST_INDEX;
 use super::core::POST_INDEX_READER;
@@ -8,13 +8,13 @@ use crate::fs::util::path_to_entry_key;
 use iroh_docs::AuthorId;
 use log::error;
 use miette::IntoDiagnostic;
-use native_db::*;
+use native_db::transaction;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::{collections::HashSet, path::PathBuf};
-use tantivy::{collector::TopDocs, query::QueryParser, TantivyDocument};
+use tantivy::{TantivyDocument, collector::TopDocs, query::QueryParser};
 
 impl OkuDatabase {
-    /// Search OkuNet posts with a query string.
+    /// Search `OkuNet` posts with a query string.
     ///
     /// # Arguments
     ///
@@ -24,7 +24,7 @@ impl OkuDatabase {
     ///
     /// # Returns
     ///
-    /// A list of OkuNet posts.
+    /// A list of `OkuNet` posts.
     pub fn search_posts(
         query_string: &str,
         result_limit: &Option<usize>,
@@ -54,11 +54,11 @@ impl OkuDatabase {
             .collect())
     }
 
-    /// Insert or update an OkuNet post.
+    /// Insert or update an `OkuNet` post.
     ///
     /// # Arguments
     ///
-    /// * `post` - An OkuNet post to upsert.
+    /// * `post` - An `OkuNet` post to upsert.
     ///
     /// # Returns
     ///
@@ -84,11 +84,11 @@ impl OkuDatabase {
         Ok(old_value)
     }
 
-    /// Insert or update multiple OkuNet posts.
+    /// Insert or update multiple `OkuNet` posts.
     ///
     /// # Arguments
     ///
-    /// * `posts` - A list of OkuNet posts to upsert.
+    /// * `posts` - A list of `OkuNet` posts to upsert.
     ///
     /// # Returns
     ///
@@ -121,11 +121,11 @@ impl OkuDatabase {
         Ok(old_posts)
     }
 
-    /// Delete an OkuNet post.
+    /// Delete an `OkuNet` post.
     ///
     /// # Arguments
     ///
-    /// * `post` - An OkuNet post to delete.
+    /// * `post` - An `OkuNet` post to delete.
     ///
     /// # Returns
     ///
@@ -145,11 +145,11 @@ impl OkuDatabase {
         Ok(removed_post)
     }
 
-    /// Delete multiple OkuNet posts.
+    /// Delete multiple `OkuNet` posts.
     ///
     /// # Arguments
     ///
-    /// * `posts` - A list of OkuNet posts to delete.
+    /// * `posts` - A list of `OkuNet` posts to delete.
     ///
     /// # Returns
     ///
@@ -174,11 +174,11 @@ impl OkuDatabase {
         Ok(removed_posts)
     }
 
-    /// Retrieves all known OkuNet posts.
+    /// Retrieves all known `OkuNet` posts.
     ///
     /// # Returns
     ///
-    /// A list of all known OkuNet posts.
+    /// A list of all known `OkuNet` posts.
     pub fn get_posts(&self) -> miette::Result<Vec<OkuPost>> {
         let r = self.database.r_transaction().into_diagnostic()?;
         r.scan()
@@ -190,7 +190,7 @@ impl OkuDatabase {
             .into_diagnostic()
     }
 
-    /// Retrieves all known OkuNet posts by a given author.
+    /// Retrieves all known `OkuNet` posts by a given author.
     ///
     /// # Arguments
     ///
@@ -198,7 +198,7 @@ impl OkuDatabase {
     ///
     /// # Returns
     ///
-    /// A list of all known OkuNet posts by the given author.
+    /// A list of all known `OkuNet` posts by the given author.
     pub fn get_posts_by_author(&self, author_id: &AuthorId) -> miette::Result<Vec<OkuPost>> {
         Ok(self
             .get_posts()?
@@ -207,7 +207,7 @@ impl OkuDatabase {
             .collect())
     }
 
-    /// Retrieves all known OkuNet posts by a given tag.
+    /// Retrieves all known `OkuNet` posts by a given tag.
     ///
     /// # Arguments
     ///
@@ -215,7 +215,7 @@ impl OkuDatabase {
     ///
     /// # Returns
     ///
-    /// A list of all known OkuNet posts with the given tag.
+    /// A list of all known `OkuNet` posts with the given tag.
     pub fn get_posts_by_tag(&self, tag: &String) -> miette::Result<Vec<OkuPost>> {
         Ok(self
             .get_posts()?
@@ -224,11 +224,11 @@ impl OkuDatabase {
             .collect())
     }
 
-    /// Retrieves all distinct tags used in OkuNet posts.
+    /// Retrieves all distinct tags used in `OkuNet` posts.
     ///
     /// # Returns
     ///
-    /// A list of all tags that appear in an OkuNet post.
+    /// A list of all tags that appear in an `OkuNet` post.
     pub fn get_tags(&self) -> miette::Result<HashSet<String>> {
         Ok(self
             .get_posts()?
@@ -237,7 +237,7 @@ impl OkuDatabase {
             .collect())
     }
 
-    /// Retrieves an OkuNet post.
+    /// Retrieves an `OkuNet` post.
     ///
     /// # Arguments
     ///
@@ -247,7 +247,7 @@ impl OkuDatabase {
     ///
     /// # Returns
     ///
-    /// The OkuNet post by the given author at the given path, if one exists.
+    /// The `OkuNet` post by the given author at the given path, if one exists.
     pub fn get_post(
         &self,
         author_id: &AuthorId,

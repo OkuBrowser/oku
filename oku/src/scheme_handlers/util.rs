@@ -26,6 +26,7 @@ impl SchemeRequest {
     pub fn uri(&self) -> Option<String> {
         self.0.uri().map(|uri| uri.to_string())
     }
+
     pub fn http_method(&self) -> Option<String> {
         self.0
             .http_method()
@@ -46,7 +47,7 @@ impl SchemeRequest {
                 );
             }
             Err(e) => {
-                error!("{}", e);
+                error!("{e}");
                 self.0.finish_error(&mut glib::error::Error::new(
                     webkit2gtk::NetworkError::Failed,
                     &e.to_string(),

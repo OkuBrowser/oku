@@ -1,5 +1,8 @@
-use super::enums::*;
-use super::*;
+use super::enums::{ColourScheme, Palette};
+use super::{
+    CONFIG_DIR, Deserialize, LazyLock, ObjectImpl, ObjectSubclass, ParamSpec, ParamSpecBoolean,
+    ParamSpecBuilderExt, ParamSpecEnum, ParamSpecInt, RefCell, Serialize, ToValue, Value, error,
+};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
@@ -24,11 +27,11 @@ impl Config {
         match toml::to_string_pretty(&self) {
             Ok(config_file_string) => {
                 match std::fs::write(CONFIG_DIR.to_path_buf(), config_file_string) {
-                    Ok(_) => (),
-                    Err(e) => error!("{}", e),
+                    Ok(()) => (),
+                    Err(e) => error!("{e}"),
                 }
             }
-            Err(e) => error!("{}", e),
+            Err(e) => error!("{e}"),
         }
     }
 

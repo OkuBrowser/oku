@@ -16,22 +16,21 @@ impl OkuNetProvider {
         let table = self.get_search_frontmatter(query)?;
         let page_contents = format!(
             "---
-{}
+{table}
 ---
 {{% if search[0] %}}
 {{% include search.voxs posts = search %}}
 {{% else %}}
 {{% include search.voxs posts = \"\" %}}
 {{% endif %}}
-",
-            table
+"
         );
         self.0.write_file("search.vox", page_contents)?;
         Ok(())
     }
     pub async fn search(&self, query: String) -> miette::Result<String> {
         let search_results = OkuDatabase::search_posts(&query, &None)?;
-        for post in search_results.iter() {
+        for post in &search_results {
             self.create_post_page(&post.user(), post, None).await?;
         }
         self.create_search_page(&query)?;

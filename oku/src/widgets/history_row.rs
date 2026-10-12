@@ -30,7 +30,11 @@ use uuid::Uuid;
 use webkit2gtk::functions::uri_for_display;
 
 pub mod imp {
-    use super::*;
+    use super::{
+        ActionRowImpl, LazyLock, ListBoxRowImpl, ObjectImpl, ObjectImplExt, ObjectSubclass,
+        ObjectSubclassExt, ParamSpec, ParamSpecObject, ParamSpecString, PreferencesRowImpl,
+        RefCell, ToValue, Uuid, Value, WidgetClassExt, WidgetExt, WidgetImpl,
+    };
 
     #[derive(Debug, Default)]
     pub struct HistoryRow {
@@ -182,7 +186,7 @@ impl HistoryRow {
                 if let Some(history_record) = DATABASE.get_history_record(this.id()).ok().flatten()
                     && let Err(e) = DATABASE.delete_history_record(history_record)
                 {
-                    error!("{}", e)
+                    error!("{e}");
                 }
             }
         ));
@@ -209,15 +213,19 @@ impl HistoryRow {
     pub fn id(&self) -> Uuid {
         self.imp().id.borrow().to_owned()
     }
+
     pub fn title_property(&self) -> String {
         self.imp().title.borrow().to_string()
     }
+
     pub fn timestamp(&self) -> String {
         self.imp().timestamp.borrow().to_string()
     }
+
     pub fn uri(&self) -> String {
         self.imp().uri.borrow().to_string()
     }
+
     pub fn favicon(&self) -> Option<gdk::Texture> {
         self.imp()
             .favicon
@@ -243,7 +251,7 @@ impl HistoryRow {
             self.set_subtitle(encoded_timestamp);
         } else {
             self.set_title(encoded_title);
-            self.set_subtitle(&format!("{}\n{}", encoded_uri, encoded_timestamp));
+            self.set_subtitle(&format!("{encoded_uri}\n{encoded_timestamp}"));
         }
     }
 

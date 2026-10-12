@@ -1,4 +1,4 @@
-use super::*;
+use super::Window;
 use crate::window_util::{get_view_stack_page_by_name, get_window_from_widget};
 use glib::{Object, clone, closure};
 use gtk::subclass::prelude::*;
@@ -113,7 +113,7 @@ impl Window {
                             let file_uri = download.request().unwrap().uri().unwrap();
                             let dialog = libadwaita::AlertDialog::new(
                                 Some("Download file?"),
-                                Some(&format!("Would you like to download '{}'?", file_uri)),
+                                Some(&format!("Would you like to download '{file_uri}'?")),
                             );
                             dialog.add_responses(&[("cancel", "Cancel"), ("download", "Download")]);
                             dialog.set_response_appearance("cancel", ResponseAppearance::Default);
@@ -162,13 +162,13 @@ impl Window {
                                                                         .unwrap()
                                                                         .to_str()
                                                                         .unwrap(),
-                                                                )
+                                                                );
                                                             } else {
-                                                                download.cancel()
+                                                                download.cancel();
                                                             }
                                                         }
                                                     ),
-                                                )
+                                                );
                                             }
                                             _ => {
                                                 unreachable!()
@@ -187,18 +187,16 @@ impl Window {
                         move |download, _| {
                             let imp = this.imp();
                             this.downloads_store().append(download);
-                            if let Some(downloads_page) = get_view_stack_page_by_name(
-                                "downloads".to_string(),
-                                &imp.side_view_stack,
-                            ) && matches!(get_view_stack_page_by_name(
-                                    imp.side_view_stack
+                            if let Some(downloads_page) =
+                                get_view_stack_page_by_name("downloads", &imp.side_view_stack)
+                                && matches!(get_view_stack_page_by_name(
+                                    &imp.side_view_stack
                                         .visible_child_name()
-                                        .unwrap_or_default()
-                                        .to_string(),
+                                        .unwrap_or_default(),
                                         &imp.side_view_stack,
                                 ), Some(x) if x == downloads_page)
                             {
-                                downloads_page.set_needs_attention(true)
+                                downloads_page.set_needs_attention(true);
                             }
                         }
                     ));

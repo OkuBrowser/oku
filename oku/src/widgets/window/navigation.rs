@@ -1,4 +1,4 @@
-use super::*;
+use super::Window;
 use crate::database::DATABASE;
 use crate::window_util::{connect, uri_attributes};
 use glib::clone;
@@ -9,12 +9,12 @@ use libadwaita::prelude::*;
 use webkit2gtk::prelude::WebViewExt;
 
 impl Window {
-    /// Adapted from Geopard (https://github.com/ranfdev/Geopard)
+    /// Adapted from Geopard (<https://github.com/ranfdev/Geopard>)
     pub fn set_progress_animated(&self, progress: f64) {
         let imp = self.imp();
 
         if let Some(animation) = imp.progress_animation.borrow().as_ref() {
-            animation.pause()
+            animation.pause();
         }
         if progress == 0.0 {
             imp.progress_bar.set_fraction(0.0);
@@ -84,7 +84,7 @@ impl Window {
         imp.url_status
             .property_expression("label")
             .chain_closure::<pango::AttrList>(closure!(|_: Option<glib::Object>, x: String| {
-                uri_attributes(x)
+                uri_attributes(&x)
             }))
             .bind(&imp.url_status, "attributes", gtk::Widget::NONE);
     }
@@ -126,7 +126,7 @@ impl Window {
                     return;
                 }
                 let web_view = web_view.expect("Web view exists");
-                web_view.go_back()
+                web_view.go_back();
             }
         ));
         let action_previous = gio::ActionEntry::builder("previous")
@@ -151,7 +151,7 @@ impl Window {
                     return;
                 }
                 let web_view = web_view.expect("Web view exists");
-                web_view.go_forward()
+                web_view.go_forward();
             }
         ));
         let action_next = gio::ActionEntry::builder("next")
@@ -177,9 +177,9 @@ impl Window {
                 }
                 let web_view = web_view.expect("Web view exists");
                 if web_view.is_loading() {
-                    web_view.stop_loading()
+                    web_view.stop_loading();
                 } else {
-                    web_view.reload()
+                    web_view.reload();
                 }
             }
         ));
@@ -212,7 +212,7 @@ impl Window {
                     return;
                 }
                 let web_view = web_view.expect("Web view exists");
-                web_view.stop_loading()
+                web_view.stop_loading();
             })
             .build();
         self.add_action_entries([action_stop_loading]);
@@ -224,7 +224,7 @@ impl Window {
                     return;
                 }
                 let web_view = web_view.expect("Web view exists");
-                web_view.load_uri("oku:home")
+                web_view.load_uri("oku:home");
             })
             .build();
         self.add_action_entries([action_go_home]);
@@ -278,7 +278,7 @@ impl Window {
                         imp.suggestions_popover.popdown();
                     }
                     if !suggestion_items.is_empty() {
-                        for suggestion_item in suggestion_items.iter() {
+                        for suggestion_item in &suggestion_items {
                             suggestions_store.append(suggestion_item);
                         }
                         imp.suggestions_popover.popup();

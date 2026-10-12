@@ -1,5 +1,5 @@
 use crate::fs::OkuFs;
-use crate::fuse::util::*;
+use crate::fuse::util::{get_immediate_children, is_root_path, parse_fuse_path};
 use easy_fuser::fuse_async::prelude::*;
 use easy_fuser::types::FileAttribute;
 use easy_fuser::types::FileIdType;
@@ -32,7 +32,7 @@ impl OkuFs {
             &Some(size.into()),
         )
         .await
-        .map(|x| x.into())
+        .map(std::convert::Into::into)
     }
 
     pub(super) async fn copy_file_range(
@@ -43,6 +43,7 @@ impl OkuFs {
         offset_out: u64,
         len: u64,
     ) -> miette::Result<u32> {
+        #[allow(clippy::cast_possible_truncation)]
         let data = self
             .read(file_in, SeekFrom::Start(offset_in), len as u32)
             .await?;
@@ -71,7 +72,7 @@ impl OkuFs {
                 let files = self
                     .list_files(&namespace_id, &Some(replica_path.clone()))
                     .await?;
-                let immediate_children = get_immediate_children(replica_path, files)?;
+                let immediate_children = get_immediate_children(&replica_path, files)?;
                 directory_entries.extend(immediate_children);
                 Ok(directory_entries)
             }
@@ -82,16 +83,13 @@ impl OkuFs {
         let path = parent_id.join(name);
         let (namespace_id, replica_path) = parse_fuse_path(&path)
             .map(|x| x.ok_or(miette::miette!("Cannot remove root directory")))??;
-        match is_root_path(&replica_path) {
-            true => {
-                self.delete_replica(&namespace_id).await?;
-                let namespace_id_str = crate::fs::util::fmt(namespace_id);
-                info!("Replica {namespace_id_str} deleted");
-            }
-            false => {
-                let entries_deleted = self.delete_directory(&namespace_id, &replica_path).await?;
-                info!("{entries_deleted} entries deleted in {path:?}");
-            }
+        if is_root_path(&replica_path) {
+            self.delete_replica(&namespace_id).await?;
+            let namespace_id_str = crate::fs::util::fmt(namespace_id);
+            info!("Replica {namespace_id_str} deleted");
+        } else {
+            let entries_deleted = self.delete_directory(&namespace_id, &replica_path).await?;
+            info!("{entries_deleted} entries deleted in {}", path.display());
         }
         Ok(())
     }
@@ -115,7 +113,7 @@ impl OkuFs {
         let file_hash = self
             .create_file(&namespace_id, &replica_path, b"\0".as_slice())
             .await?;
-        info!("File created at {path:?} with hash {file_hash}");
+        info!("File created at {} with hash {file_hash}", path.display());
         let file_attr = self.getattr(path).await?;
         Ok((
             unsafe { OwnedFileHandle::from_raw(0) },
@@ -148,7 +146,11 @@ impl OkuFs {
                         &new_replica_path,
                     )
                     .await?;
-                info!("File {old_path:?} moved to {new_path:?} (files moved: {files_moved}, new hash: {new_hash:?})");
+                info!(
+                    "File {} moved to {} (files moved: {files_moved}, new hash: {new_hash:?})",
+                    old_path.display(),
+                    new_path.display()
+                );
                 Ok(())
             }
             easy_fuser::types::FileKind::Directory => {
@@ -160,11 +162,16 @@ impl OkuFs {
                         &new_replica_path,
                     )
                     .await?;
-                info!("Directory {old_path:?} moved to {new_path:?} (files moved: {files_moved}, new hashes: {new_hashes:?})");
+                info!(
+                    "Directory {} moved to {} (files moved: {files_moved}, new hashes: {new_hashes:?})",
+                    old_path.display(),
+                    new_path.display()
+                );
                 Ok(())
             }
             _ => Err(miette::miette!(
-                "File system entry type {path_type:?} at {old_path:?} not supported"
+                "File system entry type {path_type:?} at {} not supported",
+                old_path.display()
             )),
         }
     }
@@ -183,7 +190,7 @@ impl OkuFs {
         let data_len: u32 = data.clone().len().try_into().unwrap_or(u32::MAX);
         self.write_file_using_cache(&namespace_id, &replica_path, data, &Some(seek))
             .await?;
-        info!("File at {file_id:?} updated");
+        info!("File at {} updated", file_id.display());
         Ok(data_len)
     }
 
@@ -192,7 +199,10 @@ impl OkuFs {
         let (namespace_id, replica_path) = parse_fuse_path(&path)
             .map(|x| x.ok_or(miette::miette!("Cannot remove root directory")))??;
         let entries_deleted = self.delete_file(&namespace_id, &replica_path).await?;
-        info!("File deleted at {path:?} (files deleted: {entries_deleted})");
+        info!(
+            "File deleted at {} (files deleted: {entries_deleted})",
+            path.display()
+        );
         Ok(())
     }
 

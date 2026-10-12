@@ -4,7 +4,7 @@ use debug_ignore::DebugIgnore;
 #[cfg(feature = "fuse")]
 use easy_fuser::fuse_presets::DefaultFuseHandler;
 use iroh_blobs::BlobsProtocol;
-use iroh_docs::{protocol::Docs, NamespaceId};
+use iroh_docs::{NamespaceId, protocol::Docs};
 use moka::future::Cache;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -13,7 +13,7 @@ use std::sync::LazyLock;
 use tempfile::NamedTempFile;
 #[cfg(feature = "fuse")]
 use tokio::runtime::Handle;
-use tokio::sync::{watch::Sender, Mutex};
+use tokio::sync::{Mutex, watch::Sender};
 
 /// Core functionality of an Oku file system.
 pub mod core;
@@ -21,7 +21,7 @@ pub mod core;
 pub mod directory;
 /// File-related functionality of an Oku file system.
 pub mod file;
-/// Implementation of OkuNet.
+/// Implementation of `OkuNet`.
 pub mod net;
 /// Replica-related functionality of an Oku file system.
 pub mod replica;
@@ -50,11 +50,11 @@ pub struct OkuFs {
     pub(crate) router: iroh::protocol::Router,
     /// A watcher for when replicas are created, deleted, or imported.
     pub replica_sender: Sender<ReplicaEvent>,
-    /// A watcher for when OkuNet posts are created, deleted, or modified.
+    /// A watcher for when `OkuNet` posts are created, deleted, or modified.
     pub okunet_post_sender: Sender<OkuNetPostEvent>,
-    /// A watcher for when OkuNet user records are created, deleted, or modified.
+    /// A watcher for when `OkuNet` user records are created, deleted, or modified.
     pub okunet_user_sender: Sender<()>,
-    /// A watcher for whether or not content is being fetched from the OkuNet.
+    /// A watcher for whether or not content is being fetched from the `OkuNet`.
     pub okunet_fetch_sender: Sender<bool>,
     #[cfg(feature = "fuse")]
     pub(crate) fuse_handler: DebugIgnore<Arc<DefaultFuseHandler<std::path::PathBuf>>>,

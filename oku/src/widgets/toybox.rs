@@ -32,7 +32,11 @@ use webkit2gtk::functions::uri_for_display;
 use webkit2gtk::prelude::WebViewExt;
 
 pub mod imp {
-    use super::*;
+    use super::{
+        AdwDialogImpl, LazyLock, ObjectImpl, ObjectSubclass, ParamSpec, ParamSpecBuilderExt,
+        ParamSpecObject, ParamSpecString, PolicySetting, PropertySet, RefCell, ToValue, Value,
+        WidgetImpl, glib, uri_for_display,
+    };
 
     #[derive(Debug, Default)]
     pub struct Toybox {
@@ -135,7 +139,7 @@ pub mod imp {
         fn property(&self, _id: usize, pspec: &ParamSpec) -> Value {
             match pspec.name() {
                 "uri" => self.uri.borrow().to_value(),
-                "policy-setting" => self.policy_setting.to_owned().to_value(),
+                "policy-setting" => self.policy_setting.clone().to_value(),
                 _ => unimplemented!(),
             }
         }
@@ -165,10 +169,7 @@ impl Toybox {
         this.property_expression("uri")
             .chain_closure::<bool>(closure!(|_: Option<glib::Object>, x: String| {
                 let uri = &x.replacen("oku:", "", 1);
-                matches!(
-                    OkuPath::parse(uri),
-                    Ok(OkuPath::Home) | Ok(OkuPath::User(_, _))
-                )
+                matches!(OkuPath::parse(uri), Ok(OkuPath::Home | OkuPath::User(_, _)))
             }))
             .bind(&imp.okunet_refresh_button, "visible", gtk::Widget::NONE);
         if let Some(window) = window {
@@ -178,7 +179,7 @@ impl Toybox {
                 .property_expression("opacity")
                 .chain_closure::<bool>(closure!(|_: Option<glib::Object>, x: f64| { x == 0.0 }))
                 .bind(&imp.okunet_refresh_button, "sensitive", gtk::Widget::NONE);
-        };
+        }
 
         this.setup_content();
         this.setup_toolbox();
@@ -337,12 +338,12 @@ impl Toybox {
             match parsed_uri {
                 Ok(OkuPath::Home) => {
                     if let Err(e) = node.fetch_users().await {
-                        error!("{}", e);
+                        error!("{e}");
                     }
                 }
                 Ok(OkuPath::User(author_id, None)) => {
                     if let Err(e) = node.fetch_user(&author_id).await {
-                        error!("{}", e);
+                        error!("{e}");
                     }
                 }
                 Ok(OkuPath::User(author_id, Some(path))) => {
@@ -353,7 +354,7 @@ impl Toybox {
                             .unwrap_or(&path.to_string_lossy())
                     );
                     if let Err(e) = node.fetch_post(&author_id, &post_path.into()).await {
-                        error!("{}", e);
+                        error!("{e}");
                     }
                 }
                 _ => (),

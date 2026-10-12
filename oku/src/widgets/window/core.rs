@@ -21,7 +21,10 @@ use webkit2gtk::{NetworkSession, WebContext};
 pub mod imp {
     use gtk::EventControllerFocus;
 
-    use super::*;
+    use super::{
+        AddressEntry, AdwApplicationWindowImpl, ApplicationWindowImpl, Cell, Config, ObjectImpl,
+        ObjectSubclass, Rc, RefCell, WidgetImpl, WindowImpl, gio, glib,
+    };
 
     #[derive(Debug, Default)]
     pub struct Window {
@@ -48,6 +51,7 @@ pub mod imp {
         pub(crate) suggestions_factory: gtk::SignalListItemFactory,
         pub(crate) suggestions_model: gtk::SingleSelection,
         pub(crate) suggestions_view: gtk::ListView,
+        #[allow(clippy::struct_field_names)]
         pub(crate) suggestions_scrolled_window: libadwaita::ClampScrollable,
         pub(crate) suggestions_popover: gtk::Popover,
         // Left header buttons
@@ -119,6 +123,7 @@ pub mod imp {
         pub(crate) bookmarks_factory: gtk::SignalListItemFactory,
         pub(crate) bookmarks_model: gtk::SingleSelection,
         pub(crate) bookmarks_view: gtk::ListView,
+        #[allow(clippy::struct_field_names)]
         pub(crate) bookmarks_scrolled_window: gtk::ScrolledWindow,
         pub(crate) bookmarks_label: gtk::Label,
         pub(crate) bookmarks_placeholder: gtk::Label,
@@ -129,6 +134,7 @@ pub mod imp {
         pub(crate) bookmarks_filter_selection_model: gtk::SingleSelection,
         pub(crate) bookmarks_search_factory: gtk::SignalListItemFactory,
         pub(crate) bookmarks_search_view: gtk::ListView,
+        #[allow(clippy::struct_field_names)]
         pub(crate) bookmarks_search_scrolled_window: gtk::ScrolledWindow,
         pub(crate) bookmarks_search_box: gtk::Box,
         pub(crate) bookmarks_search_placeholder: gtk::Label,
@@ -138,6 +144,7 @@ pub mod imp {
         pub(crate) history_factory: gtk::SignalListItemFactory,
         pub(crate) history_model: gtk::SingleSelection,
         pub(crate) history_view: gtk::ListView,
+        #[allow(clippy::struct_field_names)]
         pub(crate) history_scrolled_window: gtk::ScrolledWindow,
         pub(crate) history_label: gtk::Label,
         pub(crate) history_placeholder: gtk::Label,
@@ -148,6 +155,7 @@ pub mod imp {
         pub(crate) history_filter_selection_model: gtk::SingleSelection,
         pub(crate) history_search_factory: gtk::SignalListItemFactory,
         pub(crate) history_search_view: gtk::ListView,
+        #[allow(clippy::struct_field_names)]
         pub(crate) history_search_scrolled_window: gtk::ScrolledWindow,
         pub(crate) history_search_box: gtk::Box,
         pub(crate) history_search_placeholder: gtk::Label,
@@ -159,6 +167,7 @@ pub mod imp {
         pub(crate) replicas_factory: gtk::SignalListItemFactory,
         pub(crate) replicas_model: gtk::SingleSelection,
         pub(crate) replicas_view: gtk::ListView,
+        #[allow(clippy::struct_field_names)]
         pub(crate) replicas_scrolled_window: gtk::ScrolledWindow,
         pub(crate) replicas_label: gtk::Label,
         pub(crate) replicas_placeholder: gtk::Label,
@@ -168,6 +177,7 @@ pub mod imp {
         pub(crate) downloads_factory: gtk::SignalListItemFactory,
         pub(crate) downloads_model: gtk::SingleSelection,
         pub(crate) downloads_view: gtk::ListView,
+        #[allow(clippy::struct_field_names)]
         pub(crate) downloads_scrolled_window: gtk::ScrolledWindow,
         pub(crate) downloads_label: gtk::Label,
         pub(crate) downloads_placeholder: gtk::Label,
@@ -222,15 +232,12 @@ impl Window {
 
         let imp = this.imp();
         imp.is_private.set(is_private);
-        match imp.is_private.get() {
-            true => {
-                this.set_title(Some("Oku — Private"));
-                this.add_css_class("devel");
-                imp.network_session.replace(NetworkSession::new_ephemeral());
-            }
-            false => {
-                this.set_title(Some("Oku"));
-            }
+        if imp.is_private.get() {
+            this.set_title(Some("Oku — Private"));
+            this.add_css_class("devel");
+            imp.network_session.replace(NetworkSession::new_ephemeral());
+        } else {
+            this.set_title(Some("Oku"));
         }
         imp.style_provider.replace(style_provider.clone());
 
@@ -256,7 +263,7 @@ impl Window {
         this.setup_config(&style_manager);
 
         if imp.tab_view.n_pages() == 0 {
-            this.new_tab(&Some(&NewTabArguments::OkuNet));
+            this.new_tab(Some(&NewTabArguments::OkuNet));
         }
 
         this.present();
@@ -350,7 +357,7 @@ impl Window {
                 }
                 let web_view = window.get_view().ok();
                 if let Some(inspector) = web_view.and_then(|x| x.inspector()) {
-                    inspector.show()
+                    inspector.show();
                 }
             }))
             .build();
@@ -373,13 +380,11 @@ impl Window {
                             move |destination| {
                                 if let Ok(destination) = destination {
                                     let new_view = window
-                                        .new_tab(&Some(&NewTabArguments::Web(
-                                            &NewWebTabArguments {
-                                                web_context: &web_context,
-                                                related_view: None,
-                                                initial_request: None,
-                                            },
-                                        )))
+                                        .new_tab(Some(&NewTabArguments::Web(&NewWebTabArguments {
+                                            web_context: &web_context,
+                                            related_view: None,
+                                            initial_request: None,
+                                        })))
                                         .as_web()
                                         .expect("New tab to be Web tab")
                                         .web_view
@@ -391,7 +396,7 @@ impl Window {
                                 }
                             }
                         ),
-                    )
+                    );
                 }
             ))
             .build();
@@ -466,7 +471,7 @@ impl Window {
                                                 }
                                             }
                                         ),
-                                    )
+                                    );
                                 }
                                 _ => {
                                     unreachable!()
@@ -524,7 +529,7 @@ impl Window {
                     }
                     let web_view = web_view.expect("Web view exists");
                     let new_view = window
-                        .new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                        .new_tab(Some(&NewTabArguments::Web(&NewWebTabArguments {
                             web_context: &web_context,
                             related_view: None,
                             initial_request: None,
@@ -533,7 +538,7 @@ impl Window {
                         .expect("New tab to be Web tab")
                         .web_view
                         .clone();
-                    new_view.load_uri(&web_view.uri().unwrap_or("oku:home".into()))
+                    new_view.load_uri(&web_view.uri().unwrap_or("oku:home".into()));
                 }
             ))
             .build();
@@ -541,7 +546,7 @@ impl Window {
         let action_tab_overview = gio::ActionEntry::builder("tab-overview")
             .activate(clone!(move |window: &Self, _, _| {
                 let tab_overview = &window.imp().tab_overview;
-                tab_overview.set_open(!tab_overview.is_open())
+                tab_overview.set_open(!tab_overview.is_open());
             }))
             .build();
         self.add_action_entries([action_tab_overview]);
@@ -575,11 +580,12 @@ impl Window {
             #[weak]
             imp,
             move |_fullscreen_motion_controller, _x, y| {
-                match this.is_fullscreen() {
-                    true => imp.fullscreen_box.set_reveal_top_bars(
+                if this.is_fullscreen() {
+                    imp.fullscreen_box.set_reveal_top_bars(
                         y <= imp.fullscreen_box.top_bar_height().max(5).into(),
-                    ),
-                    false => imp.fullscreen_box.set_reveal_top_bars(true),
+                    );
+                } else {
+                    imp.fullscreen_box.set_reveal_top_bars(true);
                 }
             }
         ));
@@ -621,9 +627,10 @@ impl Window {
             #[weak]
             imp,
             move |this| {
-                match this.is_fullscreen() {
-                    true => this.show_fullscreen_overlay(),
-                    false => imp.fullscreen_overlay_box.set_opacity(0.0),
+                if this.is_fullscreen() {
+                    this.show_fullscreen_overlay();
+                } else {
+                    imp.fullscreen_overlay_box.set_opacity(0.0);
                 }
             }
         ));
@@ -633,7 +640,7 @@ impl Window {
         let imp = self.imp();
 
         if let Some(animation) = imp.fullscreen_overlay_animation.borrow().as_ref() {
-            animation.pause()
+            animation.pause();
         }
         let animation = libadwaita::SpringAnimation::new(
             &imp.fullscreen_overlay_box,
@@ -654,21 +661,18 @@ impl Window {
     }
 
     pub fn toggle_fullscreen(&self) {
-        match self.is_fullscreen() {
-            true => {
-                let this = self.clone();
-                if let Ok(web_view) = this.get_view() {
-                    glib::spawn_future_local(web_view.evaluate_javascript_future(
-                        "document.exitFullscreen();",
-                        None,
-                        None,
-                    ));
-                };
-                self.set_fullscreened(false);
+        if self.is_fullscreen() {
+            let this = self.clone();
+            if let Ok(web_view) = this.get_view() {
+                glib::spawn_future_local(web_view.evaluate_javascript_future(
+                    "document.exitFullscreen();",
+                    None,
+                    None,
+                ));
             }
-            false => {
-                self.set_fullscreened(true);
-            }
+            self.set_fullscreened(false);
+        } else {
+            self.set_fullscreened(true);
         }
     }
 
@@ -680,12 +684,9 @@ impl Window {
             info!("Bookmarks updated … ");
             let this = self.clone();
             tokio::task::spawn_blocking(move || this.bookmarks_updated());
-            match bookmark_rx.changed().await {
-                Ok(_) => continue,
-                Err(e) => {
-                    error!("{}", e);
-                    break;
-                }
+            if let Err(e) = bookmark_rx.changed().await {
+                error!("{e}");
+                break;
             }
         }
     }
@@ -698,12 +699,9 @@ impl Window {
             info!("History updated … ");
             let this = self.clone();
             tokio::task::spawn_blocking(move || this.history_updated());
-            match history_rx.changed().await {
-                Ok(_) => continue,
-                Err(e) => {
-                    error!("{}", e);
-                    break;
-                }
+            if let Err(e) = history_rx.changed().await {
+                error!("{e}");
+                break;
             }
         }
     }
@@ -718,13 +716,12 @@ impl Window {
                 info!("Replicas updated … ");
                 let this = self.clone();
                 match replica_rx.changed().await {
-                    Ok(_) => {
+                    Ok(()) => {
                         let event = replica_rx.borrow_and_update().clone();
-                        tokio::spawn(async move { this.replicas_updated(&event).await });
-                        continue;
+                        tokio::spawn(async move { this.replicas_updated(&event) });
                     }
                     Err(e) => {
-                        error!("{}", e);
+                        error!("{e}");
                         break;
                     }
                 }
@@ -767,7 +764,7 @@ impl Window {
         let imp = self.imp();
 
         if let Some(animation) = imp.okunet_fetch_overlay_animation.borrow().as_ref() {
-            animation.pause()
+            animation.pause();
         }
         let animation = libadwaita::SpringAnimation::new(
             &imp.okunet_fetch_overlay_box,
@@ -791,7 +788,7 @@ impl Window {
         let imp = self.imp();
 
         if let Some(animation) = imp.okunet_fetch_overlay_animation.borrow().as_ref() {
-            animation.pause()
+            animation.pause();
         }
         let animation = libadwaita::SpringAnimation::new(
             &imp.okunet_fetch_overlay_box,
@@ -816,18 +813,14 @@ impl Window {
             let mut okunet_fetch_rx = node.okunet_fetch_sender.subscribe();
             loop {
                 let this = self.clone();
-                match *okunet_fetch_rx.borrow_and_update() {
-                    true => glib::MainContext::default()
-                        .invoke(move || this.show_okunet_fetch_overlay()),
-                    false => glib::MainContext::default()
-                        .invoke(move || this.hide_okunet_fetch_overlay()),
+                if *okunet_fetch_rx.borrow_and_update() {
+                    glib::MainContext::default().invoke(move || this.show_okunet_fetch_overlay());
+                } else {
+                    glib::MainContext::default().invoke(move || this.hide_okunet_fetch_overlay());
                 }
-                match okunet_fetch_rx.changed().await {
-                    Ok(_) => continue,
-                    Err(e) => {
-                        error!("{}", e);
-                        break;
-                    }
+                if let Err(e) = okunet_fetch_rx.changed().await {
+                    error!("{e}");
+                    break;
                 }
             }
         }

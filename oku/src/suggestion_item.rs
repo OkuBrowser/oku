@@ -16,7 +16,10 @@ use std::sync::LazyLock;
 use webkit2gtk::functions::uri_for_display;
 
 pub mod imp {
-    use super::*;
+    use super::{
+        LazyLock, ObjectImpl, ObjectSubclass, ObjectSubclassExt, ParamSpec, ParamSpecBuilderExt,
+        ParamSpecObject, ParamSpecString, PropertySet, RefCell, ToValue, Value, uri_for_display,
+    };
 
     #[derive(Default, Debug)]
     pub struct SuggestionItem {
@@ -86,12 +89,15 @@ impl SuggestionItem {
     pub fn title(&self) -> String {
         self.imp().title.borrow().to_string()
     }
+
     pub fn uri(&self) -> String {
         self.imp().uri.borrow().to_string()
     }
+
     pub fn favicon(&self) -> Option<gdk::Texture> {
         self.imp().favicon.borrow().clone()
     }
+
     pub fn new(
         title: String,
         uri: String,

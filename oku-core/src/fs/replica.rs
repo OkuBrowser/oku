@@ -1,15 +1,15 @@
-use super::*;
+use super::{Docs, OkuFs, ReplicaEvent, util};
 use crate::database::core::DATABASE;
 use crate::database::dht::ReplicaAnnouncement;
 use crate::error::{OkuDiscoveryError, OkuFsError, OkuFuseError};
 use anyhow::anyhow;
-use futures::{pin_mut, StreamExt};
+use futures::{StreamExt, pin_mut};
+use iroh_docs::NamespaceId;
 use iroh_docs::api::protocol::AddrInfoOptions;
 use iroh_docs::api::protocol::ShareMode;
 use iroh_docs::engine::LiveEvent;
 use iroh_docs::store::FilterKind;
 use iroh_docs::sync::CapabilityKind;
-use iroh_docs::NamespaceId;
 use iroh_docs::{AuthorId, DocTicket};
 use iroh_tickets::Ticket;
 use log::{error, info};
@@ -51,12 +51,12 @@ impl OkuFs {
     pub async fn create_replica(&self) -> miette::Result<NamespaceId> {
         let docs_client = &self.docs;
         let new_document = docs_client.create().await.map_err(|e| {
-            error!("{}", e);
+            error!("{e}");
             OkuFsError::CannotCreateReplica
         })?;
         let document_id = new_document.id();
         new_document.close().await.map_err(|e| {
-            error!("{}", e);
+            error!("{e}");
             OkuFsError::CannotExitReplica
         })?;
         self.replica_sender
@@ -119,7 +119,7 @@ impl OkuFs {
                 .send_replace(ReplicaEvent::Deleted(*namespace_id));
         }
         Ok(drop.map_err(|e| {
-            error!("{}", e);
+            error!("{e}");
             OkuFsError::CannotDeleteReplica(crate::fs::util::fmt(namespace_id))
         })?)
     }
@@ -141,7 +141,7 @@ impl OkuFs {
             .await;
 
         let replicas = docs_client.list().await.map_err(|e| {
-            error!("{}", e);
+            error!("{e}");
             OkuFsError::CannotListReplicas
         })?;
         pin_mut!(replicas);
@@ -236,7 +236,7 @@ impl OkuFs {
                 }
             }
             None => {
-                match docs_client.open(namespace_id).await.unwrap_or(None) { Some(replica) => {
+                if let Some(replica) = docs_client.open(namespace_id).await.unwrap_or(None) {
                     replica
                         .set_download_policy(iroh_docs::store::DownloadPolicy::default())
                         .await?;
@@ -256,7 +256,7 @@ impl OkuFs {
                             break;
                         }
                     }
-                } _ => {
+                } else {
                     let (_replica, mut events) = docs_client.import_and_subscribe(ticket).await?;
                     let sync_start = std::time::Instant::now();
                     while let Some(event) = events.next().await {
@@ -272,7 +272,7 @@ impl OkuFs {
                             break;
                         }
                     }
-                }}
+                }
             }
         }
         Ok(())
@@ -329,7 +329,7 @@ impl OkuFs {
                 }
             }
             None => {
-                match docs_client.open(namespace_id).await.unwrap_or(None) { Some(replica) => {
+                if let Some(replica) = docs_client.open(namespace_id).await.unwrap_or(None) {
                     replica
                         .set_download_policy(iroh_docs::store::DownloadPolicy::default())
                         .await?;
@@ -349,7 +349,7 @@ impl OkuFs {
                             break;
                         }
                     }
-                } _ => {
+                } else {
                     let (_replica, mut events) =
                         docs_client.import_and_subscribe(ticket.clone()).await?;
                     self.replica_sender.send_replace(ReplicaEvent::Imported(
@@ -369,9 +369,9 @@ impl OkuFs {
                             break;
                         }
                     }
-                }}
+                }
             }
-        };
+        }
         Ok(())
     }
 
@@ -442,7 +442,11 @@ impl OkuFs {
             let ticket = DocTicket::decode_bytes(mutable_item.value())?;
             let ticket_namespace_id = &ticket.capability.id();
             if ticket_namespace_id != namespace_id {
-                error!("Ticket is for replica with ID {}, but claims to be for replica with ID {}; ignoring ticket … ", crate::fs::util::fmt(ticket_namespace_id), crate::fs::util::fmt(namespace_id));
+                error!(
+                    "Ticket is for replica with ID {}, but claims to be for replica with ID {}; ignoring ticket … ",
+                    crate::fs::util::fmt(ticket_namespace_id),
+                    crate::fs::util::fmt(namespace_id)
+                );
                 continue;
             }
             if let Err(e) = DATABASE.upsert_announcement(&ReplicaAnnouncement {
@@ -451,7 +455,7 @@ impl OkuFs {
             }) {
                 error!("{e}");
             }
-            tickets.push(ticket)
+            tickets.push(ticket);
         }
         merge_tickets(&tickets).ok_or(anyhow!(
             "Could not find tickets for {} … ",
@@ -488,7 +492,7 @@ impl OkuFs {
                 .open(*namespace_id)
                 .await
                 .map_err(|e| {
-                    error!("{}", e);
+                    error!("{e}");
                     OkuFsError::CannotOpenReplica
                 })?
                 .ok_or(OkuFsError::FsEntryNotFound)?;
@@ -496,7 +500,7 @@ impl OkuFs {
                 .share(share_mode.clone(), AddrInfoOptions::RelayAndAddresses)
                 .await
                 .map_err(|e| {
-                    error!("{}", e);
+                    error!("{e}");
                     OkuDiscoveryError::CannotGenerateSharingTicket
                 })?)
         }

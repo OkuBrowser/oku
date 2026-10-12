@@ -1,6 +1,6 @@
 use std::sync::atomic::Ordering;
 
-use super::*;
+use super::Window;
 use crate::{MOUNT_DIR, REPLICAS_MOUNTED};
 use glib::clone;
 use gtk::glib;

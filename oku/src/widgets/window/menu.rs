@@ -1,4 +1,4 @@
-use super::*;
+use super::Window;
 use crate::widgets;
 use glib::{clone, closure};
 use gtk::prelude::GtkWindowExt;
@@ -192,9 +192,10 @@ impl Window {
 
         self.property_expression("fullscreened")
             .chain_closure::<String>(closure!(|_: Option<glib::Object>, x: bool| {
-                match x {
-                    true => "unfullscreen-rectangular-symbolic",
-                    false => "fullscreen-rectangular-symbolic",
+                if x {
+                    "unfullscreen-rectangular-symbolic"
+                } else {
+                    "fullscreen-rectangular-symbolic"
                 }
             }))
             .bind(&imp.fullscreen_button, "icon-name", gtk::Widget::NONE);
@@ -244,7 +245,7 @@ impl Window {
                     None,
                     Some(&gio::Cancellable::new()),
                     move |_| {},
-                )
+                );
             }
         ));
         let action_print = gio::ActionEntry::builder("print")
@@ -263,7 +264,7 @@ impl Window {
                     None,
                     Some(&gio::Cancellable::new()),
                     move |_| {},
-                )
+                );
             }))
             .build();
         self.add_action_entries([action_print]);
@@ -341,19 +342,19 @@ impl Window {
                                                                     move |snapshot| {
                                                                         if let Ok(snapshot) = snapshot {
                                                                             match snapshot.save_to_png(destination_path.to_str().unwrap()) {
-                                                                                Ok(_) => info!("Saved screenshot to {:?}", destination_path),
-                                                                                Err(e) => error!("{}", e)
+                                                                                Ok(()) => info!("Saved screenshot to {}", destination_path.display()),
+                                                                                Err(e) => error!("{e}")
                                                                             }
                                                                         }
                                                                     },
                                                                 )
                                                             );
                                                         },
-                                                        None => warn!("No path for {:#?}", destination)
+                                                        None => warn!("No path for {destination:#?}")
                                                     }
                                                 },
-                                                Err(e) => error!("{}", e)
-                                            };
+                                                Err(e) => error!("{e}")
+                                            }
                                         }
                                     ),
                                 );
@@ -438,19 +439,19 @@ impl Window {
                                                                         move |snapshot| {
                                                                             if let Ok(snapshot) = snapshot {
                                                                                 match snapshot.save_to_png(destination_path.to_str().unwrap()) {
-                                                                                    Ok(_) => info!("Saved screenshot to {:?}", destination_path),
-                                                                                    Err(e) => error!("{}", e)
+                                                                                    Ok(()) => info!("Saved screenshot to {}", destination_path.display()),
+                                                                                    Err(e) => error!("{e}")
                                                                                 }
                                                                             }
                                                                         },
                                                                     )
                                                                 );
                                                             },
-                                                            None => warn!("No path for {:#?}", destination)
+                                                            None => warn!("No path for {destination:#?}")
                                                         }
                                                     },
-                                                    Err(e) => error!("{}", e)
-                                                };
+                                                    Err(e) => error!("{e}")
+                                                }
                                             }
                                         ),
                                     );

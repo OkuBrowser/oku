@@ -1,4 +1,4 @@
-use super::*;
+use super::Window;
 use crate::suggestion_item::SuggestionItem;
 use crate::widgets;
 use glib::clone;
@@ -14,7 +14,9 @@ impl Window {
         let suggestions_store = self.imp().suggestions_store.borrow();
 
         Ref::map(suggestions_store, |suggestions_store| {
-            (suggestions_store.as_deref().unwrap()) as _
+            (suggestions_store
+                .as_deref()
+                .expect("ListStore should be in Rc")) as _
         })
     }
 

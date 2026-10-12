@@ -26,8 +26,8 @@ impl Settings {
             self,
             move |_| {
                 glib::spawn_future_local(async move {
-                    if let Err(e) = this.import_user().await {
-                        error!("{}", e);
+                    if let Err(e) = this.import_user() {
+                        error!("{e}");
                     }
                     this.initialise_okunet_information();
                 });
@@ -46,7 +46,7 @@ impl Settings {
             move |_| {
                 glib::spawn_future_local(async move {
                     if let Err(e) = this.save_exported_user().await {
-                        error!("{}", e);
+                        error!("{e}");
                     }
                 });
             }
@@ -68,8 +68,7 @@ impl Settings {
                 let app = window.application().unwrap();
                 let notification = gio::Notification::new("Author ID copied");
                 notification.set_body(Some(&format!(
-                    "Author ID ({}) has been copied to the clipboard.",
-                    author_id
+                    "Author ID ({author_id}) has been copied to the clipboard."
                 )));
                 app.send_notification(None, &notification);
             }
@@ -128,10 +127,8 @@ impl Settings {
                         #[weak]
                         display_name_row,
                         async move {
-                            if let Err(e) =
-                                node.set_display_name(&display_name_row.text().into()).await
-                            {
-                                error!("{}", e);
+                            if let Err(e) = node.set_display_name(&display_name_row.text()).await {
+                                error!("{e}");
                             }
                         }
                     ));
@@ -184,11 +181,11 @@ impl Settings {
                                         if let Some(path) = path
                                             && let Err(e) = std::fs::write(path, exported_user_toml)
                                         {
-                                            error!("{}", e);
+                                            error!("{e}");
                                         }
                                     }
                                 ),
-                            )
+                            );
                         }
                         _ => {
                             unreachable!()
@@ -201,7 +198,7 @@ impl Settings {
         Ok(())
     }
 
-    pub async fn import_user(&self) -> miette::Result<()> {
+    pub fn import_user(&self) -> miette::Result<()> {
         let node = NODE
             .get()
             .ok_or(miette::miette!("Oku node has not yet started … "))?;
@@ -252,14 +249,14 @@ impl Settings {
                                                 if let Err(e) =
                                                     node.import_user_toml(&exported_user_toml).await
                                                 {
-                                                    error!("{}", e);
+                                                    error!("{e}");
                                                 }
                                             }));
                                         }
                                         this.imp().okunet_group.set_sensitive(true);
                                     }
                                 ),
-                            )
+                            );
                         }
                         _ => {
                             unreachable!()

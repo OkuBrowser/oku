@@ -24,6 +24,7 @@ use std::time::SystemTime;
 /// # Returns
 ///
 /// `true` if the path is empty or `/`, `false` otherwise.
+
 pub fn is_root_path(path: &Path) -> bool {
     path.is_empty() || path == "/"
 }
@@ -45,11 +46,10 @@ pub fn parse_fuse_path(path: &Path) -> miette::Result<Option<(NamespaceId, PathB
             let namespace_id = NamespaceId::from(crate::fs::util::parse_array_hex_or_base32::<32>(
                 replica_id_string,
             )?);
-            let replica_path = PathBuf::from("/").join(components.as_path()).to_path_buf();
+            let replica_path = PathBuf::from("/").join(components.as_path()).clone();
             return Ok(Some((namespace_id, replica_path)));
-        } else {
-            return Ok(None);
         }
+        return Ok(None);
     }
     Err(OkuFuseError::NoRoot.into())
 }
@@ -66,7 +66,7 @@ pub fn parse_fuse_path(path: &Path) -> miette::Result<Option<(NamespaceId, PathB
 ///
 /// The file system entries in the directory.
 pub fn get_immediate_children(
-    prefix_path: PathBuf,
+    prefix_path: &Path,
     file_paths: Vec<PathBuf>,
 ) -> miette::Result<Vec<(OsString, <PathBuf as FileIdType>::MinimalMetadata)>> {
     let mut directory_set: HashSet<OsString> = HashSet::new();
@@ -76,9 +76,7 @@ pub fn get_immediate_children(
     ];
     // For all descending files …
     for file_path in file_paths {
-        let stripped_file_path = file_path
-            .strip_prefix(prefix_path.clone())
-            .into_diagnostic()?;
+        let stripped_file_path = file_path.strip_prefix(prefix_path).into_diagnostic()?;
         let number_of_components = stripped_file_path.components().count();
         if let Some(first_component) = stripped_file_path.components().next() {
             // Check if this file is a direct child of the prefix path
@@ -141,7 +139,7 @@ impl OkuFs {
                                         )
                                         .await?;
                                     let parent_immediate_children = get_immediate_children(
-                                        parsed_parent_path.clone(),
+                                        &parsed_parent_path,
                                         parent_children,
                                     )?;
                                     if parent_immediate_children
@@ -347,8 +345,7 @@ impl OkuFs {
                 let total_files = self
                     .list_files(&namespace_id, &Some(replica_path))
                     .await
-                    .map(|x| x.len())
-                    .unwrap_or(0);
+                    .map_or(0, |x| x.len());
                 Ok(StatFs {
                     total_files: total_files as u64,
                     block_size: 512,

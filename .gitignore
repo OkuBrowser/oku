@@ -134,3 +134,5 @@ test/
 test_mount/
 .oku_old
 oku_tempfile_*
+oku/Cargo.lock
+oku-core/Cargo.lock

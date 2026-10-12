@@ -1,7 +1,7 @@
 use crate::fs::util::{path_to_entry_key, path_to_entry_prefix};
-use iroh_docs::store::FilterKind;
 use iroh_docs::Author;
 use iroh_docs::DocTicket;
+use iroh_docs::store::FilterKind;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -17,6 +17,7 @@ pub struct ExportedUser {
 /// # Returns
 ///
 /// The download filters specifying the only content allowed to be downloaded from a home replica.
+
 pub fn home_replica_filters() -> Vec<FilterKind> {
     let profile_filter = FilterKind::Exact(path_to_entry_key(&"/profile.toml".into()));
     let posts_filter = FilterKind::Prefix(path_to_entry_prefix(&"/posts/".into()));

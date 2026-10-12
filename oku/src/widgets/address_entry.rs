@@ -18,7 +18,11 @@ use std::sync::LazyLock;
 use webkit2gtk::functions::uri_for_display;
 
 pub mod imp {
-    use super::*;
+    use super::{
+        EntryImpl, LazyLock, ObjectImpl, ObjectSubclass, ParamSpec, ParamSpecBuilderExt,
+        ParamSpecString, PropertySet, RefCell, SignalHandlerId, ToValue, Value, WidgetImpl, glib,
+        uri_for_display,
+    };
 
     #[derive(Debug, Default)]
     pub struct AddressEntry {
@@ -157,7 +161,7 @@ impl AddressEntry {
 
         this.property_expression("text")
             .chain_closure::<pango::AttrList>(closure!(|_: Option<glib::Object>, x: String| {
-                uri_attributes(x)
+                uri_attributes(&x)
             }))
             .bind(&this, "attributes", gtk::Widget::NONE);
         // this.property_expression("uri")
@@ -191,7 +195,7 @@ impl AddressEntry {
 
     pub fn disconnect_click_handler(&self) {
         if let Some(id) = self.imp().clicked_handler_id.take() {
-            self.disconnect(id)
+            self.disconnect(id);
         }
     }
 

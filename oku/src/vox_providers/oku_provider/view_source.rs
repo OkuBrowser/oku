@@ -5,13 +5,13 @@ use vox::provider::VoxProvider;
 impl OkuProvider {
     pub fn view_source(&self, html: String, uri: String) -> miette::Result<String> {
         let file_id = Uuid::now_v7();
-        let file_path = format!("{}.vox", file_id);
+        let file_path = format!("{file_id}.vox");
         let mut table = toml::Table::new();
         table.insert("layout".into(), "view_source".into());
-        table.insert("permalink".into(), format!("{}.html", file_id).into());
+        table.insert("permalink".into(), format!("{file_id}.html").into());
         table.insert("title".into(), uri.into());
         self.0
-            .write_file(file_path.clone(), format!("---\n{}\n---\n{}", table, html))?;
-        self.render_and_get(format!("output/{}.html", file_id))
+            .write_file(file_path.clone(), format!("---\n{table}\n---\n{html}"))?;
+        self.render_and_get(format!("output/{file_id}.html"))
     }
 }

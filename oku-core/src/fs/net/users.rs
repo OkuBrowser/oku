@@ -1,4 +1,4 @@
-use super::core::{home_replica_filters, ExportedUser};
+use super::core::{ExportedUser, home_replica_filters};
 use crate::{
     config::OkuFsConfig,
     database::{
@@ -7,17 +7,17 @@ use crate::{
         users::{OkuIdentity, OkuUser},
     },
     fs::{
-        watch::{OkuNetPostEvent, ReplicaEvent},
         OkuFs,
+        watch::{OkuNetPostEvent, ReplicaEvent},
     },
 };
 use futures::StreamExt;
 use iroh_blobs::Hash;
-use iroh_docs::sync::CapabilityKind;
 use iroh_docs::AuthorId;
 use iroh_docs::DocTicket;
 use iroh_docs::NamespaceId;
-use iroh_docs::{api::protocol::ShareMode, Author, NamespaceSecret};
+use iroh_docs::sync::CapabilityKind;
+use iroh_docs::{Author, NamespaceSecret, api::protocol::ShareMode};
 use log::{debug, error};
 use miette::IntoDiagnostic;
 use rayon::iter::{
@@ -115,7 +115,11 @@ impl OkuFs {
         if let Some(home_replica_ticket) = &exported_user.home_replica_ticket {
             let ticket_home_replica_id = home_replica_ticket.capability.id();
             if ticket_home_replica_id != home_replica_id {
-                error!("Importing user ending without home replica sync, as the home replica ID in the ticket ({}) is invalid (should be {}).", crate::fs::util::fmt(ticket_home_replica_id), crate::fs::util::fmt(home_replica_id));
+                error!(
+                    "Importing user ending without home replica sync, as the home replica ID in the ticket ({}) is invalid (should be {}).",
+                    crate::fs::util::fmt(ticket_home_replica_id),
+                    crate::fs::util::fmt(home_replica_id)
+                );
                 return Ok(());
             }
         }
@@ -124,7 +128,7 @@ impl OkuFs {
                 .fetch_replica_by_ticket(home_replica_ticket, &None, &None)
                 .await
             {
-                Ok(_) => (),
+                Ok(()) => (),
                 Err(_e) => self
                     .fetch_replica_by_id(&home_replica_id, &None)
                     .await
@@ -226,15 +230,13 @@ impl OkuFs {
         let default_author_id = self.default_author_id().await;
         let author_id = author_id
             .as_ref()
-            .map(|x| x.to_bytes())
-            .unwrap_or(default_author_id.to_bytes());
+            .map_or(default_author_id.to_bytes(), iroh_docs::AuthorId::to_bytes);
 
         let home_replica = NamespaceId::from(author_id);
         let home_replica_capability = self.get_replica_capability(&home_replica).await.ok();
         let home_replica_exists = match home_replica_capability {
             Some(CapabilityKind::Write) => Some(home_replica),
-            Some(CapabilityKind::Read) => None,
-            None => None,
+            Some(CapabilityKind::Read) | None => None,
         };
         if home_replica_exists.is_none() {
             debug!("Home replica does not exist; creating … ");
@@ -245,11 +247,11 @@ impl OkuFs {
         home_replica
     }
 
-    /// Retrieves the OkuNet identity of the local user.
+    /// Retrieves the `OkuNet` identity of the local user.
     ///
     /// # Returns
     ///
-    /// The local user's OkuNet identity, if they have one.
+    /// The local user's `OkuNet` identity, if they have one.
     pub async fn identity(&self) -> Option<OkuIdentity> {
         let profile_bytes = self
             .read_file(
@@ -263,11 +265,11 @@ impl OkuFs {
         toml::from_str(String::from_utf8_lossy(&profile_bytes).as_ref()).ok()
     }
 
-    /// Replaces the current OkuNet identity of the local user.
+    /// Replaces the current `OkuNet` identity of the local user.
     ///
     /// # Arguments
     ///
-    /// * `identity` - The new OkuNet identity.
+    /// * `identity` - The new `OkuNet` identity.
     ///
     /// # Returns
     ///
@@ -305,7 +307,7 @@ impl OkuFs {
     /// # Returns
     ///
     /// # The hash of the new identity file in the local user's home replica, if it didn't already exist.
-    pub async fn set_display_name(&self, display_name: &String) -> miette::Result<Option<Hash>> {
+    pub async fn set_display_name(&self, display_name: &str) -> miette::Result<Option<Hash>> {
         let mut identity = self.identity().await.unwrap_or_default();
         identity.name = display_name.to_string();
         self.set_identity(&identity).await
@@ -322,9 +324,10 @@ impl OkuFs {
     /// The hash of the new identity file in the local user's home replica, if it didn't already exist.
     pub async fn toggle_follow(&self, author_id: &AuthorId) -> miette::Result<Option<Hash>> {
         let mut identity = self.identity().await.unwrap_or_default();
-        match identity.following.contains(author_id) {
-            true => identity.following.remove(author_id),
-            false => identity.following.insert(*author_id),
+        if identity.following.contains(author_id) {
+            identity.following.remove(author_id)
+        } else {
+            identity.following.insert(*author_id)
         };
         self.set_identity(&identity).await
     }
@@ -340,12 +343,9 @@ impl OkuFs {
     /// The hash of the new identity file in the local user's home replica, if it didn't already exist.
     pub async fn follow(&self, author_id: &AuthorId) -> miette::Result<Option<Hash>> {
         let mut identity = self.identity().await.unwrap_or_default();
-        match identity.following.contains(author_id) {
-            true => (),
-            false => {
-                identity.following.insert(*author_id);
-            }
-        };
+        if !identity.following.contains(author_id) {
+            identity.following.insert(*author_id);
+        }
         self.set_identity(&identity).await
     }
 
@@ -362,7 +362,7 @@ impl OkuFs {
         let mut identity = self.identity().await.unwrap_or_default();
         if identity.following.contains(author_id) {
             identity.following.remove(author_id);
-        };
+        }
         self.set_identity(&identity).await
     }
 
@@ -377,9 +377,10 @@ impl OkuFs {
     /// The hash of the new identity file in the local user's home replica, if it didn't already exist.
     pub async fn toggle_block(&self, author_id: &AuthorId) -> miette::Result<Option<Hash>> {
         let mut identity = self.identity().await.unwrap_or_default();
-        match identity.blocked.contains(author_id) {
-            true => identity.blocked.remove(author_id),
-            false => identity.blocked.insert(*author_id),
+        if identity.blocked.contains(author_id) {
+            identity.blocked.remove(author_id)
+        } else {
+            identity.blocked.insert(*author_id)
         };
         self.set_identity(&identity).await
     }
@@ -395,12 +396,9 @@ impl OkuFs {
     /// The hash of the new identity file in the local user's home replica, if it didn't already exist.
     pub async fn block(&self, author_id: &AuthorId) -> miette::Result<Option<Hash>> {
         let mut identity = self.identity().await.unwrap_or_default();
-        match identity.blocked.contains(author_id) {
-            true => (),
-            false => {
-                identity.blocked.insert(*author_id);
-            }
-        };
+        if !identity.blocked.contains(author_id) {
+            identity.blocked.insert(*author_id);
+        }
         self.set_identity(&identity).await
     }
 
@@ -417,7 +415,7 @@ impl OkuFs {
         let mut identity = self.identity().await.unwrap_or_default();
         if identity.blocked.contains(author_id) {
             identity.blocked.remove(author_id);
-        };
+        }
         self.set_identity(&identity).await
     }
 
@@ -433,8 +431,7 @@ impl OkuFs {
     pub async fn is_followed(&self, author_id: &AuthorId) -> bool {
         self.identity()
             .await
-            .map(|x| x.following.contains(author_id))
-            .unwrap_or(false)
+            .is_some_and(|x| x.following.contains(author_id))
     }
 
     /// Check if a user is blocked.
@@ -449,8 +446,7 @@ impl OkuFs {
     pub async fn is_blocked(&self, author_id: &AuthorId) -> bool {
         self.identity()
             .await
-            .map(|x| x.blocked.contains(author_id))
-            .unwrap_or(false)
+            .is_some_and(|x| x.blocked.contains(author_id))
     }
 
     /// Check whether or not an author ID is the local user's.
@@ -496,12 +492,12 @@ impl OkuFs {
         // In case a user is somehow followed and blocked (additional checks should already prevent this)
         let users_to_add: HashSet<_> = followed_users
             .difference(&blocked_users)
-            .map(|x| x.to_owned())
+            .map(std::borrow::ToOwned::to_owned)
             .collect();
         let local_users: HashSet<_> = DATABASE.all_local_users().into_par_iter().collect();
         let users_to_delete: HashSet<_> = local_users
             .difference(&users_to_add)
-            .map(|x| x.to_owned())
+            .map(std::borrow::ToOwned::to_owned)
             .collect();
 
         for user_id in users_to_add {
@@ -531,12 +527,12 @@ impl OkuFs {
         // In case a user is somehow followed and blocked (additional checks should already prevent this)
         let users_to_add: HashSet<_> = followed_users
             .difference(&blocked_users)
-            .map(|x| x.to_owned())
+            .map(std::borrow::ToOwned::to_owned)
             .collect();
         let local_users: HashSet<_> = DATABASE.all_local_users().into_par_iter().collect();
         let users_to_delete: HashSet<_> = local_users
             .difference(&users_to_add)
-            .map(|x| x.to_owned())
+            .map(std::borrow::ToOwned::to_owned)
             .collect();
 
         for user_id in users_to_add {
@@ -572,7 +568,7 @@ impl OkuFs {
         ticket
     }
 
-    /// Join a swarm to fetch the latest version of a home replica and obtain the OkuNet identity within it.
+    /// Join a swarm to fetch the latest version of a home replica and obtain the `OkuNet` identity within it.
     ///
     /// # Arguments
     ///
@@ -580,7 +576,7 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// The OkuNet identity within the home replica of the user with the given content authorship ID.
+    /// The `OkuNet` identity within the home replica of the user with the given content authorship ID.
     pub async fn fetch_profile(&self, ticket: &DocTicket) -> miette::Result<OkuIdentity> {
         let identity = match self
             .fetch_file_with_ticket(
@@ -602,7 +598,7 @@ impl OkuFs {
         identity
     }
 
-    /// Join a swarm to fetch the latest version of a home replica and obtain the OkuNet posts within it.
+    /// Join a swarm to fetch the latest version of a home replica and obtain the `OkuNet` posts within it.
     ///
     /// # Arguments
     ///
@@ -610,7 +606,7 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// The OkuNet posts within the home replica of the user with the given content authorship ID.
+    /// The `OkuNet` posts within the home replica of the user with the given content authorship ID.
     pub async fn fetch_posts(&self, ticket: &DocTicket) -> miette::Result<Vec<OkuPost>> {
         let posts = match self
             .fetch_directory_with_ticket(
@@ -635,7 +631,7 @@ impl OkuFs {
                     let post = OkuPost { entry, note };
                     self.okunet_post_sender
                         .send_replace(OkuNetPostEvent::Synced(post.clone()));
-                    posts.push(post)
+                    posts.push(post);
                 }
                 Ok(posts)
             }
@@ -645,7 +641,7 @@ impl OkuFs {
         posts
     }
 
-    /// Obtain an OkuNet user's content, identified by their content authorship ID.
+    /// Obtain an `OkuNet` user's content, identified by their content authorship ID.
     ///
     /// If last retrieved longer than [`crate::config::OkuFsConfig::get_republish_delay`] ago according to the system time, a known user's content will be re-fetched.
     ///
@@ -655,7 +651,7 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// An OkuNet user's content.
+    /// An `OkuNet` user's content.
     pub async fn get_or_fetch_user(&self, author_id: &AuthorId) -> miette::Result<OkuUser> {
         cfg_select! {
             feature = "persistent" => {
@@ -668,20 +664,21 @@ impl OkuFs {
         let republish_delay = config.get_republish_delay();
         match DATABASE.get_user(author_id).ok().flatten() {
             Some(user) => {
-                match SystemTime::now()
+                if SystemTime::now()
                     .duration_since(user.last_fetched)
                     .into_diagnostic()?
                     > republish_delay
                 {
-                    true => self.fetch_user(author_id).await,
-                    false => Ok(user),
+                    self.fetch_user(author_id).await
+                } else {
+                    Ok(user)
                 }
             }
             None => self.fetch_user(author_id).await,
         }
     }
 
-    /// Fetch the latest version of an OkuNet user's content, identified by their content authorship ID.
+    /// Fetch the latest version of an `OkuNet` user's content, identified by their content authorship ID.
     ///
     /// # Arguments
     ///
@@ -689,7 +686,7 @@ impl OkuFs {
     ///
     /// # Returns
     ///
-    /// The latest version of an OkuNet user's content.
+    /// The latest version of an `OkuNet` user's content.
     pub async fn fetch_user(&self, author_id: &AuthorId) -> miette::Result<OkuUser> {
         self.okunet_fetch_sender.send_replace(true);
         let ticket = self

@@ -15,7 +15,7 @@ impl OkuNetProvider {
         // Posts
         let mut posts = Vec::from_par_iter(node.all_posts().await);
         posts.par_sort_unstable_by_key(|x| Reverse(x.entry.timestamp()));
-        for post in posts.iter() {
+        for post in &posts {
             self.create_post_page(&post.user(), post, Some("posts".into()))
                 .await?;
         }

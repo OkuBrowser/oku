@@ -21,7 +21,7 @@ pub struct Resource(pub webkit2gtk::WebResource);
 unsafe impl Send for Resource {}
 unsafe impl Sync for Resource {}
 impl Resource {
-    pub async fn data(&self) -> SendFuture<Result<Vec<u8>, glib::Error>> {
+    pub fn data(&self) -> SendFuture<Result<Vec<u8>, glib::Error>> {
         SendFuture(Box::pin(self.0.data_future()))
     }
 }
@@ -40,7 +40,7 @@ pub async fn view_source_scheme_handler(
             .main_resource()
             .ok_or(miette::miette!("No resource loaded to view source of … "))?,
     );
-    let data = glib::spawn_future(resource.data().await)
+    let data = glib::spawn_future(resource.data())
         .await
         .map_err(|e| miette::miette!("{}", e))?
         .map_err(|e| miette::miette!("{}", e))?;

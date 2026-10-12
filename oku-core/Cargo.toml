@@ -28,22 +28,22 @@ required-features = ["cli"]
 bytes = "1.12.1"
 clap = { version = "4.6.7", features = ["derive"], optional = true }
 futures = "0.3.34"
-iroh = { version = "1.2.0", features = [
+iroh = { version = "1.3.0", features = [
     "default"
 ] }
 iroh-docs = { version = "0.101.0", features = ["default"] }
-iroh-base = "1.2.0"
-iroh-blobs = { version = "0.103.0", features = ["fs-store"] }
+iroh-base = "1.3.0"
+iroh-blobs = { version = "0.103.1", features = ["fs-store"] }
 iroh-gossip = "0.101.0"
-iroh-mainline-address-lookup = "0.5.0"
-iroh-mdns-address-lookup = "0.5.0"
+iroh-mainline-address-lookup = "0.6.0"
+iroh-mdns-address-lookup = "0.6.0"
 iroh-tickets = "1.0.0"
-libc = { version = "0.2.189", optional = true }
-mainline = { version = "8.0.0", features = ["async"] }
+libc = { version = "0.2.190", optional = true }
+mainline = { version = "8.0.1", features = ["async"] }
 miette = { version = "7.6.0", features = ["fancy"] }
 path-clean = "1.0.1"
 thiserror = "2.0.21"
-tokio = { version = "1.53.1", features = ["signal"] }
+tokio = { version = "1.53.2", features = ["signal"] }
 env_logger = { version = "0.11.11", optional = true }
 log = "0.4.34"
 bs58 = "0.5.1"
@@ -63,10 +63,10 @@ tantivy = "0.26.2"
 # ] }
 data-encoding = "2.11.1"
 hex = "0.4.3"
-jiff = { version = "0.2.37", optional = true }
+jiff = { version = "0.2.38", optional = true }
 dashmap = { version = "6.2.1", features = ["inline", "rayon", "serde"] }
 # tree_magic_mini = { version = "3.2.2", features = ["with-gpl-data"] }
-serde_json = "1.0.151"
+serde_json = "1.0.154"
 # easy_fuser = { git = "https://github.com/Alogani/easy_fuser", rev = "2be710342ee27c1058b4be9b5e00ab09929c9e02", features = ["async"], optional = true }
 # easy_fuser = { path = "/home/emil/Documents/GitHub/easy_fuser", features = ["async"], optional = true }
 easy_fuser = { git = "https://github.com/emmyoh/easy_fuser", features = ["async"], optional = true }

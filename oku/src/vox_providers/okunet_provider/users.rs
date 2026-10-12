@@ -28,27 +28,24 @@ impl OkuNetProvider {
                     "id".into(),
                     oku_core::fs::util::fmt(followed_user_information.author_id).into(),
                 );
-                match followed_user_information.identity {
-                    Some(discovered_identity) => {
-                        followed_user_table.insert("name".into(), discovered_identity.name.into());
-                        followed_user_table.insert(
-                            "following".into(),
-                            discovered_identity
-                                .following
-                                .into_iter()
-                                .map(oku_core::fs::util::fmt)
-                                .collect::<Vec<_>>()
-                                .into(),
-                        );
-                    }
-                    None => {
-                        followed_user_table.insert(
-                            "name".into(),
-                            oku_core::fs::util::fmt(followed_user_information.author_id).into(),
-                        );
-                        followed_user_table.insert("following".into(), Vec::<String>::new().into());
-                    }
-                };
+                if let Some(discovered_identity) = followed_user_information.identity {
+                    followed_user_table.insert("name".into(), discovered_identity.name.into());
+                    followed_user_table.insert(
+                        "following".into(),
+                        discovered_identity
+                            .following
+                            .into_iter()
+                            .map(oku_core::fs::util::fmt)
+                            .collect::<Vec<_>>()
+                            .into(),
+                    );
+                } else {
+                    followed_user_table.insert(
+                        "name".into(),
+                        oku_core::fs::util::fmt(followed_user_information.author_id).into(),
+                    );
+                    followed_user_table.insert("following".into(), Vec::<String>::new().into());
+                }
                 following.push(followed_user_table);
             }
         }
@@ -72,13 +69,13 @@ impl OkuNetProvider {
             node.is_blocked(&user.author_id).await.into(),
         );
         table.insert("is_me".into(), node.is_me(&user.author_id).await.into());
-        if !posts.is_empty() {
+        if posts.is_empty() {
+            table.insert("empty".into(), Vec::<String>::new().into());
+        } else {
             table.insert(
                 "depends".into(),
                 vec![oku_core::fs::util::fmt(user.author_id)].into(),
             );
-        } else {
-            table.insert("empty".into(), Vec::<String>::new().into());
         }
         table.insert("following".into(), following.into());
         Ok(table)
@@ -93,23 +90,22 @@ impl OkuNetProvider {
                 .get_posts_by_author(&user.author_id)
                 .unwrap_or_default(),
         );
-        for post in user_posts.iter() {
+        for post in &user_posts {
             self.create_post_page(user, post, None).await?;
         }
         let page_path = format!("{}.vox", oku_core::fs::util::fmt(user.author_id));
-        let include_argument = if !user_posts.is_empty() {
-            oku_core::fs::util::fmt(user.author_id)
-        } else {
+        let include_argument = if user_posts.is_empty() {
             "empty".into()
+        } else {
+            oku_core::fs::util::fmt(user.author_id)
         };
         let table = self.get_user_frontmatter(user, user_posts).await?;
         let page_contents = format!(
             "---
-{}
+{table}
 ---
-{{% include profile.voxs posts = {} %}}
-",
-            table, include_argument
+{{% include profile.voxs posts = {include_argument} %}}
+"
         );
         self.0.write_file(page_path, page_contents)?;
         Ok(())

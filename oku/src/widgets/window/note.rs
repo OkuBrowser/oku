@@ -1,4 +1,4 @@
-use super::*;
+use super::Window;
 use crate::widgets;
 use glib::clone;
 use gtk::glib;

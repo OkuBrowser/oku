@@ -17,9 +17,10 @@ impl OkuNetProvider {
         let node = NODE
             .get()
             .ok_or(miette::miette!("No running Oku node … "))?;
-        let author = match node.is_me(&post.entry.author()).await {
-            true => "me".to_string(),
-            false => oku_core::fs::util::fmt(post.entry.author()),
+        let author = if node.is_me(&post.entry.author()).await {
+            "me".to_string()
+        } else {
+            oku_core::fs::util::fmt(post.entry.author())
         };
         let key_path = entry_key_to_path(post.entry.key())?;
         let relative_key_path = key_path.strip_prefix("/").into_diagnostic()?;
@@ -37,7 +38,7 @@ impl OkuNetProvider {
             bs58::encode(post_id_bytes.concat()).into_string()
         };
         match tag {
-            Some(tag) => format!("{}/{}.vox", tag, post_id),
+            Some(tag) => format!("{tag}/{post_id}.vox"),
             None => format!(
                 "{}/{}.vox",
                 oku_core::fs::util::fmt(post.entry.author()),

@@ -29,7 +29,10 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 pub mod imp {
-    use super::*;
+    use super::{
+        BoxImpl, Cell, ObjectImpl, ObjectImplExt, ObjectSubclass, ObjectSubclassExt, Rc, RefCell,
+        WidgetClassExt, WidgetExt, WidgetImpl, gio, glib,
+    };
 
     #[derive(Debug, Default)]
     pub struct Net {
@@ -109,12 +112,12 @@ impl Net {
                 info!("Posts updated … ");
                 let this = self.clone();
                 match post_rx.changed().await {
-                    Ok(_) => {
+                    Ok(()) => {
                         let event = post_rx.borrow_and_update().clone();
-                        tokio::spawn(async move { this.posts_updated(&event).await });
+                        tokio::spawn(async move { this.posts_updated(&event) });
                     }
                     Err(e) => {
-                        error!("{}", e);
+                        error!("{e}");
                         break;
                     }
                 }
@@ -136,10 +139,8 @@ impl Net {
         })
     }
 
-    pub async fn posts_updated(&self, event: &OkuNetPostEvent) {
-        if let Some(home_page) =
-            get_view_stack_page_by_name("home".to_string(), &self.imp().view_stack)
-        {
+    pub fn posts_updated(&self, event: &OkuNetPostEvent) {
+        if let Some(home_page) = get_view_stack_page_by_name("home", &self.imp().view_stack) {
             home_page.child().set_sensitive(false);
         }
 
@@ -158,14 +159,11 @@ impl Net {
             );
         });
 
-        if let Some(home_page) =
-            get_view_stack_page_by_name("home".to_string(), &self.imp().view_stack)
-        {
+        if let Some(home_page) = get_view_stack_page_by_name("home", &self.imp().view_stack) {
             if matches!(get_view_stack_page_by_name(
-                self.imp().view_stack
+                &self.imp().view_stack
                     .visible_child_name()
-                    .unwrap_or_default()
-                    .to_string(),
+                    .unwrap_or_default(),
                     &self.imp().view_stack,
             ), Some(x) if x == home_page)
             {
@@ -286,10 +284,7 @@ impl Net {
         imp.view_stack
             .connect_visible_child_notify(clone!(move |view_stack| {
                 if let Some(visible_page) = get_view_stack_page_by_name(
-                    view_stack
-                        .visible_child_name()
-                        .unwrap_or_default()
-                        .to_string(),
+                    &view_stack.visible_child_name().unwrap_or_default(),
                     view_stack,
                 ) {
                     visible_page.set_needs_attention(false);

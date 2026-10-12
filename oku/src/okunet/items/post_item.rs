@@ -19,7 +19,11 @@ use std::sync::LazyLock;
 use webkit2gtk::functions::uri_for_display;
 
 pub mod imp {
-    use super::*;
+    use super::{
+        LazyLock, ObjectImpl, ObjectSubclass, ObjectSubclassExt, ParamSpec, ParamSpecBoxed,
+        ParamSpecBuilderExt, ParamSpecString, ParamSpecUInt64, PropertySet, RefCell, ToValue,
+        Value, uri_for_display,
+    };
 
     #[derive(Default, Debug)]
     pub struct PostItem {
@@ -106,7 +110,7 @@ pub mod imp {
         fn property(&self, _id: usize, pspec: &ParamSpec) -> Value {
             let obj = self.obj();
             match pspec.name() {
-                "url" => obj.url().to_string().to_value(),
+                "url" => obj.url().clone().to_value(),
                 "title" => obj.title().to_value(),
                 "body" => obj.body().to_value(),
                 "tags" => obj.tags().to_value(),
@@ -153,21 +157,27 @@ impl PostItem {
     pub fn url(&self) -> String {
         self.imp().url.borrow().to_string()
     }
+
     pub fn title(&self) -> String {
         self.imp().title.borrow().to_string()
     }
+
     pub fn body(&self) -> String {
         self.imp().body.borrow().to_string()
     }
+
     pub fn tags(&self) -> Vec<String> {
         self.imp().tags.borrow().to_owned()
     }
+
     pub fn author_id(&self) -> String {
         self.imp().author_id.borrow().to_string()
     }
+
     pub fn author_name(&self) -> Option<String> {
         self.imp().author_name.borrow().to_owned()
     }
+
     pub fn timestamp(&self) -> u64 {
         *self.imp().timestamp.borrow()
     }

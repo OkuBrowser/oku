@@ -1,11 +1,11 @@
-use super::core::*;
+use super::core::OkuDatabase;
 use super::posts::core::OkuPost;
-use iroh_docs::sync::Entry;
 use iroh_docs::AuthorId;
+use iroh_docs::sync::Entry;
 use log::error;
 use miette::IntoDiagnostic;
-use native_db::*;
-use native_model::{native_model, Model};
+use native_db::{ToKey, native_db};
+use native_model::{Model, native_model};
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
@@ -20,11 +20,11 @@ use std::{collections::HashSet, time::SystemTime};
 pub struct OkuUser {
     /// The content authorship identifier associated with the Oku user.
     pub author_id: AuthorId,
-    /// The system time of when this user's content was last retrieved from OkuNet.
+    /// The system time of when this user's content was last retrieved from `OkuNet`.
     pub last_fetched: SystemTime,
-    /// The posts made by this user on OkuNet.
+    /// The posts made by this user on `OkuNet`.
     pub posts: Vec<Entry>,
-    /// The OkuNet identity of the user.
+    /// The `OkuNet` identity of the user.
     pub identity: Option<OkuIdentity>,
 }
 
@@ -47,24 +47,24 @@ impl OkuUser {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
-/// An OkuNet identity for an Oku user.
+/// An `OkuNet` identity for an Oku user.
 pub struct OkuIdentity {
     /// The display name of the Oku user.
     pub name: String,
     /// The content authors followed by the Oku user.
-    /// OkuNet content is retrieved from followed users and the users those users follow.
+    /// `OkuNet` content is retrieved from followed users and the users those users follow.
     pub following: HashSet<AuthorId>,
     /// The content authors blocked by the Oku user.
-    /// Blocked authors are ignored when fetching new OkuNet posts.
+    /// Blocked authors are ignored when fetching new `OkuNet` posts.
     pub blocked: HashSet<AuthorId>,
 }
 
 impl OkuDatabase {
-    /// Insert or update an OkuNet user.
+    /// Insert or update an `OkuNet` user.
     ///
     /// # Arguments
     ///
-    /// * `user` - An OkuNet user to upsert.
+    /// * `user` - An `OkuNet` user to upsert.
     ///
     /// # Returns
     ///
@@ -76,11 +76,11 @@ impl OkuDatabase {
         Ok(old_value)
     }
 
-    /// Delete an OkuNet user.
+    /// Delete an `OkuNet` user.
     ///
     /// # Arguments
     ///
-    /// * `user` - An OkuNet user to delete.
+    /// * `user` - An `OkuNet` user to delete.
     ///
     /// # Returns
     ///
@@ -92,11 +92,11 @@ impl OkuDatabase {
         Ok(removed_user)
     }
 
-    /// Delete multiple OkuNet users.
+    /// Delete multiple `OkuNet` users.
     ///
     /// # Arguments
     ///
-    /// * `users` - A list of OkuNet users to delete.
+    /// * `users` - A list of `OkuNet` users to delete.
     ///
     /// # Returns
     ///
@@ -111,11 +111,11 @@ impl OkuDatabase {
         Ok(removed_users)
     }
 
-    /// Delete multiple OkuNet users and their posts.
+    /// Delete multiple `OkuNet` users and their posts.
     ///
     /// # Arguments
     ///
-    /// * `users` - A list of OkuNet users to delete.
+    /// * `users` - A list of `OkuNet` users to delete.
     ///
     /// # Returns
     ///
@@ -132,7 +132,7 @@ impl OkuDatabase {
             .concat())
     }
 
-    /// Deletes OkuNet users by their author IDs and posts by authors with those IDs.
+    /// Deletes `OkuNet` users by their author IDs and posts by authors with those IDs.
     ///
     /// Differs from [`Self::delete_users_with_posts`] as a post will still be deleted even if a record for the authoring user is not found.
     ///
@@ -150,10 +150,10 @@ impl OkuDatabase {
             .flatten()
             .collect();
         if let Err(e) = self.delete_users(&users) {
-            error!("{}", e);
+            error!("{e}");
         }
         if let Err(e) = self.delete_posts(&posts) {
-            error!("{}", e);
+            error!("{e}");
         }
         Ok(())
     }
@@ -180,15 +180,15 @@ impl OkuDatabase {
             .collect();
         user_records
             .union(&post_record_users)
-            .map(|x| x.to_owned())
+            .map(std::borrow::ToOwned::to_owned)
             .collect()
     }
 
-    /// Gets the OkuNet content of all known users.
+    /// Gets the `OkuNet` content of all known users.
     ///
     /// # Returns
     ///
-    /// The OkuNet content of all users known to this node.
+    /// The `OkuNet` content of all users known to this node.
     pub fn get_users(&self) -> miette::Result<Vec<OkuUser>> {
         let r = self.database.r_transaction().into_diagnostic()?;
         r.scan()
@@ -200,7 +200,7 @@ impl OkuDatabase {
             .into_diagnostic()
     }
 
-    /// Gets an OkuNet user's content by their content authorship ID.
+    /// Gets an `OkuNet` user's content by their content authorship ID.
     ///
     /// # Arguments
     ///
@@ -208,7 +208,7 @@ impl OkuDatabase {
     ///
     /// # Returns
     ///
-    /// An OkuNet user's content.
+    /// An `OkuNet` user's content.
     pub fn get_user(&self, author_id: &AuthorId) -> miette::Result<Option<OkuUser>> {
         let r = self.database.r_transaction().into_diagnostic()?;
         r.get()

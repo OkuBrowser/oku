@@ -1,4 +1,4 @@
-use super::*;
+use super::{NewTabArguments, NewWebTabArguments, Window};
 use crate::database::policy::PolicySettingRecord;
 use crate::database::{DATABASE, HistoryRecord};
 use crate::scheme_handlers::view_source::Resource;
@@ -58,10 +58,10 @@ impl Window {
                 "Allow locking the pointer?",
                 "This page is requesting permission to lock your pointer.",
             )
-        } else if permission_request.is::<webkit2gtk::UserMediaPermissionRequest>() {
-            let user_media_permission_request = permission_request
-                .downcast_ref::<webkit2gtk::UserMediaPermissionRequest>()
-                .unwrap();
+        } else if permission_request.is::<webkit2gtk::UserMediaPermissionRequest>()
+            && let Some(user_media_permission_request) =
+                permission_request.downcast_ref::<webkit2gtk::UserMediaPermissionRequest>()
+        {
             if user_media_permission_is_for_audio_device(user_media_permission_request) {
                 (
                     "Allow access to audio devices?",
@@ -122,17 +122,18 @@ impl Window {
     ///
     /// * `nav_entry` - The navigation bar of the browser
     ///
-    /// * `web_view` - The WebKit instance for the current tab
+    /// * `web_view` - The `WebKit` instance for the current tab
     pub fn update_load_progress(&self, web_view: &webkit2gtk::WebView) {
         let load_progress = web_view.estimated_load_progress();
+        #[allow(clippy::cast_possible_truncation)]
         if load_progress as i64 == 1 {
-            self.set_progress_animated(0.00)
+            self.set_progress_animated(0.00);
         } else {
-            self.set_progress_animated(load_progress)
+            self.set_progress_animated(load_progress);
         }
     }
 
-    /// Get the WebKit instance for the current tab
+    /// Get the `WebKit` instance for the current tab
     pub fn get_view(&self) -> miette::Result<webkit2gtk::WebView> {
         let imp = self.imp();
 
@@ -160,7 +161,7 @@ impl Window {
                 .main_resource()
                 .ok_or(miette::miette!("No resource loaded to view source of … "))?,
         );
-        glib::spawn_future(resource.data().await)
+        glib::spawn_future(resource.data())
             .await
             .map_err(|e| miette::miette!("{}", e))?
             .map_err(|e| miette::miette!("{}", e))
@@ -176,23 +177,22 @@ impl Window {
             })
             .flatten()
             .flatten();
-        match from_view {
-            Some(favicon_database) => Some(favicon_database),
-            // If there's no running `WebView`, we're going to need to start a `NetworkSession`, create a `WebsiteDataManager`, enable favicons on it, and then grab the `FaviconDatabase` handle inside it that's been created.
-            None => {
-                let network_session = webkit2gtk::NetworkSession::default().unwrap_or(
-                    webkit2gtk::NetworkSession::new(DATA_DIR.to_str(), CACHE_DIR.to_str()),
-                );
-                let website_data_manager = network_session.website_data_manager();
-                if let Some(ref website_data_manager) = website_data_manager {
-                    website_data_manager.set_favicons_enabled(true);
-                }
-                website_data_manager.and_then(|x| x.favicon_database())
+        // If there's no running `WebView`, we're going to need to start a `NetworkSession`, create a `WebsiteDataManager`, enable favicons on it, and then grab the `FaviconDatabase` handle inside it that's been created.
+        if let Some(favicon_database) = from_view {
+            Some(favicon_database)
+        } else {
+            let network_session = webkit2gtk::NetworkSession::default().unwrap_or(
+                webkit2gtk::NetworkSession::new(DATA_DIR.to_str(), CACHE_DIR.to_str()),
+            );
+            let website_data_manager = network_session.website_data_manager();
+            if let Some(ref website_data_manager) = website_data_manager {
+                website_data_manager.set_favicons_enabled(true);
             }
+            website_data_manager.and_then(|x| x.favicon_database())
         }
     }
 
-    /// Create a new WebKit instance for the current tab
+    /// Create a new `WebKit` instance for the current tab
     ///
     /// # Arguments
     ///  
@@ -210,34 +210,36 @@ impl Window {
         } else {
             web_view_builder = web_view_builder
                 .web_context(web_context)
-                .network_session(&self.imp().network_session.borrow())
-        };
+                .network_session(&self.imp().network_session.borrow());
+        }
         let web_view = web_view_builder.build();
         web_view.set_vexpand(true);
-        let network_session = web_view.network_session().unwrap();
-        let data_manager = network_session.website_data_manager().unwrap();
-        let security_manager = web_context.security_manager().unwrap();
+        if let Some(network_session) = web_view.network_session() {
+            if let Some(data_manager) = network_session.website_data_manager() {
+                data_manager.set_favicons_enabled(true);
+            }
+            if let Some(security_manager) = web_context.security_manager() {
+                security_manager.register_uri_scheme_as_secure("ipfs");
+                security_manager.register_uri_scheme_as_secure("ipns");
+                security_manager.register_uri_scheme_as_secure("hive");
+                security_manager.register_uri_scheme_as_cors_enabled("ipfs");
+                security_manager.register_uri_scheme_as_cors_enabled("ipns");
+                security_manager.register_uri_scheme_as_cors_enabled("hive");
+                security_manager.register_uri_scheme_as_display_isolated("view-source");
+                security_manager.register_uri_scheme_as_no_access("view-source");
+                security_manager.register_uri_scheme_as_display_isolated("oku");
+            }
+        }
+
         let extensions_path = format!("{}/extensions/", DATA_DIR.to_string_lossy());
         let _ = std::fs::create_dir_all(&extensions_path);
-
-        data_manager.set_favicons_enabled(true);
-
-        security_manager.register_uri_scheme_as_secure("ipfs");
-        security_manager.register_uri_scheme_as_secure("ipns");
-        security_manager.register_uri_scheme_as_secure("hive");
-        security_manager.register_uri_scheme_as_cors_enabled("ipfs");
-        security_manager.register_uri_scheme_as_cors_enabled("ipns");
-        security_manager.register_uri_scheme_as_cors_enabled("hive");
-        security_manager.register_uri_scheme_as_display_isolated("view-source");
-        security_manager.register_uri_scheme_as_no_access("view-source");
-        security_manager.register_uri_scheme_as_display_isolated("oku");
 
         web_settings
             .set_user_agent_with_application_details(Some("Oku"), Some(&VERSION.to_string()));
         web_settings.set_enable_write_console_messages_to_stdout(true);
         web_context.set_web_process_extensions_directory(&extensions_path);
         if let Some(initial_request) = initial_request {
-            web_view.load_request(initial_request)
+            web_view.load_request(initial_request);
         } else {
             web_view.load_uri("oku:home");
         }
@@ -295,7 +297,7 @@ impl Window {
                     move |_find_controller, match_count| {
                         if match_count > 1 {
                             imp.total_matches_label
-                                .set_text(&format!("{} matches", match_count));
+                                .set_text(&format!("{match_count} matches"));
                         } else {
                             imp.total_matches_label.set_text("");
                         }
@@ -345,9 +347,8 @@ impl Window {
                     this,
                     #[upgrade_or_panic]
                     move |w, navigation_action| {
-                        let navigation_action = navigation_action.clone();
                         let new_related_view = this
-                            .new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                            .new_tab(Some(&NewTabArguments::Web(&NewWebTabArguments {
                                 web_context: &web_context,
                                 related_view: Some(w),
                                 initial_request: navigation_action.request().as_ref(),
@@ -364,19 +365,16 @@ impl Window {
                         #[weak]
                         imp,
                         move |_w, hit_test_result, _modifier| {
-                            match hit_test_result.link_uri() {
-                                Some(link_uri) => {
-                                    imp.url_status.set_text(
-                                        uri_for_display(link_uri.as_str())
-                                            .unwrap_or_default()
-                                            .as_str(),
-                                    );
-                                    imp.url_status_box.set_visible(true);
-                                }
-                                _ => {
-                                    imp.url_status.set_text("");
-                                    imp.url_status_box.set_visible(false);
-                                }
+                            if let Some(link_uri) = hit_test_result.link_uri() {
+                                imp.url_status.set_text(
+                                    uri_for_display(link_uri.as_str())
+                                        .unwrap_or_default()
+                                        .as_str(),
+                                );
+                                imp.url_status_box.set_visible(true);
+                            } else {
+                                imp.url_status.set_text("");
+                                imp.url_status_box.set_visible(false);
                             }
                         }
                     ))));
@@ -406,12 +404,12 @@ impl Window {
                 let title_notify = RefCell::new(Some(new_view.connect_title_notify(clone!(
                     #[weak(rename_to = tab_view)]
                     imp.tab_view,
-                    move |w| update_title(tab_view, w)
+                    move |w| update_title(&tab_view, w)
                 ))));
                 let favicon_notify = RefCell::new(Some(new_view.connect_favicon_notify(clone!(
                     #[weak(rename_to = tab_view)]
                     imp.tab_view,
-                    move |w| update_favicon(tab_view, w)
+                    move |w| update_favicon(&tab_view, w)
                 ))));
                 let load_changed = RefCell::new(Some(new_view.connect_load_changed(clone!(
                     #[weak(rename_to = tab_view)]
@@ -426,11 +424,12 @@ impl Window {
                     this,
                     move |w, load_event| {
                         let title = get_title(w);
-                        match imp.is_private.get() {
-                            true => this.set_title(Some(&format!("{} — Private", title))),
-                            false => this.set_title(Some(&title)),
+                        if imp.is_private.get() {
+                            this.set_title(Some(&format!("{title} — Private")));
+                        } else {
+                            this.set_title(Some(&title));
                         }
-                        update_favicon(tab_view, w);
+                        update_favicon(&tab_view, w);
                         if this.get_view().ok().as_ref() == Some(w) {
                             back_button.set_sensitive(w.can_go_back());
                             forward_button.set_sensitive(w.can_go_forward());
@@ -451,7 +450,7 @@ impl Window {
                                 timestamp: jiff::Timestamp::now(),
                             })
                         {
-                            error!("{}", e)
+                            error!("{e}");
                         }
                     }
                 ))));
@@ -521,7 +520,8 @@ impl Window {
                         this,
                         move |w| {
                             if this.get_view().ok().as_ref() == Some(w) {
-                                zoom_percentage.set_text(&format!("{:.0}%", w.zoom_level() * 100.0))
+                                zoom_percentage
+                                    .set_text(&format!("{:.0}%", w.zoom_level() * 100.0));
                             }
                         }
                     ))));
@@ -541,7 +541,7 @@ impl Window {
                             update_nav_bar(&nav_entry, w);
                             back_button.set_sensitive(w.can_go_back());
                             forward_button.set_sensitive(w.can_go_forward());
-                            this.update_color(&Some(w), &style_manager);
+                            this.update_color(Some(w), &style_manager);
                         }
                     }
                 ))));
@@ -559,10 +559,10 @@ impl Window {
                             if this.get_view().ok().as_ref() == Some(w) {
                                 this.update_load_progress(w);
                                 if current_page.is_loading() {
-                                    refresh_button.set_icon_name("cross-large-symbolic")
+                                    refresh_button.set_icon_name("cross-large-symbolic");
                                 } else {
                                     refresh_button
-                                        .set_icon_name("arrow-circular-top-right-symbolic")
+                                        .set_icon_name("arrow-circular-top-right-symbolic");
                                 }
                             }
                         }
@@ -584,10 +584,10 @@ impl Window {
                             if this.get_view().ok().as_ref() == Some(w) {
                                 if current_page.is_loading() {
                                     refresh_button.set_icon_name("cross-large-symbolic");
-                                    progress_bar.pulse()
+                                    progress_bar.pulse();
                                 } else {
                                     refresh_button
-                                        .set_icon_name("arrow-circular-top-right-symbolic")
+                                        .set_icon_name("arrow-circular-top-right-symbolic");
                                 }
                             }
                         }

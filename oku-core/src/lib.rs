@@ -1,3 +1,4 @@
+#![allow(unused_must_use, clippy::must_use_candidate)]
 #![doc = include_str!("../README.md")]
 // #![feature(doc_auto_cfg)]
 #![warn(missing_docs)]

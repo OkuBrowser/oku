@@ -23,7 +23,11 @@ use std::cell::RefCell;
 use std::sync::LazyLock;
 
 pub mod imp {
-    use super::*;
+    use super::{
+        LazyLock, ListBoxRowImpl, ObjectImpl, ObjectImplExt, ObjectSubclass, ObjectSubclassExt,
+        ParamSpec, ParamSpecBoxed, ParamSpecBuilderExt, ParamSpecString, ParamSpecUInt64, RefCell,
+        ToValue, Value, WidgetClassExt, WidgetExt, WidgetImpl, glib,
+    };
 
     #[derive(Debug, Default)]
     pub struct PostRow {
@@ -322,25 +326,27 @@ impl PostRow {
     pub fn url(&self) -> String {
         self.imp().url.borrow().to_string()
     }
+
     pub fn title(&self) -> String {
         self.imp().title.borrow().to_string()
     }
+
     pub fn body(&self) -> String {
         self.imp().body.borrow().to_string()
     }
+
     pub fn tags(&self) -> Vec<String> {
         self.imp().tags.borrow().to_owned()
     }
+
     pub fn author_id(&self) -> String {
         self.imp().author_id.borrow().to_string()
     }
+
     pub fn author_name(&self) -> Option<String> {
-        self.imp()
-            .author_name
-            .borrow()
-            .clone()
-            .map(|x| x.to_string())
+        self.imp().author_name.borrow().clone()
     }
+
     pub fn timestamp(&self) -> u64 {
         *self.imp().timestamp.borrow()
     }
@@ -374,7 +380,7 @@ impl PostRow {
             &imp.tags
                 .borrow()
                 .iter()
-                .map(|x| x.as_str())
+                .map(std::string::String::as_str)
                 .collect::<Vec<&str>>()[..],
         );
     }
@@ -387,7 +393,7 @@ impl PostRow {
         let imp = self.imp();
 
         imp.author_name
-            .replace(author_name.map(|x| x.to_string()).clone());
+            .replace(author_name.map(std::string::ToString::to_string).clone());
     }
     pub fn set_timestamp(&self, timestamp: &u64) {
         let imp = self.imp();

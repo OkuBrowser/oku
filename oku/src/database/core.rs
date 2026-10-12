@@ -1,8 +1,8 @@
-use super::*;
+use super::{BOOKMARK_INDEX_READER, Bookmark, HISTORY_RECORD_INDEX_READER, HistoryRecord};
 use crate::database::policy::PolicySettingRecord;
 use crate::{DATA_DIR, suggestion_item::SuggestionItem};
 use miette::IntoDiagnostic;
-use native_db::*;
+use native_db::{Database, Models};
 use oku_core::database::core::OkuDatabase;
 use std::{path::PathBuf, sync::LazyLock};
 use webkit2gtk::FaviconDatabase;

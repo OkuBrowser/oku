@@ -16,6 +16,7 @@ use std::path::PathBuf;
 /// # Returns
 ///
 /// The given path, prefixed with `/` if missing, and `.` & `..` components processed.
+
 pub fn normalise_path(path: &PathBuf) -> PathBuf {
     PathBuf::from("/").join(path).clean()
 }
@@ -29,6 +30,7 @@ pub fn normalise_path(path: &PathBuf) -> PathBuf {
 /// # Returns
 ///
 /// A null-terminated byte string representing the path.
+
 pub fn path_to_entry_key(path: &PathBuf) -> Bytes {
     let path = normalise_path(path);
     let mut path_bytes = path.into_os_string().into_encoded_bytes();
@@ -63,6 +65,7 @@ pub fn entry_key_to_path(key: &[u8]) -> miette::Result<PathBuf> {
 /// # Returns
 ///
 /// A byte string representing the path, without a null byte at the end.
+
 pub fn path_to_entry_prefix(path: &PathBuf) -> Bytes {
     let path = normalise_path(path);
     let path_bytes = path.into_os_string().into_encoded_bytes();
@@ -149,6 +152,7 @@ pub fn parse_array_hex_or_base32<const LEN: usize>(input: &str) -> miette::Resul
 /// # Returns
 ///
 /// `None` if no tickets were given, or a ticket with a merged capability and merged list of nodes.
+
 pub fn merge_tickets(tickets: &Vec<DocTicket>) -> Option<DocTicket> {
     let ticket_parts: Vec<_> = tickets
         .par_iter()

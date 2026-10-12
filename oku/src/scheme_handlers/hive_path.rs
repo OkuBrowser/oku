@@ -21,8 +21,7 @@ impl HivePath {
         let second_component = url_components.get(1);
         let replica_path = second_component
             .and_then(|_x| path.as_ref().strip_prefix(first_component.clone()).ok())
-            .map(|x| PathBuf::from("/").join(x))
-            .unwrap_or("/".into());
+            .map_or("/".into(), |x| PathBuf::from("/").join(x));
         match DocTicket::from_str(&first_component.to_string_lossy()) {
             Ok(ticket) => Ok(Self::ByTicket(Box::new(ticket), replica_path)),
             _ => {

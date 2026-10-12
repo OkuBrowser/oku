@@ -1,3 +1,4 @@
+#![allow(unused_must_use, clippy::must_use_candidate)]
 // #![feature(doc_cfg)]
 #![allow(clippy::needless_doctest_main)]
 #![doc(
@@ -69,7 +70,7 @@ static REPLICAS_MOUNTED: LazyLock<Arc<AtomicBool>> =
 pub const APP_ID: &str = "io.github.OkuBrowser.oku";
 
 pub const DEFAULT_STYLESHEET: &str = "listview.view { background-color: rgba(0, 0, 0, 0); }
-row.activatable { background-color: rgba(0, 0, 0, 0); };";
+row.activatable { background-color: rgba(0, 0, 0, 0); }";
 
 async fn create_web_context() -> (WebContext, Option<FuseSession<PathBuf>>, Ipfs) {
     debug!("Creating Oku client … ");
@@ -92,7 +93,7 @@ async fn create_web_context() -> (WebContext, Option<FuseSession<PathBuf>>, Ipfs
                     ipfs.clone(),
                     SchemeRequest(request.clone()),
                     RequestScheme::Oku,
-                )
+                );
             }
         ),
     );
@@ -106,7 +107,7 @@ async fn create_web_context() -> (WebContext, Option<FuseSession<PathBuf>>, Ipfs
                     ipfs.clone(),
                     SchemeRequest(request.clone()),
                     RequestScheme::Hive,
-                )
+                );
             }
         ),
     );
@@ -120,7 +121,7 @@ async fn create_web_context() -> (WebContext, Option<FuseSession<PathBuf>>, Ipfs
                     ipfs.clone(),
                     SchemeRequest(request.clone()),
                     RequestScheme::Ipns,
-                )
+                );
             }
         ),
     );
@@ -134,7 +135,7 @@ async fn create_web_context() -> (WebContext, Option<FuseSession<PathBuf>>, Ipfs
                     ipfs.clone(),
                     SchemeRequest(request.clone()),
                     RequestScheme::Ipfs,
-                )
+                );
             }
         ),
     );
@@ -148,7 +149,7 @@ async fn create_web_context() -> (WebContext, Option<FuseSession<PathBuf>>, Ipfs
                     ipfs.clone(),
                     SchemeRequest(request.clone()),
                     RequestScheme::ViewSource,
-                )
+                );
             }
         ),
     );
@@ -175,7 +176,7 @@ async fn create_ipfs_client() -> Ipfs {
         .add_listening_addr(
             "/ip4/0.0.0.0/tcp/0"
                 .parse()
-                .unwrap_or(Ipv4Addr::new(0, 0, 0, 0).into()),
+                .unwrap_or(Ipv4Addr::UNSPECIFIED.into()),
         )
         .with_mdns()
         .with_relay(true)
@@ -203,7 +204,7 @@ async fn create_ipfs_client() -> Ipfs {
 async fn main() {
     match gio::Resource::load("resources.gresource") {
         Ok(res) => gio::resources_register(&res),
-        Err(e) => error!("Failed to load resource bundle: {}", e),
+        Err(e) => error!("Failed to load resource bundle: {e}"),
     }
 
     let mut builder = Builder::new();
@@ -264,13 +265,13 @@ async fn main() {
         {
             let file = gio::File::for_uri(&initial_uri);
             application.open(&[file], "false,false");
-        };
+        }
         if let Some(initial_uri) = dict.lookup::<String>("new-private-window").unwrap_or(None)
             && application.register(Some(&gio::Cancellable::new())).is_ok()
         {
             let file = gio::File::for_uri(&initial_uri);
             application.open(&[file], "true,false");
-        };
+        }
         std::ops::ControlFlow::Continue(())
     }));
     application.connect_open(clone!(
@@ -285,11 +286,11 @@ async fn main() {
                 gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
             );
             let (is_private_str, no_arguments_str) =
-                hint.split_once(",").unwrap_or(("false", "true"));
+                hint.split_once(',').unwrap_or(("false", "true"));
             let is_private = is_private_str.parse().unwrap_or(false);
             let no_arguments = no_arguments_str.parse().unwrap_or(false);
-            let new_window = match no_arguments {
-                true => match application.windows().last() {
+            let new_window = if no_arguments {
+                match application.windows().last() {
                     Some(window) => window.clone().downcast().unwrap(),
                     None => crate::widgets::window::Window::new(
                         application,
@@ -297,23 +298,24 @@ async fn main() {
                         &web_context,
                         is_private,
                     ),
-                },
-                false => crate::widgets::window::Window::new(
+                }
+            } else {
+                crate::widgets::window::Window::new(
                     application,
                     &style_provider,
                     &web_context,
                     is_private,
-                ),
+                )
             };
             let mut files = files.to_vec();
-            files.sort_unstable_by_key(|x| x.uri());
+            files.sort_unstable_by_key(gio::prelude::FileExt::uri);
             files.dedup_by_key(|x| x.uri());
             for (file_index, file) in files.iter().enumerate() {
                 let new_view = if file_index == 0 {
                     new_window.get_or_create_view()
                 } else {
                     new_window
-                        .new_tab(&Some(&NewTabArguments::Web(&NewWebTabArguments {
+                        .new_tab(Some(&NewTabArguments::Web(&NewWebTabArguments {
                             web_context: &web_context,
                             related_view: None,
                             initial_request: None,

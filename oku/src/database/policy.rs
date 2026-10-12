@@ -11,7 +11,7 @@ use glib::subclass::types::ObjectSubclass;
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::value::ToValue;
 use miette::IntoDiagnostic;
-use native_db::*;
+use native_db::{ToKey, native_db, transaction};
 use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -104,7 +104,7 @@ impl PolicySettingRecord {
                 PolicyDecision::Allow => permission_request.allow(),
                 PolicyDecision::Deny => permission_request.deny(),
             }
-        };
+        }
     }
 }
 
@@ -132,7 +132,11 @@ impl From<&PolicySetting> for PolicySettingRecord {
 }
 
 pub mod imp {
-    use super::*;
+    use super::{
+        Deserialize, LazyLock, ObjectImpl, ObjectSubclass, ParamSpec, ParamSpecBuilderExt,
+        ParamSpecEnum, ParamSpecString, PolicyDecision, PolicySettingRecord, PropertySet, RefCell,
+        Serialize, ToValue, Value, uri_for_display,
+    };
     #[derive(Serialize, Deserialize, Default, PartialEq, Debug)]
     pub struct PolicySetting {
         pub uri: RefCell<String>,

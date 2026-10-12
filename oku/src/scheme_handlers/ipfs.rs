@@ -61,7 +61,7 @@ pub async fn cat_unixfs(
     let mut bytes_vec: Vec<u8> = vec![];
     pin_mut!(ipfs_stream);
     while let Some(bytes_result) = ipfs_stream.next().await {
-        bytes_vec.extend(bytes_result.into_diagnostic()?)
+        bytes_vec.extend(bytes_result.into_diagnostic()?);
     }
     Ok(bytes_vec)
 }

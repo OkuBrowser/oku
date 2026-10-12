@@ -1,4 +1,4 @@
-use super::*;
+use super::{Arc, DebugIgnore, DefaultFuseHandler, Mutex, NODE_PATH, OkuFs, ReplicaEvent};
 use crate::{
     config::OkuFsConfig,
     error::OkuFsError,
@@ -8,7 +8,7 @@ use bytes::Bytes;
 use iroh::protocol::ProtocolHandler;
 #[cfg(feature = "persistent")]
 use iroh_blobs::store::fs::FsStore;
-use iroh_blobs::{api::Store, store::mem::MemStore, BlobsProtocol};
+use iroh_blobs::{BlobsProtocol, api::Store, store::mem::MemStore};
 use iroh_docs::NamespaceId;
 use iroh_gossip::Gossip;
 use log::{error, info, trace};
@@ -56,10 +56,7 @@ impl OkuFs {
 
         cfg_select! {
             feature = "persistent" => {
-                let store: Store = match persistent {
-                    true => Store::from(FsStore::load(NODE_PATH.clone()).await?),
-                    false => MemStore::new().into(),
-                };
+                let store: Store = if persistent { Store::from(FsStore::load(NODE_PATH.clone()).await?) } else { MemStore::new().into() };
             }
             _ => {
                 let store: Store = MemStore::new().into();
@@ -71,17 +68,14 @@ impl OkuFs {
         let gossip = Gossip::builder().spawn(endpoint.clone());
         cfg_select! {
             feature = "persistent" => {
-                let docs = match persistent {
-                    true => {
-                        iroh_docs::protocol::Docs::persistent(NODE_PATH.clone())
-                            .spawn(endpoint.clone(), store, gossip.clone())
-                            .await?
-                    }
-                    false => {
-                        iroh_docs::protocol::Docs::memory()
-                            .spawn(endpoint.clone(), store, gossip.clone())
-                            .await?
-                    }
+                let docs = if persistent {
+                    iroh_docs::protocol::Docs::persistent(NODE_PATH.clone())
+                        .spawn(endpoint.clone(), store, gossip.clone())
+                        .await?
+                } else {
+                    iroh_docs::protocol::Docs::memory()
+                        .spawn(endpoint.clone(), store, gossip.clone())
+                        .await?
                 };
             }
             _ => {
@@ -126,7 +120,7 @@ impl OkuFs {
                 }
                 let inner = async |(namespace_id, path): (NamespaceId, PathBuf), v: Arc<Mutex<NamedTempFile>>, cause: RemovalCause| -> miette::Result<iroh_blobs::Hash> {
                     let namespace_id_str = crate::fs::util::fmt(namespace_id);
-                    trace!("Comitting cached file (replica: {namespace_id_str}, path: {path:?}), with cause: {cause:?}");
+                    trace!("Comitting cached file (replica: {namespace_id_str}, path: {}), with cause: {cause:?}", path.display());
 
                     let file_key = path_to_entry_key(&path);
                     let v = Arc::clone(&v);
@@ -135,7 +129,7 @@ impl OkuFs {
                         .open(namespace_id)
                         .await
                         .map_err(|e| {
-                            error!("{}", e);
+                            error!("{e}");
                             OkuFsError::CannotOpenReplica
                         })?
                         .ok_or(OkuFsError::FsEntryNotFound)?;
@@ -144,16 +138,16 @@ impl OkuFs {
                     let bytes_written = import_file_outcome.size;
                     let data_len = tempfile.as_file().metadata().into_diagnostic()?.len();
                     if bytes_written != data_len {
-                        error!("[File cache commit closure] likely data loss when writing data to file (bytes written: {bytes_written}, bytes intended: {data_len})")
+                        error!("[File cache commit closure] likely data loss when writing data to file (bytes written: {bytes_written}, bytes intended: {data_len})");
                     }
 
-                    info!("Committed cached file (replica: {namespace_id_str}, path: {path:?}): {import_file_outcome:?}");
+                    info!("Committed cached file (replica: {namespace_id_str}, path: {}): {import_file_outcome:?}", path.display());
 
                     Ok(import_file_outcome.hash)
                 };
                 if let Err(e) = inner((namespace_id, path.clone()), v, cause).await {
                     let namespace_id_str = crate::fs::util::fmt(namespace_id);
-                    error!("Unable to commit cached file (replica: {namespace_id_str}, path: {path:?}): {e}");
+                    error!("Unable to commit cached file (replica: {namespace_id_str}, path: {}): {e}", path.display());
                 }
             }
             .boxed()
@@ -193,10 +187,7 @@ impl OkuFs {
         let oku_core_clone = oku_core.clone();
         cfg_select! {
             feature = "persistent" => {
-                let config = match persistent {
-                    true => OkuFsConfig::load_or_create_config().unwrap_or_default(),
-                    false => OkuFsConfig::default(),
-                };
+                let config = if persistent { OkuFsConfig::load_or_create_config().unwrap_or_default() } else { OkuFsConfig::default() };
             }
             _ => {
                 let config = OkuFsConfig::default();
@@ -209,12 +200,12 @@ impl OkuFs {
             tokio::time::sleep(initial_publish_delay).await;
             loop {
                 match oku_core_clone.announce_replicas().await {
-                    Ok(_) => info!("Announced all replicas … "),
-                    Err(e) => error!("{}", e),
+                    Ok(()) => info!("Announced all replicas … "),
+                    Err(e) => error!("{e}"),
                 }
                 match oku_core_clone.refresh_users().await {
-                    Ok(_) => info!("Refreshed OkuNet database … "),
-                    Err(e) => error!("{}", e),
+                    Ok(()) => info!("Refreshed OkuNet database … "),
+                    Err(e) => error!("{e}"),
                 }
                 tokio::time::sleep(republish_delay).await;
             }
@@ -278,50 +269,47 @@ impl OkuFs {
         seek: &Option<SeekFrom>,
         len: &Option<u64>,
     ) -> anyhow::Result<Bytes> {
-        match (seek, len) {
-            (None, None) => self
-                .blobs
+        if let (None, None) = (seek, len) {
+            self.blobs
                 .blobs()
                 .get_bytes(*hash)
                 .await
-                .map_err(|e| anyhow::anyhow!(e)),
-            _ => {
-                let mut reader = self.blobs.blobs().reader(*hash);
-                if let Some(seek) = seek {
-                    reader.seek(*seek).await?;
+                .map_err(|e| anyhow::anyhow!(e))
+        } else {
+            let mut reader = self.blobs.blobs().reader(*hash);
+            if let Some(seek) = seek {
+                reader.seek(*seek).await?;
+            }
+
+            if let Some(len) = len {
+                // This was really annoying.
+                // `AsyncReadExt` doesn't guarantee that `read` (or equivalents) will actually fill up the buffer.
+                // This includes `read_buf`, for some reason!
+                // So, we need to make a new reader (`.take(u64)`) that prematurely hits EOF,
+                // and then use `read_to_end`, which repeatedly `read`s until EOF, to actually get
+                // the number of bytes we requested, and not less.
+                let mut buffer = Vec::new();
+                let mut handle = reader.take(*len);
+                let read_bytes = handle.read_to_end(&mut buffer).await?;
+                buffer.truncate(read_bytes); // Trying to be safe, so we don't somehow return too many bytes.
+
+                // Check for data loss
+                let buffer_size = buffer.len();
+                let mut length_set = HashSet::new();
+                length_set.insert(*len);
+                length_set.insert(read_bytes as u64);
+                length_set.insert(buffer_size as u64);
+                if length_set.len() != 1 {
+                    error!(
+                        "[content_bytes_by_hash] likely data loss when reading file (requested length: {len}, bytes read {read_bytes}, buffer size {buffer_size})"
+                    );
                 }
 
-                match len {
-                    Some(len) => {
-                        // This was really annoying.
-                        // `AsyncReadExt` doesn't guarantee that `read` (or equivalents) will actually fill up the buffer.
-                        // This includes `read_buf`, for some reason!
-                        // So, we need to make a new reader (`.take(u64)`) that prematurely hits EOF,
-                        // and then use `read_to_end`, which repeatedly `read`s until EOF, to actually get
-                        // the number of bytes we requested, and not less.
-                        let mut buffer = Vec::new();
-                        let mut handle = reader.take(*len);
-                        let read_bytes = handle.read_to_end(&mut buffer).await?;
-                        buffer.truncate(read_bytes); // Trying to be safe, so we don't somehow return too many bytes.
-
-                        // Check for data loss
-                        let buffer_size = buffer.len();
-                        let mut length_set = HashSet::new();
-                        length_set.insert(*len);
-                        length_set.insert(read_bytes as u64);
-                        length_set.insert(buffer_size as u64);
-                        if length_set.len() != 1 {
-                            error!("[content_bytes_by_hash] likely data loss when reading file (requested length: {len}, bytes read {read_bytes}, buffer size {buffer_size})");
-                        }
-
-                        Ok(buffer.into())
-                    }
-                    None => {
-                        let mut buffer = Vec::new();
-                        reader.read_to_end(&mut buffer).await?;
-                        Ok(buffer.into())
-                    }
-                }
+                Ok(buffer.into())
+            } else {
+                let mut buffer = Vec::new();
+                reader.read_to_end(&mut buffer).await?;
+                Ok(buffer.into())
             }
         }
     }
