@@ -1,9 +1,14 @@
+#[cfg(feature = "browser")]
 use crate::widgets::address_entry::AddressEntry;
 use glib::object::{Cast, IsA};
-use gtk::{prelude::EditableExt, prelude::WidgetExt};
+#[cfg(feature = "browser")]
+use gtk::prelude::EditableExt;
+use gtk::prelude::WidgetExt;
+#[cfg(feature = "browser")]
 use log::error;
 use oku_core::iroh_docs::DocTicket;
 use std::{path::PathBuf, str::FromStr};
+#[cfg(feature = "browser")]
 use webkit2gtk::{functions::uri_for_display, prelude::WebViewExt};
 
 /// Connect to a page using the current tab
@@ -13,6 +18,7 @@ use webkit2gtk::{functions::uri_for_display, prelude::WebViewExt};
 /// * `nav_entry` - The navigation bar of the browser
 ///
 /// * `web_view` - The `WebKit` instance for the current tab
+#[cfg(feature = "browser")]
 pub fn connect(nav_entry: &impl IsA<gtk::Editable>, web_view: &webkit2gtk::WebView) {
     let nav_text = nav_entry.text().to_string();
     let mut parsed_url = url::Url::parse(&nav_text);
@@ -76,6 +82,7 @@ pub fn is_ipfs_uri(nav_text: &str) -> bool {
 /// * `nav_entry` - The navigation bar of the browser
 ///
 /// * `web_view` - The `WebKit` instance for the current tab
+#[cfg(feature = "browser")]
 pub fn update_nav_bar(nav_entry: &AddressEntry, web_view: &webkit2gtk::WebView) {
     let mut url = web_view.uri().unwrap_or_default().to_string();
     if url.starts_with("oku:home") || url.starts_with("about:") || url.starts_with("view-source:") {
@@ -89,7 +96,7 @@ pub fn update_nav_bar(nav_entry: &AddressEntry, web_view: &webkit2gtk::WebView) 
 }
 
 /// Provide the default configuration for Oku's `WebView`
-
+#[cfg(feature = "browser")]
 pub fn new_webkit_settings() -> webkit2gtk::Settings {
     let settings = webkit2gtk::Settings::new();
     settings.set_javascript_can_open_windows_automatically(true);
@@ -135,6 +142,7 @@ pub fn new_webkit_settings() -> webkit2gtk::Settings {
 /// # Arguments
 ///
 /// * `page` - The `TabPage` containing the the `WebKit` instance
+#[cfg(feature = "browser")]
 pub fn get_view_from_page(
     page: &libadwaita::TabPage,
 ) -> miette::Result<(gtk::Overlay, webkit2gtk::WebView)> {
@@ -174,6 +182,7 @@ pub fn get_view_stack_page_by_name(
 /// * `tab_view` - The tabs of the current browser window
 ///
 /// * `web_view` - The `WebKit` instance for the tab
+#[cfg(feature = "browser")]
 pub fn update_favicon(tab_view: &libadwaita::TabView, web_view: &webkit2gtk::WebView) {
     let relevant_page = tab_view.page(web_view.parent().as_ref().unwrap());
     let web_favicon = &web_view.favicon();
@@ -187,6 +196,7 @@ pub fn update_favicon(tab_view: &libadwaita::TabView, web_view: &webkit2gtk::Web
     }
 }
 
+#[cfg(feature = "browser")]
 pub fn get_title(web_view: &webkit2gtk::WebView) -> String {
     let uri = web_view.uri().unwrap_or("about:blank".into());
     match web_view.title() {
@@ -218,6 +228,7 @@ pub fn get_title(web_view: &webkit2gtk::WebView) -> String {
 /// * `tab_view` - The tabs of the current browser window
 ///
 /// * `web_view` - The `WebKit` instance for the tab
+#[cfg(feature = "browser")]
 pub fn update_title(tab_view: &libadwaita::TabView, web_view: &webkit2gtk::WebView) {
     if let Some(web_view_parent) = web_view.parent().as_ref() {
         let relevant_page = tab_view.page(web_view_parent);
@@ -226,6 +237,7 @@ pub fn update_title(tab_view: &libadwaita::TabView, web_view: &webkit2gtk::WebVi
     }
 }
 
+#[cfg(feature = "browser")]
 pub fn uri_attributes(x: &str) -> pango::AttrList {
     let attributes = pango::AttrList::new();
     if let Some(authority_start) = x.find("://") {

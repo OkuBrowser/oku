@@ -1,39 +1,53 @@
 use super::Window;
 use crate::{DEFAULT_STYLESHEET, config::enums::Palette};
 use gtk::subclass::prelude::*;
+#[cfg(feature = "browser")]
 use std::hash::{Hash, Hasher};
+#[cfg(feature = "browser")]
 use webkit2gtk::prelude::WebViewExt;
 
 impl Window {
     pub fn update_color(
         &self,
-        web_view: Option<&webkit2gtk::WebView>,
+        #[cfg(feature = "browser")] web_view: Option<&webkit2gtk::WebView>,
         style_manager: &libadwaita::StyleManager,
     ) {
         let imp = self.imp();
 
         let config = imp.config.imp();
-        if !config.colour_per_domain() {
-            imp.style_provider
-                .borrow()
-                .load_from_string(DEFAULT_STYLESHEET);
-            if config.palette() != Palette::None {
-                self.update_from_palette(web_view, style_manager, &config.palette());
-            } else if let Some(web_view) = web_view {
-                web_view.set_background_color(if style_manager.is_dark() {
-                    &gdk::RGBA::BLACK
-                } else {
-                    &gdk::RGBA::WHITE
-                });
+        cfg_select! {
+            feature = "browser" => {
+                if !config.colour_per_domain() {
+                    imp.style_provider
+                        .borrow()
+                        .load_from_string(DEFAULT_STYLESHEET);
+                    if config.palette() != Palette::None {
+                        self.update_from_palette(web_view, style_manager, &config.palette());
+                    } else if let Some(web_view) = web_view {
+                        web_view.set_background_color(if style_manager.is_dark() {
+                            &gdk::RGBA::BLACK
+                        } else {
+                            &gdk::RGBA::WHITE
+                        });
+                    }
+                } else if let Some(web_view) = web_view {
+                    self.update_domain_color(web_view, style_manager);
+                }
             }
-        } else if let Some(web_view) = web_view {
-            self.update_domain_color(web_view, style_manager);
+            _ => {
+                imp.style_provider
+                    .borrow()
+                    .load_from_string(DEFAULT_STYLESHEET);
+                if config.palette() != Palette::None {
+                    self.update_from_palette(style_manager, &config.palette());
+                }
+            }
         }
     }
 
     pub fn update_from_palette(
         &self,
-        web_view: Option<&webkit2gtk::WebView>,
+        #[cfg(feature = "browser")] web_view: Option<&webkit2gtk::WebView>,
         style_manager: &libadwaita::StyleManager,
         palette_colour: &Palette,
     ) {
@@ -80,18 +94,25 @@ impl Window {
                 "
             )
         };
-        let rgba = gdk::RGBA::parse(if is_dark {
-            format!("hsl({hue}, 20%, 8%)")
-        } else {
-            format!("hsl({hue}, 100%, 99%)")
-        })
-        .unwrap_or(if is_dark {
-            gdk::RGBA::BLACK
-        } else {
-            gdk::RGBA::WHITE
-        });
-        if let Some(web_view) = web_view {
-            web_view.set_background_color(&rgba);
+
+        cfg_select! {
+            feature = "browser" => {
+                let rgba = gdk::RGBA::parse(if is_dark {
+                    format!("hsl({hue}, 20%, 8%)")
+                } else {
+                    format!("hsl({hue}, 100%, 99%)")
+                })
+                .unwrap_or(if is_dark {
+                    gdk::RGBA::BLACK
+                } else {
+                    gdk::RGBA::WHITE
+                });
+
+                if let Some(web_view) = web_view {
+                    web_view.set_background_color(&rgba);
+                }
+            }
+            _ => ()
         }
 
         imp.style_provider
@@ -100,6 +121,7 @@ impl Window {
     }
 
     /// Adapted from Geopard (<https://github.com/ranfdev/Geopard>)
+    #[cfg(feature = "browser")]
     pub fn update_domain_color(
         &self,
         web_view: &webkit2gtk::WebView,

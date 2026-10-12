@@ -4,9 +4,14 @@ use glib::{clone, closure};
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
-use libadwaita::{ResponseAppearance, prelude::*};
+#[cfg(feature = "browser")]
+use libadwaita::ResponseAppearance;
+use libadwaita::prelude::*;
+#[cfg(feature = "browser")]
 use log::{error, info, warn};
+#[cfg(feature = "browser")]
 use webkit2gtk::WebContext;
+#[cfg(feature = "browser")]
 use webkit2gtk::prelude::WebViewExt;
 
 impl Window {
@@ -14,31 +19,56 @@ impl Window {
         let imp = self.imp();
 
         // Zoom out button
-        imp.zoomout_button.set_can_focus(true);
-        imp.zoomout_button.set_receives_default(true);
-        imp.zoomout_button.set_icon_name("zoom-out-symbolic");
-        imp.zoomout_button.add_css_class("linked");
+        cfg_select! {
+            feature = "browser" => {
+                imp.zoomout_button.set_can_focus(true);
+                imp.zoomout_button.set_receives_default(true);
+                imp.zoomout_button.set_icon_name("zoom-out-symbolic");
+                imp.zoomout_button.add_css_class("linked");
+            }
+            _ => ()
+        }
 
         // Zoom in button
-        imp.zoomin_button.set_can_focus(true);
-        imp.zoomin_button.set_receives_default(true);
-        imp.zoomin_button.set_icon_name("zoom-in-symbolic");
-        imp.zoomin_button.add_css_class("linked");
+        cfg_select! {
+            feature = "browser" => {
+                imp.zoomin_button.set_can_focus(true);
+                imp.zoomin_button.set_receives_default(true);
+                imp.zoomin_button.set_icon_name("zoom-in-symbolic");
+                imp.zoomin_button.add_css_class("linked");
+            }
+            _ => ()
+        }
 
         // Both zoom buttons
-        imp.zoom_buttons.append(&imp.zoomout_button);
-        imp.zoom_buttons.append(&imp.zoomin_button);
-        imp.zoom_buttons.add_css_class("linked");
+        cfg_select! {
+            feature = "browser" => {
+                imp.zoom_buttons.append(&imp.zoomout_button);
+                imp.zoom_buttons.append(&imp.zoomin_button);
+                imp.zoom_buttons.add_css_class("linked");
+            }
+            _ => ()
+        }
 
         // Zoom percentage label
-        imp.zoom_percentage.set_text("100%");
-        imp.zoom_percentage.set_margin_start(4);
-        imp.zoom_percentage.set_margin_end(4);
+        cfg_select! {
+            feature = "browser" => {
+                imp.zoom_percentage.set_text("100%");
+                imp.zoom_percentage.set_margin_start(4);
+                imp.zoom_percentage.set_margin_end(4);
+            }
+            _ => ()
+        }
 
         // Zoom reset button
-        imp.zoomreset_button.set_can_focus(true);
-        imp.zoomreset_button.set_receives_default(true);
-        imp.zoomreset_button.set_icon_name("zoom-original-symbolic");
+        cfg_select! {
+            feature = "browser" => {
+                imp.zoomreset_button.set_can_focus(true);
+                imp.zoomreset_button.set_receives_default(true);
+                imp.zoomreset_button.set_icon_name("zoom-original-symbolic");
+            }
+            _ => ()
+        }
 
         // Fullscreen button
         imp.fullscreen_button.set_can_focus(true);
@@ -47,15 +77,25 @@ impl Window {
             .set_icon_name("fullscreen-rectangular-symbolic");
 
         // Print button
-        imp.print_button.set_can_focus(true);
-        imp.print_button.set_receives_default(true);
-        imp.print_button.set_icon_name("printer-symbolic");
+        cfg_select! {
+            feature = "browser" => {
+                imp.print_button.set_can_focus(true);
+                imp.print_button.set_receives_default(true);
+                imp.print_button.set_icon_name("printer-symbolic");
+            }
+            _ => ()
+        }
 
         // Screenshot button
-        imp.screenshot_button.set_can_focus(true);
-        imp.screenshot_button.set_receives_default(true);
-        imp.screenshot_button
-            .set_icon_name("screenshot-recorded-symbolic");
+        cfg_select! {
+            feature = "browser" => {
+                imp.screenshot_button.set_can_focus(true);
+                imp.screenshot_button.set_receives_default(true);
+                imp.screenshot_button
+                    .set_icon_name("screenshot-recorded-symbolic");
+            }
+            _ => ()
+        }
 
         // New Window button
         imp.new_window_button.set_can_focus(true);
@@ -63,10 +103,15 @@ impl Window {
         imp.new_window_button.set_icon_name("window-new-symbolic");
 
         // New Private Window button
-        imp.new_private_window_button.set_can_focus(true);
-        imp.new_private_window_button.set_receives_default(true);
-        imp.new_private_window_button
-            .set_icon_name("screen-privacy7-symbolic");
+        cfg_select! {
+            feature = "browser" => {
+                imp.new_private_window_button.set_can_focus(true);
+                imp.new_private_window_button.set_receives_default(true);
+                imp.new_private_window_button
+                    .set_icon_name("screen-privacy7-symbolic");
+            }
+            _ => ()
+        }
 
         // Settings button
         imp.settings_button.set_can_focus(true);
@@ -86,13 +131,20 @@ impl Window {
 
         // Menu popover
         imp.menu_box.set_hexpand(true);
+        #[cfg(feature = "browser")]
         imp.menu_box.append(&imp.zoom_buttons);
+        #[cfg(feature = "browser")]
         imp.menu_box.append(&imp.zoom_percentage);
+        #[cfg(feature = "browser")]
         imp.menu_box.append(&imp.zoomreset_button);
+        #[cfg(feature = "browser")]
         imp.menu_box.append(&imp.fullscreen_button);
+        #[cfg(feature = "browser")]
         imp.menu_box.append(&imp.print_button);
+        #[cfg(feature = "browser")]
         imp.menu_box.append(&imp.screenshot_button);
         imp.menu_box.append(&imp.new_window_button);
+        #[cfg(feature = "browser")]
         imp.menu_box.append(&imp.new_private_window_button);
         imp.menu_box.append(&imp.shortcuts_button);
         imp.menu_box.append(&imp.settings_button);
@@ -104,6 +156,7 @@ impl Window {
         imp.menu_popover.set_autohide(true);
     }
 
+    #[cfg(feature = "browser")]
     pub fn setup_zoom_buttons_clicked(&self) {
         let imp = self.imp();
 
@@ -209,7 +262,8 @@ impl Window {
         ));
     }
 
-    pub fn setup_menu_buttons_clicked(&self, web_context: &WebContext) {
+    pub fn setup_menu_buttons_clicked(&self, #[cfg(feature = "browser")] web_context: &WebContext) {
+        #[cfg(feature = "browser")]
         self.setup_zoom_buttons_clicked();
         self.setup_fullscreen_button();
         let imp = self.imp();
@@ -230,6 +284,7 @@ impl Window {
         self.add_action_entries([action_fullscreen]);
 
         // Print button clicked
+        #[cfg(feature = "browser")]
         imp.print_button.connect_clicked(clone!(
             #[weak(rename_to = this)]
             self,
@@ -248,6 +303,7 @@ impl Window {
                 );
             }
         ));
+        #[cfg(feature = "browser")]
         let action_print = gio::ActionEntry::builder("print")
             .activate(clone!(move |window: &Self, _, _| {
                 if window.imp().tab_view.n_pages() == 0 {
@@ -267,9 +323,11 @@ impl Window {
                 );
             }))
             .build();
+        #[cfg(feature = "browser")]
         self.add_action_entries([action_print]);
 
         // Screenshot button clicked
+        #[cfg(feature = "browser")]
         imp.screenshot_button.connect_clicked(clone!(
             #[weak(rename_to = this)]
             self,
@@ -365,6 +423,7 @@ impl Window {
                 dialog.present(Some(&this));
             }
         ));
+        #[cfg(feature = "browser")]
         let action_screenshot = gio::ActionEntry::builder("screenshot")
             .activate(
                 |window: &Self, _, _| {
@@ -463,23 +522,42 @@ impl Window {
                 }
             )
             .build();
+        #[cfg(feature = "browser")]
         self.add_action_entries([action_screenshot]);
 
         // New Window button clicked
-        imp.new_window_button.connect_clicked(clone!(
-            #[weak(rename_to = this)]
-            self,
-            #[weak]
-            web_context,
-            move |_| {
-                self::Window::new(
-                    &this.application().unwrap().downcast().unwrap(),
-                    &this.imp().style_provider.borrow(),
-                    &web_context,
-                    false,
-                );
+        cfg_select! {
+            feature = "browser" => {
+                imp.new_window_button.connect_clicked(clone!(
+                    #[weak(rename_to = this)]
+                    self,
+                    #[weak]
+                    web_context,
+                    move |_| {
+                        self::Window::new(
+                            &this.application().unwrap().downcast().unwrap(),
+                            &this.imp().style_provider.borrow(),
+                            &web_context,
+                            false,
+                        );
+                    }
+                ));
             }
-        ));
+            _ => {
+                imp.new_window_button.connect_clicked(clone!(
+                    #[weak(rename_to = this)]
+                    self,
+                    move |_| {
+                        self::Window::new(
+                            &this.application().unwrap().downcast().unwrap(),
+                            &this.imp().style_provider.borrow(),
+                        );
+                    }
+                ));
+            }
+        }
+
+        #[cfg(feature = "browser")]
         let action_new = gio::ActionEntry::builder("new")
             .activate(clone!(
                 #[weak]
@@ -494,9 +572,11 @@ impl Window {
                 }
             ))
             .build();
+        #[cfg(feature = "browser")]
         self.add_action_entries([action_new]);
 
         // New Private Window button clicked
+        #[cfg(feature = "browser")]
         imp.new_private_window_button.connect_clicked(clone!(
             #[weak(rename_to = this)]
             self,
@@ -511,6 +591,7 @@ impl Window {
                 );
             }
         ));
+        #[cfg(feature = "browser")]
         let action_new_private = gio::ActionEntry::builder("new-private")
             .activate(clone!(
                 #[weak]
@@ -525,6 +606,7 @@ impl Window {
                 }
             ))
             .build();
+        #[cfg(feature = "browser")]
         self.add_action_entries([action_new_private]);
 
         // Settings button clicked
@@ -580,6 +662,7 @@ impl Window {
         self.add_action_entries([action_shortcuts]);
 
         // Tab dragged off to create new browser window
+        #[cfg(feature = "browser")]
         imp.tab_view.connect_create_window(clone!(
             #[weak(rename_to = this)]
             self,

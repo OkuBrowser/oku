@@ -23,14 +23,18 @@ glib::wrapper! {
 impl Default for Config {
     fn default() -> Self {
         let config = imp::Config::new();
-        glib::Object::builder::<Self>()
-            .property("colour-per-domain", config.colour_per_domain())
+        let builder = glib::Object::builder::<Self>()
             .property("colour-scheme", config.colour_scheme())
             .property("palette", config.palette())
             .property("width", config.width())
             .property("height", config.height())
             .property("is-maximised", config.is_maximised())
-            .property("is-fullscreen", config.is_fullscreen())
-            .build()
+            .property("is-fullscreen", config.is_fullscreen());
+        cfg_select! {
+            feature = "browser" => {
+                builder.property("colour-per-domain", config.colour_per_domain()).build()
+            }
+            _ => { builder.build() }
+        }
     }
 }

@@ -17,6 +17,7 @@ pub mod imp {
         pub(crate) colour_scheme_row: libadwaita::ComboRow,
         pub(crate) colour_scheme_selection: gtk::SingleSelection,
         pub(crate) colour_scheme_list: gtk::StringList,
+        #[cfg(feature = "browser")]
         pub(crate) domain_colour_row: libadwaita::SwitchRow,
         pub(crate) palette_row: libadwaita::ComboRow,
         pub(crate) palette_selection: gtk::SingleSelection,
@@ -56,7 +57,11 @@ pub fn apply_appearance_config(
     window: &crate::widgets::window::Window,
 ) {
     style_manager.set_color_scheme(window.imp().config.imp().colour_scheme().into());
-    window.update_color(window.get_view().as_ref().ok(), style_manager);
+    window.update_color(
+        #[cfg(feature = "browser")]
+        window.get_view().as_ref().ok(),
+        style_manager,
+    );
 }
 
 impl Settings {

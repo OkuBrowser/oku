@@ -59,7 +59,7 @@
                 "install -Dm755 fusermount-wrapper.sh /app/bin/fusermount3",
                 "./prebuild.sh",
                 "install -Dm0644 cargo/config .cargo/config.toml",
-                "cargo --frozen build --release --verbose",
+                "cargo --frozen build --release --verbose --features=\"browser\"",
                 "install -Dm755 ./target/release/oku -t /app/bin/",
                 "install -Dm755 ./resources.gresource -t /app/bin/",
                 "install -Dm644 ./oku/data/${FLATPAK_ID}.metainfo.xml -t /app/share/metainfo/",

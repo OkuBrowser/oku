@@ -6,36 +6,52 @@
     html_favicon_url = "https://github.com/OkuBrowser/oku/raw/master/branding/logo-filled.svg"
 )]
 #![recursion_limit = "256"] // Due to https://github.com/rust-lang/rust/issues/159228, to address overflow evaluating the requirement `<libp2p_core::upgrade::select::SelectUpgrade<SendWrapper<libp2p_core::upgrade::select::SelectUpgrade<SendWrapper<libp2p_core::upgrade::select::SelectUpgrade<SendWrapper<libp2p_core::upgrade::select::SelectUpgrade<SendWrapper<libp2p_core::upgrade::select::SelectUpgrade<SendWrapper<libp2p_core::upgrade::select::SelectUpgrade<_, _>>, _>>, _>>, _>>, _>>, _> as UpgradeInfoSend>::InfoIter == std::iter::Chain<std::iter::Map<std::iter::Chain<std::iter::Map<std::iter::Chain<std::iter::Map<std::iter::Chain<std::iter::Map<std::iter::Chain<std::iter::Map<std::iter::Chain<_, _>, _>, _>, _>, _>, _>, _>, _>, _>, _>, _>`
+#[cfg(feature = "browser")]
 pub mod bookmark_item;
 pub mod config;
+#[cfg(feature = "browser")]
 pub mod database;
+#[cfg(feature = "browser")]
 pub mod history_item;
 pub mod okunet;
 pub mod replica_item;
+#[cfg(feature = "browser")]
 pub mod scheme_handlers;
+#[cfg(feature = "browser")]
 pub mod suggestion_item;
+#[cfg(feature = "browser")]
 pub mod vox_providers;
 pub mod widgets;
 pub mod window_util;
+#[cfg(feature = "browser")]
 use crate::widgets::window::NewTabArguments;
+#[cfg(feature = "browser")]
 use crate::widgets::window::NewWebTabArguments;
+#[cfg(feature = "browser")]
 use database::DATABASE;
 use directories_next::ProjectDirs;
 use env_logger::Builder;
 use gio::prelude::*;
 use glib_macros::clone;
 use gtk::prelude::GtkApplicationExt;
+#[cfg(feature = "browser")]
 use ipfs::Ipfs;
+#[cfg(feature = "browser")]
 use ipfs::Keypair;
+#[cfg(feature = "browser")]
 use ipfs::builder::DefaultIpfsBuilder as UninitializedIpfs;
 use log::LevelFilter;
 use log::debug;
 use log::error;
 use oku_core::fs::OkuFs;
 use oku_core::fuse_prelude::FuseSession;
+#[cfg(feature = "browser")]
 use scheme_handlers::util::RequestScheme;
+#[cfg(feature = "browser")]
 use scheme_handlers::util::SchemeRequest;
+#[cfg(feature = "browser")]
 use scheme_handlers::util::handle_request;
+#[cfg(feature = "browser")]
 use std::net::Ipv4Addr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -44,8 +60,11 @@ use std::sync::OnceLock;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use tokio::runtime::Handle;
+#[cfg(feature = "browser")]
 use webkit2gtk::URISchemeRequest;
+#[cfg(feature = "browser")]
 use webkit2gtk::WebContext;
+#[cfg(feature = "browser")]
 use webkit2gtk::prelude::WebViewExt;
 
 /// The platform-specific directories intended for Oku's use
@@ -54,6 +73,7 @@ static PROJECT_DIRECTORIES: LazyLock<ProjectDirs> =
 /// The platform-specific directory where Oku stores user data
 static DATA_DIR: LazyLock<PathBuf> = LazyLock::new(|| PROJECT_DIRECTORIES.data_dir().to_path_buf());
 /// The platform-specific directory where Oku stores user data
+#[cfg(feature = "browser")]
 static CACHE_DIR: LazyLock<PathBuf> =
     LazyLock::new(|| PROJECT_DIRECTORIES.cache_dir().to_path_buf());
 /// The platform-specific directory where the Oku file system is mounted
@@ -72,12 +92,17 @@ pub const APP_ID: &str = "io.github.OkuBrowser.oku";
 pub const DEFAULT_STYLESHEET: &str = "listview.view { background-color: rgba(0, 0, 0, 0); }
 row.activatable { background-color: rgba(0, 0, 0, 0); }";
 
-async fn create_web_context() -> (WebContext, Option<FuseSession<PathBuf>>, Ipfs) {
+async fn setup_oku_client() -> Option<FuseSession<PathBuf>> {
     debug!("Creating Oku client … ");
     let (node, mount_handle) = create_oku_client().await;
     debug!("Oku client created");
     NODE.get_or_init(|| node.clone());
     REPLICAS_MOUNTED.store(mount_handle.is_some(), Ordering::Relaxed);
+    mount_handle
+}
+
+#[cfg(feature = "browser")]
+async fn create_web_context() -> (WebContext, Ipfs) {
     debug!("Creating IPFS client … ");
     let ipfs = create_ipfs_client().await;
     debug!("IPFS client created");
@@ -153,7 +178,7 @@ async fn create_web_context() -> (WebContext, Option<FuseSession<PathBuf>>, Ipfs
             }
         ),
     );
-    (web_context, mount_handle, ipfs)
+    (web_context, ipfs)
 }
 
 async fn create_oku_client() -> (OkuFs, Option<FuseSession<PathBuf>>) {
@@ -164,6 +189,7 @@ async fn create_oku_client() -> (OkuFs, Option<FuseSession<PathBuf>>) {
     (node_clone, node.mount(MOUNT_DIR.to_path_buf()).ok())
 }
 
+#[cfg(feature = "browser")]
 async fn create_ipfs_client() -> Ipfs {
     let keypair = Keypair::generate_ed25519();
 
@@ -237,9 +263,15 @@ async fn main() {
         None,
     );
 
-    debug!("Creating web context … ");
-    let (web_context, mount_handle, ipfs) = create_web_context().await;
-    debug!("Web context created");
+    let mount_handle = setup_oku_client().await;
+    cfg_select! {
+        feature = "browser" => {
+            debug!("Creating web context … ");
+            let (web_context, ipfs) = create_web_context().await;
+            debug!("Web context created");
+        }
+        _ => ()
+    }
     application.connect_activate(clone!(move |application| {
         let ctx = glib::MainContext::default();
         ctx.spawn_local(clone!(
@@ -274,61 +306,79 @@ async fn main() {
         }
         std::ops::ControlFlow::Continue(())
     }));
-    application.connect_open(clone!(
-        #[weak]
-        web_context,
-        move |application, files, hint| {
-            application.activate();
-            let style_provider = gtk::CssProvider::default();
-            gtk::style_context_add_provider_for_display(
-                &gdk::Display::default().unwrap(),
-                &style_provider,
-                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-            );
-            let (is_private_str, no_arguments_str) =
-                hint.split_once(',').unwrap_or(("false", "true"));
-            let is_private = is_private_str.parse().unwrap_or(false);
-            let no_arguments = no_arguments_str.parse().unwrap_or(false);
-            let new_window = if no_arguments {
-                match application.windows().last() {
-                    Some(window) => window.clone().downcast().unwrap(),
-                    None => crate::widgets::window::Window::new(
-                        application,
+    cfg_select! {
+        feature = "browser" => {
+            application.connect_open(clone!(
+                #[weak]
+                web_context,
+                move |application, files, hint| {
+                    application.activate();
+                    let style_provider = gtk::CssProvider::default();
+                    gtk::style_context_add_provider_for_display(
+                        &gdk::Display::default().unwrap(),
                         &style_provider,
-                        &web_context,
-                        is_private,
-                    ),
+                        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+                    );
+                    let (is_private_str, no_arguments_str) =
+                        hint.split_once(',').unwrap_or(("false", "true"));
+                    let is_private = is_private_str.parse().unwrap_or(false);
+                    let no_arguments = no_arguments_str.parse().unwrap_or(false);
+                    let new_window = if no_arguments {
+                        match application.windows().last() {
+                            Some(window) => window.clone().downcast().unwrap(),
+                            None => crate::widgets::window::Window::new(
+                                application,
+                                &style_provider,
+                                &web_context,
+                                is_private,
+                            ),
+                        }
+                    } else {
+                        crate::widgets::window::Window::new(
+                            application,
+                            &style_provider,
+                            &web_context,
+                            is_private,
+                        )
+                    };
+                    let mut files = files.to_vec();
+                    files.sort_unstable_by_key(gio::prelude::FileExt::uri);
+                    files.dedup_by_key(|x| x.uri());
+                    for (file_index, file) in files.iter().enumerate() {
+                        let new_view = if file_index == 0 {
+                            new_window.get_or_create_view()
+                        } else {
+                            new_window
+                                .new_tab(Some(&NewTabArguments::Web(&NewWebTabArguments {
+                                    web_context: &web_context,
+                                    related_view: None,
+                                    initial_request: None,
+                                })))
+                                .as_web()
+                                .expect("New tab to be Web tab")
+                                .web_view
+                                .clone()
+                        };
+                        new_view.load_uri(&file.uri());
+                    }
                 }
-            } else {
-                crate::widgets::window::Window::new(
-                    application,
-                    &style_provider,
-                    &web_context,
-                    is_private,
-                )
-            };
-            let mut files = files.to_vec();
-            files.sort_unstable_by_key(gio::prelude::FileExt::uri);
-            files.dedup_by_key(|x| x.uri());
-            for (file_index, file) in files.iter().enumerate() {
-                let new_view = if file_index == 0 {
-                    new_window.get_or_create_view()
-                } else {
-                    new_window
-                        .new_tab(Some(&NewTabArguments::Web(&NewWebTabArguments {
-                            web_context: &web_context,
-                            related_view: None,
-                            initial_request: None,
-                        })))
-                        .as_web()
-                        .expect("New tab to be Web tab")
-                        .web_view
-                        .clone()
-                };
-                new_view.load_uri(&file.uri());
-            }
+            ));
         }
-    ));
+        _ => {
+            application.connect_open(clone!(
+                move |application, _files, _hint| {
+                    application.activate();
+                    let style_provider = gtk::CssProvider::default();
+                    gtk::style_context_add_provider_for_display(
+                        &gdk::Display::default().unwrap(),
+                        &style_provider,
+                        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+                    );
+                })
+            );
+        }
+    }
+
     application.connect_window_removed(clone!(
         #[weak]
         application,
@@ -390,6 +440,7 @@ async fn main() {
     {
         error!("{e}");
     }
+    #[cfg(feature = "browser")]
     ipfs.exit_daemon().await;
     application.quit();
     std::process::exit(0)

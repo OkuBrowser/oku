@@ -1,33 +1,43 @@
 use super::Window;
 use crate::widgets::okunet::net::Net;
+#[cfg(feature = "browser")]
 use crate::window_util::{get_title, get_view_from_page, update_nav_bar};
+#[cfg(feature = "browser")]
 use glib::clone;
+use gtk::gio;
+#[cfg(feature = "browser")]
+use gtk::glib;
+#[cfg(feature = "browser")]
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
-use gtk::{gio, glib};
 use libadwaita::prelude::*;
+use std::marker::PhantomData;
+#[cfg(feature = "browser")]
 use webkit2gtk::WebContext;
+#[cfg(feature = "browser")]
 use webkit2gtk::prelude::WebViewExt;
 
+#[cfg(feature = "browser")]
 pub struct NewWebTabArguments<'a> {
     pub web_context: &'a WebContext,
     pub related_view: Option<&'a webkit2gtk::WebView>,
     pub initial_request: Option<&'a webkit2gtk::URIRequest>,
 }
 
-#[derive(Default)]
 pub enum NewTabArguments<'a> {
-    #[default]
-    OkuNet,
+    // `PhantomData<&'a ()>` needed to preserve the lifetime parameter when the `browser` feature is disabled.
+    OkuNet(PhantomData<&'a ()>),
+    #[cfg(feature = "browser")]
     Web(&'a NewWebTabArguments<'a>),
 }
 
 impl Default for &NewTabArguments<'_> {
     fn default() -> Self {
-        &NewTabArguments::OkuNet
+        &NewTabArguments::OkuNet(PhantomData)
     }
 }
 
+#[cfg(feature = "browser")]
 pub struct NewTabWebReturn {
     pub web_view: webkit2gtk::WebView,
     pub tab_page: libadwaita::TabPage,
@@ -40,6 +50,7 @@ pub struct NewTabOkuNetReturn {
 
 pub enum NewTabReturn {
     OkuNet(NewTabOkuNetReturn),
+    #[cfg(feature = "browser")]
     Web(NewTabWebReturn),
 }
 
@@ -47,10 +58,12 @@ impl NewTabReturn {
     pub fn as_okunet(&self) -> miette::Result<&NewTabOkuNetReturn> {
         match self {
             Self::OkuNet(res) => Ok(res),
+            #[cfg(feature = "browser")]
             Self::Web(_) => Err(miette::miette!("New tab is not an OkuNet tab")),
         }
     }
 
+    #[cfg(feature = "browser")]
     pub fn as_web(&self) -> miette::Result<&NewTabWebReturn> {
         match self {
             Self::OkuNet(_) => Err(miette::miette!("New tab is not an OkuNet tab")),
@@ -66,16 +79,21 @@ impl Window {
         imp.tab_view.set_vexpand(true);
         imp.tab_view.set_visible(true);
 
-        imp.tab_bar.set_autohide(true);
-        imp.tab_bar.set_expand_tabs(true);
-        imp.tab_bar.set_view(Some(&imp.tab_view));
+        cfg_select! {
+            feature = "browser" => {
+                imp.tab_bar.set_autohide(true);
+                imp.tab_bar.set_expand_tabs(true);
+                imp.tab_bar.set_view(Some(&imp.tab_view));
 
-        imp.tab_bar_revealer.set_child(Some(&imp.tab_bar));
-        imp.tab_bar_revealer
-            .set_transition_type(gtk::RevealerTransitionType::SlideDown);
-        imp.fullscreen_box
-            .property_expression("reveal-top-bars")
-            .bind(&imp.tab_bar_revealer, "reveal-child", gtk::Widget::NONE);
+                imp.tab_bar_revealer.set_child(Some(&imp.tab_bar));
+                imp.tab_bar_revealer
+                    .set_transition_type(gtk::RevealerTransitionType::SlideDown);
+                imp.fullscreen_box
+                    .property_expression("reveal-top-bars")
+                    .bind(&imp.tab_bar_revealer, "reveal-child", gtk::Widget::NONE);
+            }
+            _ => ()
+        }
     }
 
     pub fn new_tab(&self, arguments: Option<&NewTabArguments>) -> NewTabReturn {
@@ -95,10 +113,11 @@ impl Window {
 
         let mut overlay_builder = gtk::Overlay::builder();
         overlay_builder = match arguments {
-            NewTabArguments::OkuNet => {
+            NewTabArguments::OkuNet(_) => {
                 let okunet = Net::new();
                 overlay_builder.child(&okunet)
             }
+            #[cfg(feature = "browser")]
             NewTabArguments::Web(arguments) => {
                 let new_view = self.new_view(
                     arguments.web_context,
@@ -118,16 +137,18 @@ impl Window {
         imp.tab_view.set_selected_page(&new_page);
         new_page.set_indicator_icon(Some(&gio::ThemedIcon::new("view-pin-symbolic")));
         new_page.set_indicator_activatable(true);
+        #[cfg(feature = "browser")]
         imp.nav_entry.grab_focus();
 
         match arguments {
-            NewTabArguments::OkuNet => NewTabReturn::OkuNet(NewTabOkuNetReturn {
+            NewTabArguments::OkuNet(_) => NewTabReturn::OkuNet(NewTabOkuNetReturn {
                 tab_page: new_page,
                 net: overlay
                     .child()
                     .map(|x| x.downcast().unwrap_or_default())
                     .expect("Overlay should have OkuNet child"),
             }),
+            #[cfg(feature = "browser")]
             NewTabArguments::Web(_) => NewTabReturn::Web(NewTabWebReturn {
                 tab_page: new_page,
                 web_view: overlay
@@ -138,6 +159,7 @@ impl Window {
         }
     }
 
+    #[cfg(feature = "browser")]
     pub fn setup_tab_indicator(&self) {
         let imp = self.imp();
 
@@ -158,6 +180,7 @@ impl Window {
         ));
     }
 
+    #[cfg(feature = "browser")]
     pub fn setup_add_tab_button_clicked(&self, web_context: &WebContext) {
         let imp = self.imp();
 
@@ -202,6 +225,7 @@ impl Window {
         self.add_action_entries([action_view_source]);
     }
 
+    #[cfg(feature = "browser")]
     pub fn setup_tab_signals(
         &self,
         web_context: &WebContext,
@@ -273,6 +297,7 @@ impl Window {
     ///
     /// * `ipfs` - An IPFS client
 
+    #[cfg(feature = "browser")]
     pub fn create_window_from_drag(
         &self,
         web_context: &WebContext,

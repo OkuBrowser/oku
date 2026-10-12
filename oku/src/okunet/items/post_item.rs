@@ -16,13 +16,16 @@ use glib::value::ToValue;
 use oku_core::database::posts::core::OkuPost;
 use std::cell::RefCell;
 use std::sync::LazyLock;
+#[cfg(feature = "browser")]
 use webkit2gtk::functions::uri_for_display;
 
 pub mod imp {
+    #[cfg(feature = "browser")]
+    use super::uri_for_display;
     use super::{
         LazyLock, ObjectImpl, ObjectSubclass, ObjectSubclassExt, ParamSpec, ParamSpecBoxed,
         ParamSpecBuilderExt, ParamSpecString, ParamSpecUInt64, PropertySet, RefCell, ToValue,
-        Value, uri_for_display,
+        Value,
     };
 
     #[derive(Default, Debug)]
@@ -64,10 +67,20 @@ pub mod imp {
             match pspec.name() {
                 "url" => {
                     let url = value.get::<String>().unwrap();
-                    self.url.set(
-                        html_escape::encode_text(&uri_for_display(&url).unwrap_or(url.into()))
-                            .to_string(),
-                    );
+                    cfg_select! {
+                        feature = "browser" => {
+                            self.url.set(
+                                html_escape::encode_text(&uri_for_display(&url).unwrap_or(url.into()))
+                                    .to_string(),
+                            );
+                        }
+                        _ => {
+                            self.url.set(
+                                html_escape::encode_text(&url)
+                                    .to_string(),
+                            );
+                        }
+                    }
                 }
                 "title" => {
                     let title = value.get::<String>().unwrap();

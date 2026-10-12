@@ -1,6 +1,11 @@
-use super::{NewTabArguments, NewWebTabArguments, Window};
+use super::Window;
+#[cfg(feature = "browser")]
+use super::{NewTabArguments, NewWebTabArguments};
+#[cfg(feature = "browser")]
 use crate::bookmark_item::BookmarkItem;
+#[cfg(feature = "browser")]
 use crate::database::DATABASE;
+#[cfg(feature = "browser")]
 use crate::history_item::HistoryItem;
 use crate::replica_item::ReplicaItem;
 use crate::window_util::get_view_stack_page_by_name;
@@ -16,10 +21,13 @@ use std::cell::Ref;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+#[cfg(feature = "browser")]
 use webkit2gtk::WebContext;
+#[cfg(feature = "browser")]
 use webkit2gtk::prelude::WebViewExt;
 
 impl Window {
+    #[cfg(feature = "browser")]
     pub fn bookmarks_store(&self) -> Ref<'_, gio::ListStore> {
         let bookmarks_store = self.imp().bookmarks_store.borrow();
 
@@ -28,6 +36,7 @@ impl Window {
         })
     }
 
+    #[cfg(feature = "browser")]
     pub fn bookmarks_updated(&self) {
         let imp = self.imp();
 
@@ -84,6 +93,7 @@ impl Window {
         bookmarks_page.child().set_sensitive(true);
     }
 
+    #[cfg(feature = "browser")]
     pub fn history_store(&self) -> Ref<'_, gio::ListStore> {
         let history_store = self.imp().history_store.borrow();
 
@@ -92,6 +102,7 @@ impl Window {
         })
     }
 
+    #[cfg(feature = "browser")]
     pub fn history_updated(&self) {
         let imp = self.imp();
 
@@ -198,14 +209,17 @@ impl Window {
         }
     }
 
-    pub fn setup_sidebar(&self, web_context: &WebContext) {
+    pub fn setup_sidebar(&self, #[cfg(feature = "browser")] web_context: &WebContext) {
         let imp = self.imp();
 
         imp.side_view_switcher.set_stack(Some(&imp.side_view_stack));
 
         self.setup_replicas_page();
+        #[cfg(feature = "browser")]
         self.setup_history_page(web_context);
+        #[cfg(feature = "browser")]
         self.setup_bookmarks_page(web_context);
+        #[cfg(feature = "browser")]
         self.setup_downloads_page();
         imp.side_view_stack
             .connect_visible_child_notify(clone!(move |side_view_stack| {
@@ -224,6 +238,7 @@ impl Window {
         imp.side_box.append(&imp.side_view_stack);
     }
 
+    #[cfg(feature = "browser")]
     pub fn setup_bookmarks_page(&self, web_context: &WebContext) {
         let imp = self.imp();
 
@@ -351,6 +366,7 @@ impl Window {
         );
     }
 
+    #[cfg(feature = "browser")]
     pub fn setup_bookmarks_stack(&self, web_context: &WebContext) {
         let imp = self.imp();
 
@@ -378,6 +394,7 @@ impl Window {
             );
     }
 
+    #[cfg(feature = "browser")]
     pub fn setup_bookmarks_search(&self, web_context: &WebContext) {
         let imp = self.imp();
 
@@ -540,6 +557,7 @@ impl Window {
             .set_orientation(gtk::Orientation::Vertical);
     }
 
+    #[cfg(feature = "browser")]
     pub fn setup_history_page(&self, web_context: &WebContext) {
         let imp = self.imp();
 
@@ -664,6 +682,7 @@ impl Window {
         );
     }
 
+    #[cfg(feature = "browser")]
     pub fn setup_history_stack(&self, web_context: &WebContext) {
         let imp = self.imp();
 
@@ -687,6 +706,7 @@ impl Window {
             .bind(&imp.history_stack, "visible-child-name", gtk::Widget::NONE);
     }
 
+    #[cfg(feature = "browser")]
     pub fn setup_history_search(&self, web_context: &WebContext) {
         let imp = self.imp();
 

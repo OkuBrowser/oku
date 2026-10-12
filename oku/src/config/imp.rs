@@ -7,6 +7,7 @@ use super::{
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
     pub(crate) colour_scheme: RefCell<ColourScheme>,
+    #[cfg(feature = "browser")]
     pub(crate) colour_per_domain: RefCell<bool>,
     pub(crate) palette: RefCell<Palette>,
     pub(crate) width: RefCell<i32>,
@@ -51,10 +52,12 @@ impl Config {
         self.palette.replace(palette)
     }
 
+    #[cfg(feature = "browser")]
     pub fn colour_per_domain(&self) -> bool {
         self.colour_per_domain.borrow().to_owned()
     }
 
+    #[cfg(feature = "browser")]
     pub fn set_colour_per_domain(&self, colour_per_domain: bool) -> bool {
         self.colour_per_domain.replace(colour_per_domain)
     }
@@ -104,6 +107,7 @@ impl ObjectImpl for Config {
                 ParamSpecEnum::builder::<ColourScheme>("colour-scheme")
                     .readwrite()
                     .build(),
+                #[cfg(feature = "browser")]
                 ParamSpecBoolean::builder("colour-per-domain")
                     .readwrite()
                     .build(),
@@ -129,6 +133,7 @@ impl ObjectImpl for Config {
                 let colour_scheme = value.get::<ColourScheme>().unwrap();
                 self.set_colour_scheme(colour_scheme);
             }
+            #[cfg(feature = "browser")]
             "colour-per-domain" => {
                 let colour_per_domain = value.get::<bool>().unwrap();
                 self.set_colour_per_domain(colour_per_domain);
@@ -161,6 +166,7 @@ impl ObjectImpl for Config {
     fn property(&self, _id: usize, pspec: &ParamSpec) -> Value {
         match pspec.name() {
             "colour-scheme" => self.colour_scheme().to_value(),
+            #[cfg(feature = "browser")]
             "colour-per-domain" => self.colour_per_domain().to_value(),
             "palette" => self.palette().to_value(),
             "width" => self.width().to_value(),

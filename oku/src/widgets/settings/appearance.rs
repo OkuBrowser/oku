@@ -1,6 +1,8 @@
 use super::core::Settings;
 use crate::config::enums::{ColourScheme, Palette};
+#[cfg(feature = "browser")]
 use glib::{Object, closure};
+#[cfg(feature = "browser")]
 use gtk::glib;
 use gtk::subclass::prelude::*;
 use libadwaita::{StyleManager, prelude::*};
@@ -31,6 +33,7 @@ impl Settings {
             .build();
 
         // Set initial UI
+        #[cfg(feature = "browser")]
         imp.domain_colour_row.set_active(config.colour_per_domain());
         imp.colour_scheme_row
             .set_selected(match config.colour_scheme() {
@@ -52,15 +55,18 @@ impl Settings {
         });
 
         // Colour per domain
+        #[cfg(feature = "browser")]
         imp.config.property_expression("colour-per-domain").bind(
             &imp.domain_colour_row,
             "active",
             gtk::Widget::NONE,
         );
+        #[cfg(feature = "browser")]
         imp.config
             .property_expression("colour-per-domain")
             .chain_closure::<bool>(closure!(|_: Option<Object>, x: bool| { !x }))
             .bind(&imp.palette_row, "sensitive", gtk::Widget::NONE);
+        #[cfg(feature = "browser")]
         imp.domain_colour_row.property_expression("active").bind(
             &imp.config,
             "colour-per-domain",
@@ -138,6 +144,7 @@ impl Settings {
         let imp = self.imp();
 
         self.setup_colour_scheme_row(style_manager);
+        #[cfg(feature = "browser")]
         self.setup_domain_colour_row();
         self.setup_palette_row();
         self.setup_appearance_bindings(style_manager, window);
@@ -146,6 +153,7 @@ impl Settings {
         imp.appearance_group
             .set_description(Some("Preferences regarding the browser's look &amp; feel"));
         imp.appearance_group.add(&imp.colour_scheme_row);
+        #[cfg(feature = "browser")]
         imp.appearance_group.add(&imp.domain_colour_row);
         imp.appearance_group.add(&imp.palette_row);
     }
@@ -191,6 +199,7 @@ impl Settings {
             .set_model(imp.palette_selection.model().as_ref());
     }
 
+    #[cfg(feature = "browser")]
     pub fn setup_domain_colour_row(&self) {
         let imp = self.imp();
 

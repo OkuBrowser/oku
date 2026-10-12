@@ -1,37 +1,52 @@
+#[cfg(feature = "browser")]
 use crate::NewWebTabArguments;
 use crate::config::Config;
+#[cfg(feature = "browser")]
 use crate::database::DATABASE;
+#[cfg(feature = "browser")]
 use crate::widgets::address_entry::AddressEntry;
 use crate::widgets::settings::core::apply_appearance_config;
 use crate::widgets::window::NewTabArguments;
 use crate::{APP_ID, NODE};
 use glib::clone;
+#[cfg(feature = "browser")]
+use gtk::EventControllerFocus;
 use gtk::prelude::GtkWindowExt;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
+#[cfg(feature = "browser")]
+use libadwaita::ResponseAppearance;
+use libadwaita::prelude::*;
 use libadwaita::subclass::application_window::AdwApplicationWindowImpl;
-use libadwaita::{ResponseAppearance, prelude::*};
 use log::{error, info};
 use std::cell::Cell;
 use std::cell::RefCell;
+use std::marker::PhantomData;
 use std::rc::Rc;
+#[cfg(feature = "browser")]
 use webkit2gtk::prelude::WebViewExt;
+#[cfg(feature = "browser")]
 use webkit2gtk::{NetworkSession, WebContext};
 
 pub mod imp {
-    use gtk::EventControllerFocus;
-
+    #[cfg(feature = "browser")]
+    use super::AddressEntry;
+    #[cfg(feature = "browser")]
+    use super::EventControllerFocus;
     use super::{
-        AddressEntry, AdwApplicationWindowImpl, ApplicationWindowImpl, Cell, Config, ObjectImpl,
-        ObjectSubclass, Rc, RefCell, WidgetImpl, WindowImpl, gio, glib,
+        AdwApplicationWindowImpl, ApplicationWindowImpl, Cell, Config, ObjectImpl, ObjectSubclass,
+        Rc, RefCell, WidgetImpl, WindowImpl, gio, glib,
     };
 
     #[derive(Debug, Default)]
     pub struct Window {
         pub(crate) config: Config,
         // Window parameters
+        #[cfg(feature = "browser")]
         pub(crate) is_private: Cell<bool>,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_sidebar_initialised: Cell<bool>,
+        #[cfg(feature = "browser")]
         pub(crate) history_sidebar_initialised: Cell<bool>,
         pub(crate) replicas_sidebar_initialised: Cell<bool>,
         pub(crate) style_provider: RefCell<gtk::CssProvider>,
@@ -45,26 +60,42 @@ pub mod imp {
         pub(crate) fullscreen_overlay_label: gtk::Label,
         pub(crate) fullscreen_overlay_animation: RefCell<Option<libadwaita::SpringAnimation>>,
         // Navigation bar
+        #[cfg(feature = "browser")]
         pub(crate) nav_entry: AddressEntry,
+        #[cfg(feature = "browser")]
         pub(crate) nav_entry_focus: EventControllerFocus,
+        #[cfg(feature = "browser")]
         pub(crate) suggestions_store: RefCell<Option<Rc<gio::ListStore>>>,
+        #[cfg(feature = "browser")]
         pub(crate) suggestions_factory: gtk::SignalListItemFactory,
+        #[cfg(feature = "browser")]
         pub(crate) suggestions_model: gtk::SingleSelection,
+        #[cfg(feature = "browser")]
         pub(crate) suggestions_view: gtk::ListView,
         #[allow(clippy::struct_field_names)]
+        #[cfg(feature = "browser")]
         pub(crate) suggestions_scrolled_window: libadwaita::ClampScrollable,
+        #[cfg(feature = "browser")]
         pub(crate) suggestions_popover: gtk::Popover,
         // Left header buttons
+        #[cfg(feature = "browser")]
         pub(crate) back_button: gtk::Button,
+        #[cfg(feature = "browser")]
         pub(crate) forward_button: gtk::Button,
+        #[cfg(feature = "browser")]
         pub(crate) navigation_buttons: gtk::Box,
+        #[cfg(feature = "browser")]
         pub(crate) refresh_button: gtk::Button,
+        #[cfg(feature = "browser")]
         pub(crate) add_tab_button: gtk::Button,
         pub(crate) sidebar_button: gtk::Button,
         pub(crate) left_header_buttons: gtk::Box,
         // Right header buttons
+        #[cfg(feature = "browser")]
         pub(crate) overview_button: libadwaita::TabButton,
+        #[cfg(feature = "browser")]
         pub(crate) note_button: gtk::Button,
+        #[cfg(feature = "browser")]
         pub(crate) find_button: gtk::Button,
         pub(crate) replicas_button: gtk::Button,
         pub(crate) menu_button: gtk::Button,
@@ -72,15 +103,23 @@ pub mod imp {
         // HeaderBar
         pub(crate) headerbar: libadwaita::HeaderBar,
         // Menu popover
+        #[cfg(feature = "browser")]
         pub(crate) zoomout_button: gtk::Button,
+        #[cfg(feature = "browser")]
         pub(crate) zoomin_button: gtk::Button,
+        #[cfg(feature = "browser")]
         pub(crate) zoom_buttons: gtk::Box,
+        #[cfg(feature = "browser")]
         pub(crate) zoomreset_button: gtk::Button,
+        #[cfg(feature = "browser")]
         pub(crate) zoom_percentage: gtk::Label,
         pub(crate) fullscreen_button: gtk::Button,
+        #[cfg(feature = "browser")]
         pub(crate) print_button: gtk::Button,
+        #[cfg(feature = "browser")]
         pub(crate) screenshot_button: gtk::Button,
         pub(crate) new_window_button: gtk::Button,
+        #[cfg(feature = "browser")]
         pub(crate) new_private_window_button: gtk::Button,
         pub(crate) settings_button: gtk::Button,
         pub(crate) about_button: gtk::Button,
@@ -88,29 +127,46 @@ pub mod imp {
         pub(crate) menu_box: gtk::Box,
         pub(crate) menu_popover: gtk::Popover,
         // Find popover
+        #[cfg(feature = "browser")]
         pub(crate) find_box: gtk::Box,
+        #[cfg(feature = "browser")]
         pub(crate) find_popover: gtk::Popover,
+        #[cfg(feature = "browser")]
         pub(crate) previous_find_button: gtk::Button,
+        #[cfg(feature = "browser")]
         pub(crate) next_find_button: gtk::Button,
+        #[cfg(feature = "browser")]
         pub(crate) find_buttons: gtk::Box,
+        #[cfg(feature = "browser")]
         pub(crate) find_case_insensitive: gtk::ToggleButton,
+        #[cfg(feature = "browser")]
         pub(crate) find_at_word_starts: gtk::ToggleButton,
+        #[cfg(feature = "browser")]
         pub(crate) find_treat_medial_capital_as_word_start: gtk::ToggleButton,
+        #[cfg(feature = "browser")]
         pub(crate) find_backwards: gtk::ToggleButton,
+        #[cfg(feature = "browser")]
         pub(crate) find_wrap_around: gtk::ToggleButton,
+        #[cfg(feature = "browser")]
         pub(crate) find_option_buttons: gtk::Box,
+        #[cfg(feature = "browser")]
         pub(crate) find_search_entry: gtk::SearchEntry,
+        #[cfg(feature = "browser")]
         pub(crate) total_matches_label: gtk::Label,
+        #[cfg(feature = "browser")]
         pub(crate) find_middle_box: gtk::Box,
         // Tabs
+        #[cfg(feature = "browser")]
         pub(crate) tab_bar: libadwaita::TabBar,
         pub(crate) tab_view: libadwaita::TabView,
+        #[cfg(feature = "browser")]
         pub(crate) tab_bar_revealer: gtk::Revealer,
         // Main content
         pub(crate) main_overlay: gtk::Overlay,
         pub(crate) main_box: gtk::Box,
         pub(crate) fullscreen_box: libadwaita::ToolbarView,
         pub(crate) fullscreen_motion_controller: gtk::EventControllerMotion,
+        #[cfg(feature = "browser")]
         pub(crate) tab_overview: libadwaita::TabOverview,
         pub(crate) split_view: libadwaita::OverlaySplitView,
         // Sidebar content
@@ -118,46 +174,83 @@ pub mod imp {
         pub(crate) side_view_stack: libadwaita::ViewStack,
         pub(crate) side_view_switcher: libadwaita::ViewSwitcher,
         // Bookmarks
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_box: gtk::Box,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_store: RefCell<Option<Rc<gio::ListStore>>>,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_factory: gtk::SignalListItemFactory,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_model: gtk::SingleSelection,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_view: gtk::ListView,
         #[allow(clippy::struct_field_names)]
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_scrolled_window: gtk::ScrolledWindow,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_label: gtk::Label,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_placeholder: gtk::Label,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_all_box: gtk::Box,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_stack: gtk::Stack,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_search: gtk::SearchEntry,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_filter_model: gtk::FilterListModel,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_filter_selection_model: gtk::SingleSelection,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_search_factory: gtk::SignalListItemFactory,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_search_view: gtk::ListView,
+        #[cfg(feature = "browser")]
         #[allow(clippy::struct_field_names)]
         pub(crate) bookmarks_search_scrolled_window: gtk::ScrolledWindow,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_search_box: gtk::Box,
+        #[cfg(feature = "browser")]
         pub(crate) bookmarks_search_placeholder: gtk::Label,
         // History
+        #[cfg(feature = "browser")]
         pub(crate) history_box: gtk::Box,
+        #[cfg(feature = "browser")]
         pub(crate) history_store: RefCell<Option<Rc<gio::ListStore>>>,
+        #[cfg(feature = "browser")]
         pub(crate) history_factory: gtk::SignalListItemFactory,
+        #[cfg(feature = "browser")]
         pub(crate) history_model: gtk::SingleSelection,
+        #[cfg(feature = "browser")]
         pub(crate) history_view: gtk::ListView,
+        #[cfg(feature = "browser")]
         #[allow(clippy::struct_field_names)]
+        #[cfg(feature = "browser")]
         pub(crate) history_scrolled_window: gtk::ScrolledWindow,
+        #[cfg(feature = "browser")]
         pub(crate) history_label: gtk::Label,
+        #[cfg(feature = "browser")]
         pub(crate) history_placeholder: gtk::Label,
+        #[cfg(feature = "browser")]
         pub(crate) history_all_box: gtk::Box,
+        #[cfg(feature = "browser")]
         pub(crate) history_stack: gtk::Stack,
+        #[cfg(feature = "browser")]
         pub(crate) history_search: gtk::SearchEntry,
+        #[cfg(feature = "browser")]
         pub(crate) history_filter_model: gtk::FilterListModel,
+        #[cfg(feature = "browser")]
         pub(crate) history_filter_selection_model: gtk::SingleSelection,
+        #[cfg(feature = "browser")]
         pub(crate) history_search_factory: gtk::SignalListItemFactory,
+        #[cfg(feature = "browser")]
         pub(crate) history_search_view: gtk::ListView,
         #[allow(clippy::struct_field_names)]
+        #[cfg(feature = "browser")]
         pub(crate) history_search_scrolled_window: gtk::ScrolledWindow,
+        #[cfg(feature = "browser")]
         pub(crate) history_search_box: gtk::Box,
+        #[cfg(feature = "browser")]
         pub(crate) history_search_placeholder: gtk::Label,
         // Replicas
         pub(crate) add_replicas_button: gtk::Button,
@@ -172,21 +265,35 @@ pub mod imp {
         pub(crate) replicas_label: gtk::Label,
         pub(crate) replicas_placeholder: gtk::Label,
         // Downloads
+        #[cfg(feature = "browser")]
         pub(crate) downloads_box: gtk::Box,
+        #[cfg(feature = "browser")]
         pub(crate) downloads_store: RefCell<Option<Rc<gio::ListStore>>>,
+        #[cfg(feature = "browser")]
         pub(crate) downloads_factory: gtk::SignalListItemFactory,
+        #[cfg(feature = "browser")]
         pub(crate) downloads_model: gtk::SingleSelection,
+        #[cfg(feature = "browser")]
         pub(crate) downloads_view: gtk::ListView,
         #[allow(clippy::struct_field_names)]
+        #[cfg(feature = "browser")]
         pub(crate) downloads_scrolled_window: gtk::ScrolledWindow,
+        #[cfg(feature = "browser")]
         pub(crate) downloads_label: gtk::Label,
+        #[cfg(feature = "browser")]
         pub(crate) downloads_placeholder: gtk::Label,
         // Miscellaneous
+        #[cfg(feature = "browser")]
         pub(crate) progress_animation: RefCell<Option<libadwaita::SpringAnimation>>,
+        #[cfg(feature = "browser")]
         pub(crate) progress_bar: gtk::ProgressBar,
+        #[cfg(feature = "browser")]
         pub(crate) url_status_outer_box: gtk::Box,
+        #[cfg(feature = "browser")]
         pub(crate) url_status_box: gtk::Box,
+        #[cfg(feature = "browser")]
         pub(crate) url_status: gtk::Label,
+        #[cfg(feature = "browser")]
         pub(crate) network_session: RefCell<webkit2gtk::NetworkSession>,
     }
 
@@ -219,8 +326,8 @@ impl Window {
     pub fn new(
         app: &libadwaita::Application,
         style_provider: &gtk::CssProvider,
-        web_context: &WebContext,
-        is_private: bool,
+        #[cfg(feature = "browser")] web_context: &WebContext,
+        #[cfg(feature = "browser")] is_private: bool,
     ) -> Self {
         let style_manager = app.style_manager();
 
@@ -231,39 +338,68 @@ impl Window {
         this.set_icon_name(Some(APP_ID));
 
         let imp = this.imp();
-        imp.is_private.set(is_private);
-        if imp.is_private.get() {
-            this.set_title(Some("Oku — Private"));
-            this.add_css_class("devel");
-            imp.network_session.replace(NetworkSession::new_ephemeral());
-        } else {
-            this.set_title(Some("Oku"));
+
+        cfg_select! {
+            feature = "browser" => {
+                imp.is_private.set(is_private);
+                if imp.is_private.get() {
+                    this.set_title(Some("Oku — Private"));
+                    this.add_css_class("devel");
+                    imp.network_session.replace(NetworkSession::new_ephemeral());
+                } else {
+                    this.set_title(Some("Oku"));
+                }
+            }
+            _ => {
+                this.set_title(Some("Oku"));
+            }
         }
         imp.style_provider.replace(style_provider.clone());
 
         this.setup_headerbar();
         this.setup_menu_popover();
+        #[cfg(feature = "browser")]
         this.setup_find_popover();
+        #[cfg(feature = "browser")]
         this.setup_tabs();
-        this.setup_main_content(web_context);
+        this.setup_main_content(
+            #[cfg(feature = "browser")]
+            web_context,
+        );
+        #[cfg(feature = "browser")]
         this.setup_overview_button_clicked();
+        #[cfg(feature = "browser")]
         this.setup_note_button_clicked();
+        #[cfg(feature = "browser")]
         this.setup_find_button_clicked();
         this.setup_replicas_button_clicked();
+        #[cfg(feature = "browser")]
         this.setup_tab_indicator();
+        #[cfg(feature = "browser")]
         this.setup_add_tab_button_clicked(web_context);
         this.setup_sidebar_button_clicked();
+        #[cfg(feature = "browser")]
         this.setup_tab_signals(web_context, &style_manager);
+        #[cfg(feature = "browser")]
         this.setup_navigation_signals();
+        #[cfg(feature = "browser")]
         this.setup_suggestions_popover();
-        this.setup_menu_buttons_clicked(web_context);
+        this.setup_menu_buttons_clicked(
+            #[cfg(feature = "browser")]
+            web_context,
+        );
+        #[cfg(feature = "browser")]
         this.setup_new_view_signals(web_context, &style_manager);
+        #[cfg(feature = "browser")]
         this.setup_network_session();
-        this.setup_actions(web_context);
+        this.setup_actions(
+            #[cfg(feature = "browser")]
+            web_context,
+        );
         this.setup_config(&style_manager);
 
         if imp.tab_view.n_pages() == 0 {
-            this.new_tab(Some(&NewTabArguments::OkuNet));
+            this.new_tab(Some(&NewTabArguments::OkuNet(PhantomData)));
         }
 
         this.present();
@@ -344,12 +480,13 @@ impl Window {
             .build();
     }
 
-    fn setup_actions(&self, web_context: &WebContext) {
+    fn setup_actions(&self, #[cfg(feature = "browser")] web_context: &WebContext) {
         let action_close_window = gio::ActionEntry::builder("close-window")
             .activate(clone!(move |window: &Self, _, _| window.close()))
             .build();
         self.add_action_entries([action_close_window]);
 
+        #[cfg(feature = "browser")]
         let action_inspector = gio::ActionEntry::builder("inspector")
             .activate(clone!(move |window: &Self, _, _| {
                 if window.imp().tab_view.n_pages() == 0 {
@@ -361,8 +498,10 @@ impl Window {
                 }
             }))
             .build();
+        #[cfg(feature = "browser")]
         self.add_action_entries([action_inspector]);
 
+        #[cfg(feature = "browser")]
         let action_open_file = gio::ActionEntry::builder("open-file")
             .activate(clone!(
                 #[weak]
@@ -400,8 +539,10 @@ impl Window {
                 }
             ))
             .build();
+        #[cfg(feature = "browser")]
         self.add_action_entries([action_open_file]);
 
+        #[cfg(feature = "browser")]
         let action_save = gio::ActionEntry::builder("save")
             .activate(clone!(move |window: &Self, _, _| {
                 if window.imp().tab_view.n_pages() == 0 {
@@ -483,6 +624,7 @@ impl Window {
                 dialog.present(Some(window));
             }))
             .build();
+        #[cfg(feature = "browser")]
         self.add_action_entries([action_save]);
 
         let action_next_tab = gio::ActionEntry::builder("next-tab")
@@ -517,6 +659,7 @@ impl Window {
             }))
             .build();
         self.add_action_entries([action_current_tab_right]);
+        #[cfg(feature = "browser")]
         let action_duplicate_current_tab = gio::ActionEntry::builder("duplicate-current-tab")
             .activate(clone!(
                 #[weak]
@@ -542,33 +685,42 @@ impl Window {
                 }
             ))
             .build();
+        #[cfg(feature = "browser")]
         self.add_action_entries([action_duplicate_current_tab]);
+        #[cfg(feature = "browser")]
         let action_tab_overview = gio::ActionEntry::builder("tab-overview")
             .activate(clone!(move |window: &Self, _, _| {
                 let tab_overview = &window.imp().tab_overview;
                 tab_overview.set_open(!tab_overview.is_open());
             }))
             .build();
+        #[cfg(feature = "browser")]
         self.add_action_entries([action_tab_overview]);
     }
 
-    fn setup_main_content(&self, web_context: &WebContext) {
+    fn setup_main_content(&self, #[cfg(feature = "browser")] web_context: &WebContext) {
         let imp = self.imp();
 
+        #[cfg(feature = "browser")]
         self.setup_url_status();
+        #[cfg(feature = "browser")]
         self.setup_progress_bar();
         self.setup_fullscreen_overlay();
         self.setup_okunet_fetch_overlay();
 
         imp.main_overlay.set_vexpand(true);
+        #[cfg(feature = "browser")]
         imp.main_overlay.set_child(Some(&imp.tab_view));
+        #[cfg(feature = "browser")]
         imp.main_overlay.add_overlay(&imp.progress_bar);
         imp.main_overlay.add_overlay(&imp.okunet_fetch_overlay_box);
         imp.main_overlay.add_overlay(&imp.fullscreen_overlay_box);
+        #[cfg(feature = "browser")]
         imp.main_overlay.add_overlay(&imp.url_status_outer_box);
 
         imp.main_box.set_orientation(gtk::Orientation::Vertical);
         imp.main_box.set_vexpand(false);
+        #[cfg(feature = "browser")]
         imp.main_box.append(&imp.tab_bar_revealer);
         imp.main_box.append(&imp.main_overlay);
 
@@ -592,19 +744,27 @@ impl Window {
         imp.fullscreen_box
             .add_controller(imp.fullscreen_motion_controller.clone());
 
-        self.setup_sidebar(web_context);
+        self.setup_sidebar(
+            #[cfg(feature = "browser")]
+            web_context,
+        );
         imp.split_view.set_content(Some(&imp.fullscreen_box));
         imp.split_view.set_sidebar(Some(&imp.side_box));
         imp.split_view.set_max_sidebar_width(400.0);
         imp.split_view.set_collapsed(true);
         imp.split_view.set_pin_sidebar(true);
 
-        imp.tab_overview.set_enable_new_tab(true);
-        imp.tab_overview.set_enable_search(true);
-        imp.tab_overview.set_view(Some(&imp.tab_view));
-        imp.tab_overview.set_child(Some(&imp.split_view));
+        cfg_select! {
+            feature = "browser" => {
+                imp.tab_overview.set_enable_new_tab(true);
+                imp.tab_overview.set_enable_search(true);
+                imp.tab_overview.set_view(Some(&imp.tab_view));
+                imp.tab_overview.set_child(Some(&imp.split_view));
 
-        self.set_content(Some(&imp.tab_overview));
+                self.set_content(Some(&imp.tab_overview));
+            }
+            _ => ()
+        }
     }
 
     pub fn setup_fullscreen_overlay(&self) {
@@ -662,7 +822,9 @@ impl Window {
 
     pub fn toggle_fullscreen(&self) {
         if self.is_fullscreen() {
+            #[cfg(feature = "browser")]
             let this = self.clone();
+            #[cfg(feature = "browser")]
             if let Ok(web_view) = this.get_view() {
                 glib::spawn_future_local(web_view.evaluate_javascript_future(
                     "document.exitFullscreen();",
@@ -676,6 +838,7 @@ impl Window {
         }
     }
 
+    #[cfg(feature = "browser")]
     pub async fn watch_bookmarks(&self) {
         self.imp().bookmarks_sidebar_initialised.set(true);
         let mut bookmark_rx = DATABASE.bookmark_sender.subscribe();
@@ -691,6 +854,7 @@ impl Window {
         }
     }
 
+    #[cfg(feature = "browser")]
     pub async fn watch_history(&self) {
         self.imp().history_sidebar_initialised.set(true);
         let mut history_rx = DATABASE.history_sender.subscribe();
@@ -827,9 +991,13 @@ impl Window {
     }
 
     pub fn watch_all(&self) {
+        #[cfg(feature = "browser")]
         let this = self.clone();
+        #[cfg(feature = "browser")]
         tokio::spawn(async move { this.watch_bookmarks().await });
+        #[cfg(feature = "browser")]
         let this = self.clone();
+        #[cfg(feature = "browser")]
         tokio::spawn(async move { this.watch_history().await });
         let this = self.clone();
         tokio::spawn(async move { this.watch_replicas().await });
@@ -837,6 +1005,7 @@ impl Window {
         tokio::spawn(async move { this.watch_okunet_fetch().await });
     }
 
+    #[cfg(feature = "browser")]
     pub async fn download_uri(
         &self,
         web_context: &WebContext,

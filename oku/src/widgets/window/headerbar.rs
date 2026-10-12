@@ -9,19 +9,30 @@ use libadwaita::prelude::*;
 
 impl Window {
     pub fn setup_left_headerbar(&self) {
+        #[cfg(feature = "browser")]
         self.setup_navigation_buttons();
         let imp = self.imp();
 
-        // Refresh button
-        imp.refresh_button.set_can_focus(true);
-        imp.refresh_button.set_receives_default(true);
-        imp.refresh_button
-            .set_icon_name("arrow-circular-top-right-symbolic");
+        cfg_select! {
+            feature = "browser" => {
+                // Refresh button
+                imp.refresh_button.set_can_focus(true);
+                imp.refresh_button.set_receives_default(true);
+                imp.refresh_button
+                    .set_icon_name("arrow-circular-top-right-symbolic");
 
-        // Add Tab button
-        imp.add_tab_button.set_can_focus(true);
-        imp.add_tab_button.set_receives_default(true);
-        imp.add_tab_button.set_icon_name("tab-new-symbolic");
+                // Add Tab button
+                imp.add_tab_button.set_can_focus(true);
+                imp.add_tab_button.set_receives_default(true);
+                imp.add_tab_button.set_icon_name("tab-new-symbolic");
+
+                // Left header buttons
+                imp.left_header_buttons.append(&imp.navigation_buttons);
+                imp.left_header_buttons.append(&imp.refresh_button);
+                imp.left_header_buttons.append(&imp.add_tab_button);
+            }
+            _ => ()
+        }
 
         // Sidebar button
         imp.sidebar_button.set_can_focus(true);
@@ -29,29 +40,35 @@ impl Window {
         imp.sidebar_button.set_icon_name("library-symbolic");
 
         // Left header buttons
-        imp.left_header_buttons.append(&imp.navigation_buttons);
-        imp.left_header_buttons.append(&imp.refresh_button);
-        imp.left_header_buttons.append(&imp.add_tab_button);
         imp.left_header_buttons.append(&imp.sidebar_button);
     }
 
     pub fn setup_right_headerbar(&self) {
         let imp = self.imp();
 
-        // Overview button
-        imp.overview_button.set_can_focus(true);
-        imp.overview_button.set_receives_default(true);
-        imp.overview_button.set_view(Some(&imp.tab_view));
+        cfg_select! {
+            feature = "browser" => {
+                // Overview button
+                imp.overview_button.set_can_focus(true);
+                imp.overview_button.set_receives_default(true);
+                imp.overview_button.set_view(Some(&imp.tab_view));
 
-        // Note button
-        imp.note_button.set_can_focus(true);
-        imp.note_button.set_receives_default(true);
-        imp.note_button.set_icon_name("note-symbolic");
+                // Note button
+                imp.note_button.set_can_focus(true);
+                imp.note_button.set_receives_default(true);
+                imp.note_button.set_icon_name("note-symbolic");
 
-        // Find button
-        imp.find_button.set_can_focus(true);
-        imp.find_button.set_receives_default(true);
-        imp.find_button.set_icon_name("edit-find-symbolic");
+                // Find button
+                imp.find_button.set_can_focus(true);
+                imp.find_button.set_receives_default(true);
+                imp.find_button.set_icon_name("edit-find-symbolic");
+
+                imp.right_header_buttons.append(&imp.overview_button);
+                imp.right_header_buttons.append(&imp.note_button);
+                imp.right_header_buttons.append(&imp.find_button);
+            }
+            _ => ()
+        }
 
         // Replica menu button
         imp.replicas_button.set_can_focus(true);
@@ -65,9 +82,6 @@ impl Window {
         imp.menu_button.set_receives_default(true);
         imp.menu_button.set_icon_name("menu-symbolic");
 
-        imp.right_header_buttons.append(&imp.overview_button);
-        imp.right_header_buttons.append(&imp.note_button);
-        imp.right_header_buttons.append(&imp.find_button);
         imp.right_header_buttons.append(&imp.replicas_button);
         imp.right_header_buttons.append(&imp.menu_button);
     }
@@ -78,11 +92,13 @@ impl Window {
         let imp = self.imp();
         // HeaderBar
         imp.headerbar.set_can_focus(true);
+        #[cfg(feature = "browser")]
         imp.headerbar.set_title_widget(Some(&imp.nav_entry));
         imp.headerbar.pack_start(&imp.left_header_buttons);
         imp.headerbar.pack_end(&imp.right_header_buttons);
     }
 
+    #[cfg(feature = "browser")]
     pub fn setup_overview_button_clicked(&self) {
         let imp = self.imp();
 
