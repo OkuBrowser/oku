@@ -94,11 +94,29 @@ row.activatable { background-color: rgba(0, 0, 0, 0); }";
 
 async fn setup_oku_client() -> Option<FuseSession<PathBuf>> {
     debug!("Creating Oku client … ");
-    let (node, mount_handle) = create_oku_client().await;
+    let node = OkuFs::start(Some(&Handle::current()), true)
+        .await
+        .expect("The Oku node should start");
+
+    // Mounting
+    let unmount = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!("umount {}", MOUNT_DIR.display()))
+        .output();
+    if let Err(ref e) = unmount {
+        error!("Error unmounting: {e}");
+    }
+    let _ = std::fs::remove_dir_all(MOUNT_DIR.to_path_buf());
+    let _ = std::fs::create_dir_all(MOUNT_DIR.to_path_buf());
+    let mount_handle = node.mount(MOUNT_DIR.to_path_buf());
+    if let Err(ref e) = mount_handle {
+        error!("Error mounting: {e}");
+    }
+
     debug!("Oku client created");
     NODE.get_or_init(|| node.clone());
-    REPLICAS_MOUNTED.store(mount_handle.is_some(), Ordering::Relaxed);
-    mount_handle
+    REPLICAS_MOUNTED.store(mount_handle.is_ok(), Ordering::Relaxed);
+    mount_handle.ok()
 }
 
 #[cfg(feature = "browser")]
@@ -179,14 +197,6 @@ async fn create_web_context() -> (WebContext, Ipfs) {
         ),
     );
     (web_context, ipfs)
-}
-
-async fn create_oku_client() -> (OkuFs, Option<FuseSession<PathBuf>>) {
-    let node = OkuFs::start(Some(&Handle::current()), true).await.unwrap();
-    let node_clone = node.clone();
-    let _ = std::fs::remove_dir_all(MOUNT_DIR.to_path_buf());
-    let _ = std::fs::create_dir_all(MOUNT_DIR.to_path_buf());
-    (node_clone, node.mount(MOUNT_DIR.to_path_buf()).ok())
 }
 
 #[cfg(feature = "browser")]
