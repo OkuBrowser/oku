@@ -137,7 +137,6 @@ impl Window {
         imp.menu_box.append(&imp.zoom_percentage);
         #[cfg(feature = "browser")]
         imp.menu_box.append(&imp.zoomreset_button);
-        #[cfg(feature = "browser")]
         imp.menu_box.append(&imp.fullscreen_button);
         #[cfg(feature = "browser")]
         imp.menu_box.append(&imp.print_button);
