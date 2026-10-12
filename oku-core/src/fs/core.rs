@@ -1,4 +1,8 @@
-use super::{Arc, DebugIgnore, DefaultFuseHandler, Mutex, NODE_PATH, OkuFs, ReplicaEvent};
+#[cfg(feature = "persistent")]
+use super::NODE_PATH;
+use super::{Arc, Mutex, OkuFs, ReplicaEvent};
+#[cfg(feature = "fuse")]
+use super::{DebugIgnore, DefaultFuseHandler};
 use crate::{
     config::OkuFsConfig,
     error::OkuFsError,
