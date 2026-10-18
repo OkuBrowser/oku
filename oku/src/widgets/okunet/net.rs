@@ -46,9 +46,11 @@ pub mod imp {
         pub(crate) posts_placeholder: gtk::Label,
         pub(crate) posts_box: gtk::Box,
         // Main
-        pub(crate) main_box: gtk::Box,
         pub(crate) view_stack: libadwaita::ViewStack,
-        pub(crate) view_switcher: libadwaita::ViewSwitcher,
+        pub(crate) view_switcher: libadwaita::ViewSwitcherSidebar,
+        pub(crate) view_stack_toolbar_view: libadwaita::ToolbarView,
+        pub(crate) view_switcher_toolbar_view: libadwaita::ToolbarView,
+        pub(crate) split_view: libadwaita::NavigationSplitView,
     }
 
     impl Net {}
@@ -291,15 +293,22 @@ impl Net {
                 }
             }));
 
-        imp.main_box.set_orientation(gtk::Orientation::Vertical);
-        imp.main_box.set_hexpand(true);
-        imp.main_box.set_vexpand(true);
-        imp.main_box.set_spacing(8);
-        imp.main_box.add_css_class("toolbar");
-        imp.main_box.append(&imp.view_switcher);
-        imp.main_box.append(&imp.view_stack);
+        imp.view_stack_toolbar_view
+            .set_content(Some(&imp.view_stack));
+        imp.view_switcher_toolbar_view
+            .set_content(Some(&imp.view_switcher));
+        imp.split_view
+            .set_sidebar(Some(&libadwaita::NavigationPage::new(
+                &imp.view_switcher_toolbar_view,
+                "Sidebar",
+            )));
+        imp.split_view
+            .set_content(Some(&libadwaita::NavigationPage::new(
+                &imp.view_stack_toolbar_view,
+                "Content",
+            )));
 
-        self.append(&imp.main_box);
+        self.append(&imp.split_view);
 
         let this = self.clone();
         this.watch();

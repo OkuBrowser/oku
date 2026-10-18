@@ -853,6 +853,8 @@ impl Window {
             .set_child(Some(&imp.add_replicas_button_content));
         imp.add_replicas_button.set_margin_start(4);
         imp.add_replicas_button.set_margin_end(4);
+        imp.add_replicas_button.set_margin_bottom(8);
+        imp.add_replicas_button.add_css_class("circular");
         imp.add_replicas_button.connect_clicked(clone!(move |_| {
             let ctx = glib::MainContext::default();
             ctx.spawn_local_with_priority(
